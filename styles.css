@@ -698,6 +698,15 @@ kbd {
   color: var(--ink);
 }
 
+.save-note {
+  margin: 10px 0 0;
+  color: var(--red);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+}
+
 /* Game header */
 
 .game-screen {

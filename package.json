@@ -3,7 +3,7 @@
   "private": true,
   "description": "Keyboard-first maths practice by school year (England, Years 1 to 7): add, subtract, multiply and divide.",
   "scripts": {
-    "test": "node tests/engine.check.js && node tests/guided.check.js && node tests/test-stage.check.js && node tests/solve-all.check.js && node tests/layout.check.js"
+    "test": "node tests/engine.check.js && node tests/guided.check.js && node tests/test-stage.check.js && node tests/solve-all.check.js && node tests/resume.check.js && node tests/layout.check.js"
   },
   "devDependencies": {
     "playwright": "1.65.0"

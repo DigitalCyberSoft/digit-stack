@@ -99,6 +99,7 @@
             </div>
 
             <p class="no-mouse">No mouse needed. <kbd>&#8592;</kbd> <kbd>&#8594;</kbd> set the school year, then press <kbd>1</kbd> to <kbd>4</kbd>.</p>
+            <p class="save-note" id="saveNote" role="status" hidden>This browser is not saving, so closing the game starts it again from the beginning.</p>
           </div>
         </div>
       </section>
@@ -214,7 +215,7 @@
         </div>
         <div class="help-block">
           <h3>Year checks</h3>
-          <p>Set the school year from 1 to 7 with the arrow keys. Every area starts there, and each year is pitched for a strong pupil in that year. Learning and the test each need clean rounds in a row: 10 when rounds are short, 5 for medium ones, 3 for long multiplication and long division. Passing the test moves only that area up a year, so one area can run ahead of the others. A round with a fix sends the count back to zero. Passed checks are saved on this device.</p>
+          <p>Set the school year from 1 to 7 with the arrow keys. Every area starts there, and each year is pitched for a strong pupil in that year. Learning and the test each need clean rounds in a row: 10 when rounds are short, 5 for medium ones, 3 for long multiplication and long division. Passing the test moves only that area up a year, so one area can run ahead of the others. A round with a fix sends the count back to zero. Passed checks, the clean count and the round in progress are saved on this device, so the game can be closed and picks up where it stopped.</p>
         </div>
       </div>
 
@@ -248,7 +249,7 @@
         <button class="help-gotit" id="resumeBtn" type="button">Resume <kbd>Esc</kbd></button>
         <button class="pause-quit" id="quitBtn" type="button">Quit to start <kbd>Q</kbd></button>
       </div>
-      <p class="pause-note">Quitting returns to the start. Passed year checks stay saved on this device.</p>
+      <p class="pause-note" id="pauseNote">Quitting returns to the start. Each area keeps its place on this device, so the game can also be closed.</p>
     </div>
   </div>
 

@@ -72,8 +72,13 @@
 
   const STORAGE = {
     sound: 'digitstack.sound.v1',
-    progress: 'digitstack.progress.v1'
+    progress: 'digitstack.progress.v1',
+    play: 'digitstack.play.v1'
   };
+
+  // Saved rounds hold whole problems. Bump this when the engine's problem
+  // layout changes, so rounds saved by older code are dropped, not misdrawn.
+  const PLAY_VERSION = 1;
 
   const TEST_HELP = 'Arrows move between boxes; Tab follows the method. Type to fill a box, ' +
     'Backspace clears it. Small boxes are for working and are not marked. Press Enter to hand in.';
@@ -136,6 +141,8 @@
     pauseCheck: $('pauseCheck'),
     resumeBtn: $('resumeBtn'),
     quitBtn: $('quitBtn'),
+    pauseNote: $('pauseNote'),
+    saveNote: $('saveNote'),
     liveRegion: $('liveRegion')
   };
 
@@ -167,26 +174,51 @@
     entries: new Map(),
     handInWarned: false,
     solution: null,
-    fillOrder: []
+    fillOrder: [],
+    play: null,
+    saving: true
   };
 
-  /* Storage is optional. A blocked store should not stop the game. */
+  /* Storage is optional: a blocked store should not stop the game, but the
+     child should be told that closing it will lose their place. A browser
+     with storage turned off can give no store at all, or throw a
+     DOMException (SecurityError when blocked, QuotaExceededError when full). */
 
   function readStored(key, fallback) {
     try {
-      const value = window.localStorage.getItem(key);
+      const storage = window.localStorage;
+      if (!storage) return fallback;
+      const value = storage.getItem(key);
       return value === null ? fallback : value;
     } catch (err) {
+      if (!(err instanceof DOMException)) throw err;
       return fallback;
     }
   }
 
+  // Returns whether the value was stored. The result also sets
+  // `state.saving`, which shows or hides the not-saving notice.
   function writeStored(key, value) {
+    let stored = false;
     try {
-      window.localStorage.setItem(key, String(value));
+      const storage = window.localStorage;
+      if (storage) {
+        storage.setItem(key, String(value));
+        stored = true;
+      }
     } catch (err) {
-      // Preferences and saved progress are not required to play.
+      if (!(err instanceof DOMException)) throw err;
     }
+    state.saving = stored;
+    updateSaveUI();
+    return stored;
+  }
+
+  function updateSaveUI() {
+    els.saveNote.hidden = state.saving;
+    els.pauseNote.textContent = state.saving
+      ? 'Quitting returns to the start. Each area keeps its place on this device, so the game can also be closed.'
+      : 'This browser is not saving, so quitting or closing the game loses this run.';
   }
 
   function seedPreferences() {
@@ -282,6 +314,106 @@
   // are in that year.
   function cleanTarget() {
     return Engine.cleanRounds(state.operation, state.year);
+  }
+
+  /* Saved play: the area left open, and for each area its clean count and
+     the round in progress, so the game can be closed and picked up again. */
+
+  function emptyPlay() {
+    return { version: PLAY_VERSION, operation: null, areas: {} };
+  }
+
+  // A missing, unreadable or older record starts afresh. JSON.parse has no
+  // non-throwing form.
+  function readPlay() {
+    const raw = readStored(STORAGE.play, null);
+    if (raw === null) return emptyPlay();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (err) {
+      if (err instanceof SyntaxError) return emptyPlay();
+      throw err;
+    }
+    if (!data || typeof data !== 'object' || data.version !== PLAY_VERSION) return emptyPlay();
+    const play = emptyPlay();
+    play.operation = AREAS.indexOf(data.operation) !== -1 ? data.operation : null;
+    const areas = data.areas && typeof data.areas === 'object' ? data.areas : {};
+    AREAS.forEach(function (area) {
+      if (areas[area] && typeof areas[area] === 'object') play.areas[area] = areas[area];
+    });
+    return play;
+  }
+
+  // A saved place counts only while it matches the area's year and stage, so
+  // a new school year or a passed check starts that area afresh.
+  function savedRecord(operation) {
+    const record = state.play.areas[operation];
+    if (!record) return null;
+    const year = areaLevel(operation);
+    if (record.year !== year || record.mode !== phaseFor(operation, year)) return null;
+    const streak = record.cleanStreak;
+    if (!Number.isInteger(streak) || streak < 0 || streak >= Engine.cleanRounds(operation, year)) return null;
+    return record;
+  }
+
+  function savedRound(record, operation) {
+    const round = record.round;
+    if (!round || typeof round !== 'object') return null;
+    const problem = round.problem;
+    if (!problem || problem.operation !== operation || problem.year !== record.year ||
+      !Array.isArray(problem.rows) || !Array.isArray(problem.actions) || !problem.actions.length) {
+      return null;
+    }
+    if (record.mode === 'test') {
+      return round.entries && typeof round.entries === 'object' ? round : null;
+    }
+    const index = round.actionIndex;
+    if (!Number.isInteger(index) || index < 0 || index >= problem.actions.length) return null;
+    if (typeof round.roundClean !== 'boolean' || !Number.isInteger(round.fixes) || round.fixes < 0) return null;
+    return round;
+  }
+
+  function currentRound() {
+    if (state.mode === 'test') {
+      return {
+        problem: state.problem,
+        entries: Object.fromEntries(state.entries),
+        selectedCellId: state.selectedCellId
+      };
+    }
+    return {
+      problem: state.problem,
+      actionIndex: state.actionIndex,
+      roundClean: state.roundClean,
+      fixes: state.fixes
+    };
+  }
+
+  // A finished round is already counted, so it is not kept: the next visit
+  // starts the next problem at the stage and year the result leads to.
+  function currentRecord() {
+    if (state.screen === 'playing') {
+      return { year: state.year, mode: state.mode, cleanStreak: state.cleanStreak, round: currentRound() };
+    }
+    if (state.screen === 'won' && state.pendingTest) {
+      return { year: state.year, mode: 'test', cleanStreak: 0, round: null };
+    }
+    if (state.screen === 'won' && state.pendingYear !== null) {
+      return {
+        year: state.pendingYear,
+        mode: phaseFor(state.operation, state.pendingYear),
+        cleanStreak: 0,
+        round: null
+      };
+    }
+    return { year: state.year, mode: state.mode, cleanStreak: state.cleanStreak, round: null };
+  }
+
+  function savePlay() {
+    if (state.operation) state.play.areas[state.operation] = currentRecord();
+    state.play.operation = state.operation;
+    return writeStored(STORAGE.play, JSON.stringify(state.play));
   }
 
   /* Sound */
@@ -477,23 +609,43 @@
     blurFocus();
     els.liveRegion.textContent = 'Choose the school year with the arrow keys. Then press 1 to divide, ' +
       '2 to multiply, 3 to add or 4 to subtract.';
+    savePlay();
   }
 
   function startRun(operation) {
     if (state.screen !== 'setup' || AREAS.indexOf(operation) === -1) return;
     ensureAudio();
+    beginArea(operation);
+  }
+
+  // Starts an area, or picks it up where it was left: its saved clean count,
+  // and the round in progress with every box as it was.
+  function beginArea(operation) {
+    const record = savedRecord(operation);
+    const round = record ? savedRound(record, operation) : null;
     state.operation = operation;
     state.year = areaLevel(operation);
     state.mode = phaseFor(operation, state.year);
-    state.cleanStreak = 0;
+    state.cleanStreak = record ? record.cleanStreak : 0;
     state.pendingYear = null;
     state.pendingTest = false;
     state.screen = 'playing';
     window.scrollTo(0, 0);
+    if (round) {
+      try {
+        loadProblem(round.problem, round);
+        return;
+      } catch (err) {
+        // A saved round this code cannot draw is replaced by a new problem,
+        // so the area still opens. The error is rethrown afterwards so it
+        // still reaches the console.
+        window.setTimeout(function () { throw err; }, 0);
+      }
+    }
     loadProblem(Engine.generateProblem(operation, state.year));
   }
 
-  function loadProblem(problem) {
+  function loadProblem(problem, saved) {
     clearTimer();
     state.problem = problem;
     state.actions = problem.actions;
@@ -524,10 +676,58 @@
     setKeypadEnabled(true);
     if (state.mode === 'test') {
       startTest(problem);
+      if (saved) restoreEntries(saved);
     } else {
+      if (saved) restoreSteps(saved);
       activateAction();
     }
     blurFocus();
+    savePlay();
+  }
+
+  // Redraws what a saved round had filled in, in the order it was typed and
+  // without sounds or animation. A fix made before closing still counts.
+  function restoreSteps(saved) {
+    for (let index = 0; index < saved.actionIndex; index += 1) {
+      const action = state.actions[index];
+      const entry = state.cellEls.get(action.cellId);
+      if (action.kind === 'bringdown') {
+        if (entry) {
+          entry.el.classList.remove('pending');
+          entry.el.classList.add('revealed');
+          entry.el.textContent = String(action.value);
+        }
+      } else if (action.kind === 'sign') {
+        if (action.value === MINUS) {
+          fillCell(entry, MINUS);
+        } else if (entry) {
+          entry.el.textContent = '';
+          entry.el.classList.add('filled', 'skipped');
+        }
+      } else {
+        applyDigit(action, action.value, true);
+      }
+    }
+    state.actionIndex = saved.actionIndex;
+    state.roundClean = saved.roundClean;
+    state.fixes = saved.fixes;
+    if (!state.roundClean) {
+      els.sheetStatus.textContent = 'fixed, keep going';
+      els.sheetStatus.classList.add('is-fail');
+    }
+  }
+
+  // Puts back the boxes typed in a test before it was closed. Only digits,
+  // two-digit exchange values and a minus in the sign box are accepted.
+  function restoreEntries(saved) {
+    Object.keys(saved.entries).forEach(function (cellId) {
+      const text = saved.entries[cellId];
+      const entry = state.cellEls.get(cellId);
+      if (!entry || !isFillable(entry.cell) || typeof text !== 'string') return;
+      if (text === MINUS ? !entry.cell.signBox : !/^[0-9]{1,2}$/.test(text)) return;
+      setEntry(cellId, text);
+    });
+    if (state.cellEls.has(saved.selectedCellId)) selectCell(saved.selectedCellId);
   }
 
   function retryProblem() {
@@ -845,18 +1045,18 @@
   // A typed digit can also cross out the top digit it replaces and fill the
   // receiving column of an exchange. A 0 at a small box writes nothing; the
   // box is only marked as checked.
-  function applyDigit(action, digit) {
+  function applyDigit(action, digit, quiet) {
     const entry = state.cellEls.get(action.cellId);
     clearMissMark(action);
     if (action.shown === null) {
       if (entry && !entry.el.textContent) entry.el.classList.add('zeroed');
     } else {
       fillCell(entry, action.shown !== undefined ? action.shown : digit,
-        entry && entry.cell.kind === 'carry' ? 'just-carried' : 'just-filled');
+        quiet ? null : (entry && entry.cell.kind === 'carry' ? 'just-carried' : 'just-filled'));
     }
     if (action.crossCellId) crossOut(action.crossCellId);
     (action.alsoFill || []).forEach(function (fill) {
-      fillCell(state.cellEls.get(fill.cellId), fill.value, 'just-carried');
+      fillCell(state.cellEls.get(fill.cellId), fill.value, quiet ? null : 'just-carried');
       const filled = state.cellEls.get(fill.cellId);
       if (filled) filled.el.classList.add('auto-filled');
       if (fill.crossCellId) crossOut(fill.crossCellId);
@@ -869,6 +1069,7 @@
       finishProblem();
       return;
     }
+    savePlay();
     activateAction();
   }
 
@@ -981,6 +1182,8 @@
     state.fixes += 1;
     state.cleanStreak = 0;
     state.pendingYear = null;
+    // Saved at once, so closing the game cannot undo a mistake.
+    savePlay();
 
     const entry = state.cellEls.get(action.cellId);
     if (entry) {
@@ -1262,6 +1465,7 @@
       const next = rowNeighbour(id, direction);
       if (next) selectCell(next);
     }
+    savePlay();
   }
 
   function testBackspace() {
@@ -1273,6 +1477,7 @@
     const text = state.entries.get(id) || '';
     if (text) {
       setEntry(id, text.length > 1 ? text.slice(0, -1) : '');
+      savePlay();
       return;
     }
     const direction = rowDirection(entry.row);
@@ -1281,6 +1486,7 @@
     if (previous) {
       selectCell(previous);
       setEntry(previous, '');
+      savePlay();
     }
   }
 
@@ -1292,6 +1498,7 @@
     flashKey('#minusKey');
     setEntry(sign.id, state.entries.get(sign.id) === MINUS ? '' : MINUS);
     playSound('tick');
+    savePlay();
   }
 
   function testMove(key, shift) {
@@ -1306,7 +1513,10 @@
       const count = state.fillOrder.length;
       next = state.fillOrder[(index + (shift ? count - 1 : 1)) % count];
     }
-    if (next) selectCell(next);
+    if (next) {
+      selectCell(next);
+      savePlay();
+    }
   }
 
   function handIn() {
@@ -1395,6 +1605,7 @@
       state.cleanStreak = 0;
       state.pendingYear = null;
     }
+    savePlay();
 
     clearActiveMarks();
     setKeypadEnabled(false);
@@ -1780,7 +1991,10 @@
       const target = event.target.closest('[data-cell-id]');
       if (!target) return;
       const entry = state.cellEls.get(target.dataset.cellId);
-      if (entry && isFillable(entry.cell)) selectCell(target.dataset.cellId);
+      if (entry && isFillable(entry.cell)) {
+        selectCell(target.dataset.cellId);
+        savePlay();
+      }
     });
 
     els.handInBtn.addEventListener('click', function () {
@@ -1857,7 +2071,8 @@
         selectedCellId: state.selectedCellId,
         entries: Object.fromEntries(state.entries),
         handInWarned: state.handInWarned,
-        fillOrder: state.fillOrder.slice()
+        fillOrder: state.fillOrder.slice(),
+        saving: state.saving
       };
     }
   };
@@ -1865,10 +2080,14 @@
   function init() {
     seedPreferences();
     state.progress = readProgress();
+    state.play = readPlay();
     buildLadders();
     updateSoundUI();
     bindEvents();
+    // Opening the game picks up the area that was left open.
+    const openArea = state.play.operation;
     showSetup();
+    if (openArea) beginArea(openArea);
   }
 
   init();

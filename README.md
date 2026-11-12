@@ -23,7 +23,9 @@ Every area and year has two stages, and the game moves between them by itself.
 1. **Learn (guided).** The game takes the child through the method one box at a time, with a prompt for each step.
 2. **Test.** Once enough learning rounds in a row are clean, that year's test starts. Every box is open with no prompts. Arrow keys move between boxes and `Tab` follows the method's order. Typing fills a box and moves on in the direction that row is written; `Backspace` clears; `-` toggles the sign box; `Enter` hands in, asking once more if answer boxes are empty. Only the answer boxes are marked; carries, exchanges, left-overs, products and differences are working. A wrong answer marks each answer box, shows the proper answer and the full working, sets the count back to 0, and `Enter` goes to the next problem.
 
-Enough clean tests in a row pass the year, and the next year starts with learning. Learning and the test each need the same number of clean rounds in a row, set by how long that area's rounds are in that year: 10 when a round averages under 5 key presses, 5 for 5 to 15, 3 above 15. Each area (divide, multiply, add, subtract) moves up on its own. Progress is saved in the browser.
+Enough clean tests in a row pass the year, and the next year starts with learning. Learning and the test each need the same number of clean rounds in a row, set by how long that area's rounds are in that year: 10 when a round averages under 5 key presses, 5 for 5 to 15, 3 above 15. Each area (divide, multiply, add, subtract) moves up on its own.
+
+Progress is saved in the browser, so the game can be closed at any point and opened again where it stopped. Each area keeps its own place: the years learned and passed, the clean count, and the round in progress with every box typed so far. A mistake made before closing still counts, and a finished round is already counted, so reopening after one starts the next problem. If the browser blocks saving, the start screen says so.
 
 Tests use the same problems as learning, so they include short and long multiplication and division.
 
@@ -67,6 +69,7 @@ npm test
 - `tests/guided.check.js` plays learning in a browser by keyboard: small-box decisions, fixes, year checks, and the move from learning to test to the next year.
 - `tests/test-stage.check.js` hands in right and wrong answers in the test stage: short and long multiplication and division, column addition and subtraction, number sentences and facts.
 - `tests/solve-all.check.js` plays full rounds in nine area and year cases, from Year 1 to Year 7 long multiplication and division.
+- `tests/resume.check.js` closes and reopens the game mid-round, between rounds, at the learning gate and after a passed check, and checks bad saved data and blocked storage.
 - `tests/layout.check.js` checks the layout at 390, 860 and 1280 px wide.
 
 Each script exits non-zero when a check fails. Screenshots go to `tests/shots/`.
