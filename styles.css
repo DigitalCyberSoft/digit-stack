@@ -698,6 +698,24 @@ kbd {
   color: var(--ink);
 }
 
+.guide-links {
+  margin: 12px 0 0;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.guide-links a {
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.guide-links a:focus-visible {
+  outline: 3px solid var(--orange);
+  outline-offset: 2px;
+}
+
 .save-note {
   margin: 10px 0 0;
   color: var(--red);

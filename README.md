@@ -8,6 +8,8 @@ Each year is pitched for a strong pupil in that year: its own content at the top
 
 Play it at https://digitalcybersoft.github.io/digit-stack/.
 
+Guides with screenshots: [for students](https://digitalcybersoft.github.io/digit-stack/guide/students.html) and [for parents and teachers](https://digitalcybersoft.github.io/digit-stack/guide/parents-and-teachers.html).
+
 To run it locally, open `index.html` directly in a modern browser, or serve the folder:
 
 ```bash
@@ -53,7 +55,7 @@ Tests use the same problems as learning, so they include short and long multipli
 | 6 | 10-11 | 4-digit × 2-digit; 3- or 4-digit × 3-digit | 4- or 5-digit ÷ 2-digit | 6-digit columns; below zero up to 100 |
 | 7 | 11-12 | 4- or 5-digit × 3-digit | 5-digit ÷ 2-digit; 4-digit ÷ 3-digit | 6- and 7-digit columns; adding and subtracting negatives |
 
-About 1 in 4 column subtractions exchange across a zero, and from Year 5 about 1 in 3 Add and Subtract problems have answers below zero. Multiply and Divide stay with positive whole numbers. Decimals and fractions are not covered.
+About 1 in 4 column subtractions exchange across a zero. From Year 5, about 1 in 3 Add and Subtract problems are number sentences with negative numbers; some answers are below zero and some are not. Multiply and Divide stay with positive whole numbers. Decimals and fractions are not covered.
 
 ## Tests
 
@@ -70,6 +72,7 @@ npm test
 - `tests/test-stage.check.js` hands in right and wrong answers in the test stage: short and long multiplication and division, column addition and subtraction, number sentences and facts.
 - `tests/solve-all.check.js` plays full rounds in nine area and year cases, from Year 1 to Year 7 long multiplication and division.
 - `tests/resume.check.js` closes and reopens the game mid-round, between rounds, at the learning gate and after a passed check, and checks bad saved data and blocked storage.
+- `tests/guide.check.js` checks the guide pages: images, links, phone width, and the game's links to them.
 - `tests/layout.check.js` checks the layout at 390, 860 and 1280 px wide.
 
 Each script exits non-zero when a check fails. Screenshots go to `tests/shots/`.
@@ -82,6 +85,8 @@ Each script exits non-zero when a check fails. Screenshots go to `tests/shots/`.
 - `game.js`: learning and test play, year checks, keyboard controls, rendering, and sound.
 - `assets/`: locally hosted fonts and their OFL license files.
 - `tests/`: engine and browser checks (see Tests).
-- `package.json`: the test command and the pinned Playwright version.
+- `guide/`: the student and parent/teacher pages, their stylesheet, and screenshots in `guide/img/`.
+- `tools/screenshots.js`: remakes the guide screenshots from exact game states (`npm run screenshots`).
+- `package.json`: the test and screenshot commands and the pinned Playwright version.
 
 No build step or third-party runtime dependencies.

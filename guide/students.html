@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Digit Stack: How to Play</title>
+  <meta name="description" content="A guide for students: how to play Digit Stack, the keyboard game for adding, subtracting, multiplying and dividing one box at a time.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20fill='%230d2042'/%3E%3Crect%20x='12'%20y='18'%20width='40'%20height='7'%20fill='%23f2f0e4'/%3E%3Crect%20x='18'%20y='29'%20width='28'%20height='7'%20fill='%23f2f0e4'/%3E%3Crect%20x='24'%20y='40'%20width='16'%20height='7'%20fill='%23ff5a2a'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="guide.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html" aria-label="Digit Stack: play the game">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="brand-text"><span>Digit</span><span>Stack</span></span>
+    </a>
+    <nav class="nav" aria-label="Digit Stack pages">
+      <a class="nav-play" href="../index.html">Play</a>
+      <a href="students.html" aria-current="page">For students</a>
+      <a href="parents-and-teachers.html">For parents and teachers</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="sheet">
+      <p class="kicker">For students</p>
+      <h1>How to play Digit Stack</h1>
+      <p class="lede">You build each answer one box at a time, the way you would write it on paper. All you need is the keyboard.</p>
+      <a class="play-link" href="../index.html">Play Digit Stack</a>
+
+      <nav class="contents" aria-label="On this page">
+        <p>On this page</p>
+        <ol>
+          <li><a href="#start">Pick your year and a sum</a></li>
+          <li><a href="#glowing-box">Type in the glowing box</a></li>
+          <li><a href="#small-boxes">Small boxes: a number or 0</a></li>
+          <li><a href="#exchange">Taking away: exchange a ten</a></li>
+          <li><a href="#mistakes">Got one wrong? Fix it</a></li>
+          <li><a href="#clean-rounds">Clean rounds</a></li>
+          <li><a href="#test">The test</a></li>
+          <li><a href="#pass">Passing the year</a></li>
+          <li><a href="#below-zero">Answers below zero</a></li>
+          <li><a href="#break">Taking a break</a></li>
+          <li><a href="#keys">All the keys</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="start">1. Pick your year and a sum</h2>
+      <p>Press <kbd>&#8592;</kbd> and <kbd>&#8594;</kbd> to choose your school year. Then press a number to choose what to practise: <kbd>1</kbd> divide, <kbd>2</kbd> multiply, <kbd>3</kbd> add or <kbd>4</kbd> subtract.</p>
+      <p>Each one moves up on its own. You could be on Year 5 for adding and still on Year 4 for dividing. Each one shows its year and whether you are learning or being tested.</p>
+      <figure>
+        <img src="img/start.webp" width="1280" height="820" alt="The start screen. A row of school years from 1 to 7 with Year 3 picked, and four big buttons: Divide 1, Multiply 2, Add 3 and Subtract 4.">
+        <figcaption>The start screen with Year 3 picked.</figcaption>
+      </figure>
+
+      <h2 id="glowing-box">2. Type in the glowing box</h2>
+      <p>The box with the orange <strong>TYPE</strong> flag is your box. Read what it says next to the sheet, work it out, then type one digit. The next box lights up by itself.</p>
+      <p>Written sums fill from the right, starting with the ones, just like on paper.</p>
+      <figure>
+        <img src="img/learn-carry.webp" width="1280" height="820" loading="lazy" alt="Column addition of 789 plus 642. The ones answer, 1, is filled in. A small box above the tens column glows, and the instructions say: Next column, 8 plus 4. Small box first: type the carry from the last column, or 0 if nothing carries.">
+        <figcaption>789 + 642: the ones are done, and the small box for the tens is next.</figcaption>
+      </figure>
+
+      <h2 id="small-boxes">3. Small boxes: a number or 0</h2>
+      <p>Small boxes are for the little numbers you write while you work: a carry when you add or multiply, or what is left over in short division.</p>
+      <p>The game stops at <strong>every</strong> small box, even when there is nothing to write there. So you always have to think: is there a carry? Type it, or type <kbd>0</kbd> if there is none. A 0 is not written on the sheet. The box just turns grey to show you checked it.</p>
+      <figure>
+        <img src="img/learn-zero.webp" width="1280" height="820" loading="lazy" alt="Column addition of 465 plus 372. The ones answer is 7. The small box above the tens is grey and empty because 5 plus 2 is less than 10, and the tens answer box is glowing.">
+        <figcaption>465 + 372: 5 + 2 = 7, so nothing carries. A 0 was typed and the small box went grey.</figcaption>
+      </figure>
+
+      <h2 id="exchange">4. Taking away: exchange a ten</h2>
+      <p>When you subtract, look at each column. If the top digit is smaller than the one under it, type <kbd>1</kbd> in its small box to exchange a ten. The box shows the new number, like 12, and the old digit is crossed out.</p>
+      <p>Then the game asks how many are left in the column you took the ten from. If the top digit is big enough, type <kbd>0</kbd> instead.</p>
+      <figure>
+        <img src="img/learn-exchange.webp" width="1280" height="820" loading="lazy" alt="Column subtraction of 932 minus 457. The 2 in the ones is crossed out with 12 written above it. The small box above the 3 tens is glowing, and the instructions say: Take the ten from the 3 tens. How many tens are left?">
+        <figcaption>932 &#8722; 457: 2 is smaller than 7, so the ones became 12. Next, the 3 tens become 2.</figcaption>
+      </figure>
+
+      <h2 id="mistakes">5. Got one wrong? Fix it</h2>
+      <p>If you type a wrong digit, the box turns red. The game tells you why and shows the digit the box needs. Type the right one to keep going and finish the sum.</p>
+      <figure>
+        <img src="img/mistake.webp" width="1280" height="820" loading="lazy" alt="The 789 plus 642 sum after typing 0 in the carry box. The box is red, a tag above it says tick 1, and a note says: Not quite. This box needs 1. 9 plus 2 is 11, which is 1 ten and 1 one, so carry 1.">
+        <figcaption>A 0 was typed, but 9 + 2 = 11 carries 1. The note explains it.</figcaption>
+      </figure>
+
+      <h2 id="clean-rounds">6. Clean rounds</h2>
+      <p>A <strong>clean round</strong> is a sum with no mistakes. Your count of clean rounds in a row is at the top right. A mistake sends it back to 0, so take your time.</p>
+      <p>Get enough clean rounds in a row and you have finished learning that year. How many depends on how long the sums are: 10 for short ones, 5 for medium ones and 3 for long multiplication and long division.</p>
+      <figure>
+        <img src="img/learning-done.webp" width="1280" height="820" loading="lazy" alt="The finished sum 789 plus 642 equals 1431. The count shows 5 of 5, and a panel says: Learning done. 5 clean rounds in a row. Next is the Year 3 test. A button says Start the test, Enter.">
+        <figcaption>Five clean rounds in a row: learning is done and the test is next.</figcaption>
+      </figure>
+
+      <h2 id="test">7. The test</h2>
+      <p>In the test, every box is open and there are no hints. You choose where to go:</p>
+      <ul>
+        <li>Move with the arrow keys. <kbd>Tab</kbd> goes to the next box in the order you would work.</li>
+        <li>Type to fill a box. <kbd>Backspace</kbd> clears it.</li>
+        <li>Use the small boxes for your working if you want. Only the answer is marked.</li>
+        <li>Press <kbd>Enter</kbd> to hand in. If you left an answer box empty, the game asks once more first.</li>
+      </ul>
+      <figure>
+        <img src="img/test-open.webp" width="1280" height="820" loading="lazy" alt="A test of 932 minus 457 with every box open. Some working is written in the small boxes, the ones answer 5 is filled in, and the tens answer box is selected. A Hand in button is above the number keys.">
+        <figcaption>A Year 3 subtraction test, part done.</figcaption>
+      </figure>
+      <p>If an answer is wrong, the game marks your boxes and shows the right answer with all the working. Have a look at it, then press <kbd>Enter</kbd> for the next sum. Your count goes back to 0.</p>
+      <figure>
+        <img src="img/test-wrong.webp" width="1280" height="820" loading="lazy" alt="A marked test of 342 times 7. The answer boxes show 2, 3 and 4 in green and 9 in red with a tag saying was 8. The carries 2 and 1 are shown as working. A panel says: Not quite. The answer is 342 times 7 equals 2394.">
+        <figcaption>One digit was wrong: 8 instead of 9. The right answer and the carries are shown.</figcaption>
+      </figure>
+
+      <h2 id="pass">8. Passing the year</h2>
+      <p>Get enough clean tests in a row and you pass the year. Then the next year starts, with learning first.</p>
+      <figure>
+        <img src="img/year-passed.webp" width="1280" height="820" loading="lazy" alt="The test answer 1431 marked correct. The count shows 5 of 5 and a panel says: Year 3 check passed. 5 clean tests in a row. Year 4 is next, starting with learning. A button says Start Year 4.">
+        <figcaption>Year 3 adding passed. Year 4 is next.</figcaption>
+      </figure>
+
+      <h2 id="below-zero">9. Answers below zero</h2>
+      <p>From Year 5, some adding and subtracting answers are below zero. These answers start with a sign box. Press <kbd>&#8722;</kbd> if the answer is below zero. If it is not, type the first digit as usual.</p>
+      <figure class="sheet-shot narrow">
+        <img src="img/below-zero.webp" width="784" height="236" loading="lazy" alt="The sentence 6 minus 14 equals minus 8, solved.">
+        <figcaption>6 &#8722; 14 = &#8722;8.</figcaption>
+      </figure>
+
+      <h2 id="break">10. Taking a break</h2>
+      <p>Press <kbd>Esc</kbd> to pause. You can also close the game whenever you like. When you open it again, you are back at the same box with the same count.</p>
+      <p>A mistake you made before closing still counts, so closing the game does not wipe it out.</p>
+      <figure>
+        <img src="img/pause.webp" width="1280" height="820" loading="lazy" alt="The pause panel. It says Take a breath, shows School year: Year 3, Clean streak: 3 of 5, Year check: Learning, and has Resume and Quit to start buttons.">
+        <figcaption>The pause panel shows your year and your count.</figcaption>
+      </figure>
+      <p>On a tablet or phone you can tap the number keys on the screen instead.</p>
+      <figure class="phone">
+        <img src="img/phone.webp" width="780" height="1688" loading="lazy" alt="Digit Stack on a phone: short multiplication of 2741 times 6 with a small box glowing, and big number keys underneath.">
+        <figcaption>On a phone.</figcaption>
+      </figure>
+
+      <h2 id="keys">11. All the keys</h2>
+      <div class="table-wrap">
+        <table class="keys">
+          <thead>
+            <tr><th scope="col">Key</th><th scope="col">What it does</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><kbd>&#8592;</kbd> <kbd>&#8594;</kbd></td><td>Pick your school year (on the start screen)</td></tr>
+            <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></td><td>Divide, multiply, add, subtract (on the start screen)</td></tr>
+            <tr><td><kbd>0</kbd> to <kbd>9</kbd></td><td>Type a digit</td></tr>
+            <tr><td><kbd>0</kbd></td><td>Nothing to carry, exchange or leave over, in a small box</td></tr>
+            <tr><td><kbd>&#8722;</kbd></td><td>The answer is below zero</td></tr>
+            <tr><td><kbd>Enter</kbd></td><td>Go on to the next sum, or hand in a test. After a sum with a fix, <kbd>Enter</kbd> tries the same sum again.</td></tr>
+            <tr><td><kbd>N</kbd></td><td>A new sum instead, after one with a fix</td></tr>
+            <tr><td>Arrows, <kbd>Tab</kbd></td><td>Move between boxes in a test</td></tr>
+            <tr><td><kbd>Backspace</kbd></td><td>Clear a box in a test</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Pause</td></tr>
+            <tr><td><kbd>Q</kbd></td><td>Quit to the start screen (when paused)</td></tr>
+            <tr><td><kbd>H</kbd></td><td>Help</td></tr>
+            <tr><td><kbd>S</kbd></td><td>Sound on or off</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><a class="play-link" href="../index.html">Play Digit Stack</a></p>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <p><a href="../index.html">Play</a> &#183; <a href="parents-and-teachers.html">For parents and teachers</a> &#183; <a href="https://github.com/DigitalCyberSoft/digit-stack">Source code</a></p>
+  </footer>
+</body>
+</html>
