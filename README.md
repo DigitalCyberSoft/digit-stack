@@ -34,7 +34,7 @@ Tests use the same problems as learning, so they include short and long multipli
 ## How to play (learning)
 
 - Set the child's school year with the left and right arrow keys, then press `1` Divide, `2` Multiply, `3` Add or `4` Subtract. Every area starts at the school year.
-- Every box is on the sheet before play starts. The glowing box with the `TYPE` flag is the active box.
+- Every box is on the sheet before play starts. The highlighted box with the pencil is the active box. The child's own digits are blue; the question's are black.
 - The cursor stops at every small box: type the carry, the amount left over in short division, or `1` to exchange a ten in subtraction. Type `0` when there is none; a 0 is not written on the sheet. The stop happens whether or not anything moves, so it gives nothing away.
 - Subtraction is by crossing out (decomposition). After a `1`, the child types the new value of the column that gives the ten; across a zero they type each changed digit. Exchanged digits are crossed out.
 - Long division types each difference straight in.

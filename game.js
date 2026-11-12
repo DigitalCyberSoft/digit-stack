@@ -532,7 +532,11 @@
         if (isSetup) {
           const tag = document.createElement('span');
           tag.className = 'ladder-tag';
-          tag.textContent = 'age ' + YEAR_INFO[year].age;
+          // The range never splits, so a narrow ruler wraps after "age".
+          const range = document.createElement('span');
+          range.className = 'ladder-age';
+          range.textContent = YEAR_INFO[year].age;
+          tag.append('age ', range);
           const pass = document.createElement('span');
           pass.className = 'ladder-pass';
           item.appendChild(tag);
@@ -592,6 +596,7 @@
     if (state.pauseOpen) closePause();
     state.screen = 'setup';
     state.operation = null;
+    delete document.body.dataset.area;
     state.cleanStreak = 0;
     state.pendingYear = null;
     state.pendingTest = false;
@@ -763,8 +768,14 @@
   function updateModeUI() {
     if (!state.operation) return;
     const info = AREA_INFO[state.operation];
-    els.modeChip.textContent = info.sign + ' ' + info.name + (state.mode === 'test' ? ' · Test' : ' · Learn');
+    const stage = document.createElement('span');
+    stage.className = 'mode-stage';
+    stage.textContent = state.mode === 'test' ? 'Test' : 'Learning';
+    els.modeChip.textContent = info.name;
+    els.modeChip.appendChild(stage);
     els.modeShape.textContent = 'Year ' + state.year + ': ' + YEAR_INFO[state.year][state.operation];
+    // The area's book colour frames the page, the controls and the pause panel.
+    document.body.dataset.area = state.operation;
   }
 
   /* Worksheet */
@@ -1233,7 +1244,6 @@
 
   function buildStreakMeter(count) {
     els.streakMeter.innerHTML = '';
-    els.streakMeter.style.gridTemplateColumns = 'repeat(' + count + ', minmax(0, 1fr))';
     els.streakMeter.setAttribute('aria-valuemax', String(count));
     for (let i = 0; i < count; i++) {
       const pip = document.createElement('span');

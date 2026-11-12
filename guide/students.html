@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Digit Stack: How to Play</title>
   <meta name="description" content="A guide for students: how to play Digit Stack, the keyboard game for adding, subtracting, multiplying and dividing one box at a time.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20fill='%230d2042'/%3E%3Crect%20x='12'%20y='18'%20width='40'%20height='7'%20fill='%23f2f0e4'/%3E%3Crect%20x='18'%20y='29'%20width='28'%20height='7'%20fill='%23f2f0e4'/%3E%3Crect%20x='24'%20y='40'%20width='16'%20height='7'%20fill='%23ff5a2a'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%2318233d'/%3E%3Crect%20x='15'%20y='11'%20width='33'%20height='9'%20rx='2'%20fill='%232e6fd6'/%3E%3Crect%20x='10'%20y='22'%20width='42'%20height='9'%20rx='2'%20fill='%23ee5a2f'/%3E%3Crect%20x='13'%20y='33'%20width='37'%20height='9'%20rx='2'%20fill='%232c9e5a'/%3E%3Crect%20x='11'%20y='44'%20width='40'%20height='9'%20rx='2'%20fill='%23f4c12b'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="guide.css">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="../index.html" aria-label="Digit Stack: play the game">
-      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
       <span class="brand-text"><span>Digit</span><span>Stack</span></span>
     </a>
     <nav class="nav" aria-label="Digit Stack pages">
@@ -23,7 +23,6 @@
 
   <main>
     <article class="sheet">
-      <p class="kicker">For students</p>
       <h1>How to play Digit Stack</h1>
       <p class="lede">You build each answer one box at a time, the way you would write it on paper. All you need is the keyboard.</p>
       <a class="play-link" href="../index.html">Play Digit Stack</a>
@@ -54,7 +53,8 @@
       </figure>
 
       <h2 id="glowing-box">2. Type in the glowing box</h2>
-      <p>The box with the orange <strong>TYPE</strong> flag is your box. Read what it says next to the sheet, work it out, then type one digit. The next box lights up by itself.</p>
+      <p>Your box is the yellow one with a pencil next to it. Read what it says next to the sheet, work it out, then type one digit. The next box lights up by itself.</p>
+      <p>The numbers you type are blue. The numbers in the question are black.</p>
       <p>Written sums fill from the right, starting with the ones, just like on paper.</p>
       <figure>
         <img src="img/learn-carry.webp" width="1280" height="820" loading="lazy" alt="Column addition of 789 plus 642. The ones answer, 1, is filled in. A small box above the tens column glows, and the instructions say: Next column, 8 plus 4. Small box first: type the carry from the last column, or 0 if nothing carries.">
@@ -85,11 +85,11 @@
       </figure>
 
       <h2 id="clean-rounds">6. Clean rounds</h2>
-      <p>A <strong>clean round</strong> is a sum with no mistakes. Your count of clean rounds in a row is at the top right. A mistake sends it back to 0, so take your time.</p>
+      <p>A <strong>clean round</strong> is a sum with no mistakes. Each one puts a gold star on the sticker chart at the top right. A mistake clears the chart back to 0, so take your time.</p>
       <p>Get enough clean rounds in a row and you have finished learning that year. How many depends on how long the sums are: 10 for short ones, 5 for medium ones and 3 for long multiplication and long division.</p>
       <figure>
         <img src="img/learning-done.webp" width="1280" height="820" loading="lazy" alt="The finished sum 789 plus 642 equals 1431. The count shows 5 of 5, and a panel says: Learning done. 5 clean rounds in a row. Next is the Year 3 test. A button says Start the test, Enter.">
-        <figcaption>Five clean rounds in a row: learning is done and the test is next.</figcaption>
+        <figcaption>Five stars in a row: learning is done and the test is next.</figcaption>
       </figure>
 
       <h2 id="test">7. The test</h2>
@@ -120,7 +120,7 @@
       <h2 id="below-zero">9. Answers below zero</h2>
       <p>From Year 5, some adding and subtracting answers are below zero. These answers start with a sign box. Press <kbd>&#8722;</kbd> if the answer is below zero. If it is not, type the first digit as usual.</p>
       <figure class="sheet-shot narrow">
-        <img src="img/below-zero.webp" width="784" height="236" loading="lazy" alt="The sentence 6 minus 14 equals minus 8, solved.">
+        <img src="img/below-zero.webp" width="788" height="272" loading="lazy" alt="The sentence 6 minus 14 equals minus 8, solved.">
         <figcaption>6 &#8722; 14 = &#8722;8.</figcaption>
       </figure>
 
@@ -165,7 +165,11 @@
   </main>
 
   <footer class="footer">
-    <p><a href="../index.html">Play</a> &#183; <a href="parents-and-teachers.html">For parents and teachers</a> &#183; <a href="https://github.com/DigitalCyberSoft/digit-stack">Source code</a></p>
+    <ul>
+      <li><a href="../index.html">Play</a></li>
+      <li><a href="parents-and-teachers.html">For parents and teachers</a></li>
+      <li><a href="https://github.com/DigitalCyberSoft/digit-stack">Source code</a></li>
+    </ul>
   </footer>
 </body>
 </html>

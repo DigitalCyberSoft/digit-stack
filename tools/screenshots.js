@@ -47,8 +47,15 @@ async function open(page, o) {
 const state = page => page.evaluate(() => window.__digitStack.getState());
 async function finish(page) { const s = await state(page); await page.keyboard.press(s.action.value === MINUS ? '-' : String(s.action.value)); await page.waitForTimeout(700); }
 // Saved as WebP, encoded by the browser itself, at about a fifth of the PNG size.
+// A cropped element keeps a 12 px margin, so a sheet shows its cover-colour frame.
 async function shot(page, name, target) {
-  const png = target ? await page.locator(target).screenshot() : await page.screenshot();
+  let png;
+  if (target) {
+    const box = await page.locator(target).boundingBox();
+    png = await page.screenshot({ clip: { x: Math.max(0, box.x - 12), y: Math.max(0, box.y - 12), width: box.width + 24, height: box.height + 24 } });
+  } else {
+    png = await page.screenshot();
+  }
   const webp = await page.evaluate(async b64 => {
     const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode();
     const canvas = document.createElement('canvas'); canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
