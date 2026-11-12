@@ -6,7 +6,9 @@ Each year is pitched for a strong pupil in that year: its own content at the top
 
 ## Run it
 
-Open `index.html` directly in a modern browser, or serve the folder:
+Play it at https://digitalcybersoft.github.io/digit-stack/.
+
+To run it locally, open `index.html` directly in a modern browser, or serve the folder:
 
 ```bash
 python3 -m http.server 8000
@@ -51,6 +53,24 @@ Tests use the same problems as learning, so they include short and long multipli
 
 About 1 in 4 column subtractions exchange across a zero, and from Year 5 about 1 in 3 Add and Subtract problems have answers below zero. Multiply and Divide stay with positive whole numbers. Decimals and fractions are not covered.
 
+## Tests
+
+The checks run in Node with Playwright:
+
+```bash
+npm install
+npx playwright install chromium   # or set CHROME_PATH to an installed Chrome
+npm test
+```
+
+- `tests/engine.check.js` replays 2,000 generated problems per area and year (56,000 in all): arithmetic, layouts, the order of steps, small-box decisions, wording, and the year-check table.
+- `tests/guided.check.js` plays learning in a browser by keyboard: small-box decisions, fixes, year checks, and the move from learning to test to the next year.
+- `tests/test-stage.check.js` hands in right and wrong answers in the test stage: short and long multiplication and division, column addition and subtraction, number sentences and facts.
+- `tests/solve-all.check.js` plays full rounds in nine area and year cases, from Year 1 to Year 7 long multiplication and division.
+- `tests/layout.check.js` checks the layout at 390, 860 and 1280 px wide.
+
+Each script exits non-zero when a check fails. Screenshots go to `tests/shots/`.
+
 ## Files
 
 - `index.html`: page structure.
@@ -58,5 +78,7 @@ About 1 in 4 column subtractions exchange across a zero, and from Year 5 about 1
 - `engine.js`: pure arithmetic, worksheet layouts, year content, the action sequence and worked sheet for each problem, and the year-check table.
 - `game.js`: learning and test play, year checks, keyboard controls, rendering, and sound.
 - `assets/`: locally hosted fonts and their OFL license files.
+- `tests/`: engine and browser checks (see Tests).
+- `package.json`: the test command and the pinned Playwright version.
 
 No build step or third-party runtime dependencies.
