@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Digit Stack: Long division and multiplication</title>
+  <meta name="description" content="A keyboard-first game for practising long multiplication and long division. Start with one digit and earn ten clean rounds in a row to add the next.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20fill='%230d2042'/%3E%3Crect%20x='12'%20y='18'%20width='40'%20height='7'%20fill='%23f2f0e4'/%3E%3Crect%20x='18'%20y='29'%20width='28'%20height='7'%20fill='%23f2f0e4'/%3E%3Crect%20x='24'%20y='40'%20width='16'%20height='7'%20fill='%23ff5a2a'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand" aria-label="Digit Stack">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-text"><span>Digit</span><span>Stack</span></span>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="soundBtn" type="button" aria-label="Turn sound off" aria-pressed="true">
+          <svg class="sound-on" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor"></path>
+            <path d="M16 8.5a5 5 0 0 1 0 7M18.8 5.8a9 9 0 0 1 0 12.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+          </svg>
+          <svg class="sound-off" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor"></path>
+            <path d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+          </svg>
+        </button>
+        <button class="icon-btn help-icon" id="helpBtn" type="button" aria-label="How to play (H)">?</button>
+        <button class="menu-btn" id="pauseBtn" type="button" aria-label="Pause game" hidden>Pause <kbd>Esc</kbd></button>
+      </div>
+    </header>
+
+    <main>
+      <section class="setup-screen" id="setupScreen" aria-labelledby="setupTitle">
+        <div class="setup-sheet">
+          <div class="setup-intro">
+            <h1 id="setupTitle">Build the answer.<br>One box at a time.</h1>
+            <p class="lede">Long multiplication and long division, laid out like a work sheet. Start with one digit. Ten clean rounds in a row add another.</p>
+
+            <div class="start-ladder" aria-label="Digit progression">
+              <div class="start-ladder-head">
+                <span>Digit ladder</span>
+                <span class="start-ladder-note">10 clean rounds add a digit</span>
+              </div>
+              <ol class="ladder ladder-large" id="setupLadder">
+                <li class="is-current" data-stage="1"><span class="ladder-node">1</span><span class="ladder-label">1 digit</span><span class="ladder-tag">Start</span></li>
+                <li data-stage="2"><span class="ladder-node">2</span><span class="ladder-label">2 digits</span><span class="ladder-tag">10 clean</span></li>
+                <li data-stage="3"><span class="ladder-node">3</span><span class="ladder-label">3 digits</span><span class="ladder-tag">10 clean</span></li>
+                <li data-stage="4"><span class="ladder-node">4</span><span class="ladder-label">4 digits</span><span class="ladder-tag">10 clean</span></li>
+              </ol>
+            </div>
+
+            <div class="setup-rules">
+              <p><span class="rule-mark" aria-hidden="true">&#9633;</span><span><strong>Type in the glowing box.</strong> One wrong digit ends the round and resets the ten count.</span></p>
+              <p><span class="rule-mark arrow" aria-hidden="true">&#8593;</span><span><strong>Carry with Space.</strong> When the CARRY light comes on, press Space or Enter.</span></p>
+              <p><span class="rule-mark stair" aria-hidden="true">&#9650;</span><span><strong>Clear ten in a row to climb.</strong> Ten clean rounds add a digit, then the count starts again. A miss keeps your digit level but sends the count back to zero.</span></p>
+              <p><span class="rule-mark" aria-hidden="true">R</span><span><strong>Whole numbers only.</strong> Division keeps a remainder. No decimal answers.</span></p>
+            </div>
+          </div>
+
+          <div class="mode-panel">
+            <p class="panel-label">Choose a mode</p>
+            <div class="mode-list">
+              <button class="mode-btn divide" type="button" data-mode="divide">
+                <span class="mode-sign" aria-hidden="true">&#247;</span>
+                <span class="mode-copy">
+                  <span class="mode-name">Divide</span>
+                  <span class="mode-desc">Long division with a one-digit divisor.</span>
+                  <span class="mode-shapes">1&#247;1 &nbsp; 2&#247;1 &nbsp; 3&#247;1 &nbsp; 4&#247;1</span>
+                </span>
+                <kbd>1</kbd>
+              </button>
+
+              <button class="mode-btn multiply" type="button" data-mode="multiply">
+                <span class="mode-sign" aria-hidden="true">&#215;</span>
+                <span class="mode-copy">
+                  <span class="mode-name">Multiply</span>
+                  <span class="mode-desc">One long row, carried column by column.</span>
+                  <span class="mode-shapes">1&#215;1 &nbsp; 2&#215;1 &nbsp; 3&#215;1 &nbsp; 4&#215;1</span>
+                </span>
+                <kbd>2</kbd>
+              </button>
+            </div>
+
+            <p class="no-mouse">No mouse needed. Press <kbd>1</kbd> or <kbd>2</kbd>.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="game-screen" id="gameScreen" aria-labelledby="sheetTitle" hidden>
+        <div class="game-status">
+          <div class="mode-block">
+            <span class="mode-chip" id="modeChip">Multiply</span>
+            <span class="mode-shape" id="modeShape">2-digit &#215; 2-digit</span>
+          </div>
+
+          <ol class="ladder ladder-game" id="gameLadder" aria-label="Digit level">
+            <li data-stage="1"><span class="ladder-node">1</span><span class="ladder-label">1 digit</span></li>
+            <li data-stage="2"><span class="ladder-node">2</span><span class="ladder-label">2 digits</span></li>
+            <li data-stage="3"><span class="ladder-node">3</span><span class="ladder-label">3 digits</span></li>
+            <li data-stage="4"><span class="ladder-node">4</span><span class="ladder-label">4 digits</span></li>
+          </ol>
+
+          <div class="streak-chip" id="streakChip">
+            <span class="streak-top"><span class="streak-label" id="gateLabel">Clean streak</span><strong id="streakValue">0 / 10</strong></span>
+            <span class="gate-line" id="gateLine">to 2 digits</span>
+            <span class="streak-meter" id="streakMeter" role="progressbar" aria-label="Clean rounds toward the next digit" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"></span>
+          </div>
+        </div>
+
+        <div class="game-grid">
+          <div class="board-col">
+            <div class="sheet" id="sheet">
+              <div class="sheet-head">
+                <div class="sheet-title"><span class="sheet-dot" aria-hidden="true"></span><span id="sheetTitle">Long multiplication</span></div>
+                <div class="sheet-status" id="sheetStatus">row 1 of 2</div>
+              </div>
+              <div class="worksheet-holder">
+                <div class="worksheet" id="worksheet" aria-hidden="true"></div>
+              </div>
+              <div class="sheet-foot">
+                <div class="row-map" id="rowMap" aria-label="Progress through the fillable rows"></div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="console" id="console" aria-label="Game controls">
+            <div class="console-main" id="consoleMain">
+              <div class="console-head">
+                <span class="turn-kicker"><span class="turn-dot" aria-hidden="true"></span>Your turn</span>
+                <span class="stage-chip" id="stageChip">Multiply</span>
+              </div>
+              <div class="step-line" id="stepLine">row 1 of 2</div>
+              <p class="prompt" id="prompt"></p>
+              <p class="subprompt" id="subprompt"></p>
+
+              <div class="carry-dock" id="carryDock">
+                <button class="carry-btn" id="carryBtn" type="button" disabled aria-label="Carry">
+                  <span class="carry-icon" aria-hidden="true">&#8593;</span>
+                  <span class="carry-label" id="carryBtnLabel">Carry</span>
+                  <kbd>Space</kbd>
+                </button>
+              </div>
+
+              <div class="keypad" id="keypad" aria-label="Number keys">
+                <button type="button" data-digit="1" tabindex="-1">1</button>
+                <button type="button" data-digit="2" tabindex="-1">2</button>
+                <button type="button" data-digit="3" tabindex="-1">3</button>
+                <button type="button" data-digit="4" tabindex="-1">4</button>
+                <button type="button" data-digit="5" tabindex="-1">5</button>
+                <button type="button" data-digit="6" tabindex="-1">6</button>
+                <button type="button" data-digit="7" tabindex="-1">7</button>
+                <button type="button" data-digit="8" tabindex="-1">8</button>
+                <button type="button" data-digit="9" tabindex="-1">9</button>
+                <button class="key-zero" type="button" data-digit="0" tabindex="-1">0</button>
+              </div>
+
+              <div class="console-foot" id="consoleFoot">
+                <span><kbd>0-9</kbd> type</span>
+                <span id="footCarry"><kbd>Space</kbd> carry</span>
+                <span><kbd>Esc</kbd> pause</span>
+                <span><kbd>H</kbd> help</span>
+              </div>
+            </div>
+
+            <div class="end-panel" id="endPanel" hidden>
+              <p class="end-kicker" id="endKicker"></p>
+              <h2 class="end-title" id="endTitle"></h2>
+              <div class="end-answer" id="endAnswer"></div>
+              <p class="end-detail" id="endDetail"></p>
+              <div class="end-actions" id="endActions"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="help-overlay" id="helpOverlay" hidden>
+    <div class="help-sheet" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <button class="help-close" id="helpClose" type="button" aria-label="Close help">&#215;</button>
+      <p class="help-kicker">How to play</p>
+      <h2 id="helpTitle">One box. One digit. No mouse required.</h2>
+
+      <div class="help-grid">
+        <div class="help-block">
+          <h3>Read the rows</h3>
+          <p>Every row of the sum is already on the sheet. The glowing box is your box. Type the digit that belongs there. Division answers stay whole: a quotient, plus a remainder when there is one.</p>
+        </div>
+        <div class="help-block">
+          <h3>Carry with Space</h3>
+          <p>In multiplication, a CARRY button lights up when a carried digit needs a home. Press <kbd>Space</kbd> or <kbd>Enter</kbd> to lift it into the box above.</p>
+        </div>
+        <div class="help-block">
+          <h3>Ten clean to climb</h3>
+          <p>Start at one digit. Ten clean rounds in a row add the next digit, up to four. The count starts again for each new digit. Only the first number grows; the second stays a single digit. A wrong digit ends the round and resets the ten count, but your digit level stays.</p>
+        </div>
+      </div>
+
+      <div class="help-keys">
+        <span><kbd>0-9</kbd> Type a digit</span>
+        <span><kbd>Space</kbd> Carry</span>
+        <span><kbd>Esc</kbd> Pause</span>
+        <span><kbd>H</kbd> Help</span>
+        <span><kbd>Enter</kbd> Continue</span>
+      </div>
+
+      <button class="help-gotit" id="helpGotIt" type="button">Got it <kbd>Enter</kbd></button>
+    </div>
+  </div>
+
+
+  <div class="help-overlay pause-overlay" id="pauseOverlay" hidden>
+    <div class="help-sheet pause-sheet" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+      <p class="help-kicker">Paused</p>
+      <h2 id="pauseTitle">Take a breath.</h2>
+      <p class="pause-copy" id="pauseCopy">Your run is waiting.</p>
+      <div class="pause-stats">
+        <span class="pause-stat"><span class="pause-stat-label">Digit level</span><strong id="pauseStage">1 digit</strong></span>
+        <span class="pause-stat"><span class="pause-stat-label">Clean streak</span><strong id="pauseStreak">0 / 10</strong></span>
+        <span class="pause-stat"><span class="pause-stat-label">Next digit</span><strong id="pauseGate">2 digits</strong></span>
+      </div>
+      <div class="pause-actions">
+        <button class="help-gotit" id="resumeBtn" type="button">Resume <kbd>Esc</kbd></button>
+        <button class="pause-quit" id="quitBtn" type="button">Quit to start <kbd>Q</kbd></button>
+      </div>
+      <p class="pause-note">Quitting returns to the start and starts the digit ladder again.</p>
+    </div>
+  </div>
+
+  <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+
+  <script src="engine.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
