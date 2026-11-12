@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Digit Stack: Long division and multiplication</title>
-  <meta name="description" content="A keyboard-first game for practising long multiplication and long division. Start with one digit and earn ten clean rounds in a row to add the next.">
+  <title>Digit Stack: Number skills by school year</title>
+  <meta name="description" content="A keyboard-first game for practising addition, subtraction, multiplication and division, set by school year from Year 1 to Year 7 (national curriculum in England), pitched for strong pupils. Clean rounds in a row pass a year's check.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20fill='%230d2042'/%3E%3Crect%20x='12'%20y='18'%20width='40'%20height='7'%20fill='%23f2f0e4'/%3E%3Crect%20x='18'%20y='29'%20width='28'%20height='7'%20fill='%23f2f0e4'/%3E%3Crect%20x='24'%20y='40'%20width='16'%20height='7'%20fill='%23ff5a2a'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -36,38 +36,33 @@
         <div class="setup-sheet">
           <div class="setup-intro">
             <h1 id="setupTitle">Build the answer.<br>One box at a time.</h1>
-            <p class="lede">Long multiplication and long division, laid out like a work sheet. Start with one digit. Ten clean rounds in a row add another.</p>
+            <p class="lede">Adding, subtracting, multiplying and dividing by school year, Year 1 to Year 7, following the national curriculum in England and pitched for strong pupils: each year's hardest work plus the next year's methods. Each year has a check.</p>
 
-            <div class="start-ladder" aria-label="Digit progression">
+            <div class="start-ladder" aria-label="School year">
               <div class="start-ladder-head">
-                <span>Digit ladder</span>
-                <span class="start-ladder-note">10 clean rounds add a digit</span>
+                <span>School year</span>
+                <span class="start-ladder-note"><kbd>&#8592;</kbd> <kbd>&#8594;</kbd> set the school year</span>
               </div>
-              <ol class="ladder ladder-large" id="setupLadder">
-                <li class="is-current" data-stage="1"><span class="ladder-node">1</span><span class="ladder-label">1 digit</span><span class="ladder-tag">Start</span></li>
-                <li data-stage="2"><span class="ladder-node">2</span><span class="ladder-label">2 digits</span><span class="ladder-tag">10 clean</span></li>
-                <li data-stage="3"><span class="ladder-node">3</span><span class="ladder-label">3 digits</span><span class="ladder-tag">10 clean</span></li>
-                <li data-stage="4"><span class="ladder-node">4</span><span class="ladder-label">4 digits</span><span class="ladder-tag">10 clean</span></li>
-              </ol>
+              <ol class="ladder ladder-large" id="setupLadder"></ol>
             </div>
 
             <div class="setup-rules">
-              <p><span class="rule-mark" aria-hidden="true">&#9633;</span><span><strong>Type in the glowing box.</strong> One wrong digit ends the round and resets the ten count.</span></p>
-              <p><span class="rule-mark arrow" aria-hidden="true">&#8593;</span><span><strong>Carry with Space.</strong> When the CARRY light comes on, press Space or Enter.</span></p>
-              <p><span class="rule-mark stair" aria-hidden="true">&#9650;</span><span><strong>Clear ten in a row to climb.</strong> Ten clean rounds add a digit, then the count starts again. A miss keeps your digit level but sends the count back to zero.</span></p>
-              <p><span class="rule-mark" aria-hidden="true">R</span><span><strong>Whole numbers only.</strong> Division keeps a remainder. No decimal answers.</span></p>
+              <p><span class="rule-mark" aria-hidden="true">&#9633;</span><span><strong>Type in the glowing box.</strong> A wrong digit shows you why. Type the right one to finish the problem.</span></p>
+              <p><span class="rule-mark arrow" aria-hidden="true">&#8593;</span><span><strong>Every small box gets a digit.</strong> The cursor stops at each one: type the carry or what is left over, or 1 to exchange in subtraction. Type 0 if there is none.</span></p>
+              <p><span class="rule-mark stair" aria-hidden="true">&#9650;</span><span><strong>Learn, then test.</strong> Each year starts with guided learning. Enough clean rounds in a row unlock that year's test, where every box is open; enough clean tests pass the year. The count is 10 when rounds are short, 5 for medium ones, 3 for long multiplication and long division. Each area moves up on its own. A round with a fix sends the count back to zero.</span></p>
+              <p><span class="rule-mark" aria-hidden="true">R</span><span><strong>Whole numbers only.</strong> A remainder is written after R. From Year 5, answers can be below zero: press &#8722; first. No decimal answers.</span></p>
             </div>
           </div>
 
           <div class="mode-panel">
-            <p class="panel-label">Choose a mode</p>
+            <p class="panel-label">Choose an area</p>
             <div class="mode-list">
               <button class="mode-btn divide" type="button" data-mode="divide">
                 <span class="mode-sign" aria-hidden="true">&#247;</span>
                 <span class="mode-copy">
                   <span class="mode-name">Divide</span>
-                  <span class="mode-desc">Long division with a one-digit divisor.</span>
-                  <span class="mode-shapes">1&#247;1 &nbsp; 2&#247;1 &nbsp; 3&#247;1 &nbsp; 4&#247;1</span>
+                  <span class="mode-desc">Sharing, facts, short division, then long division from Year 5.</span>
+                  <span class="mode-shapes" id="divideShape"></span>
                 </span>
                 <kbd>1</kbd>
               </button>
@@ -76,14 +71,34 @@
                 <span class="mode-sign" aria-hidden="true">&#215;</span>
                 <span class="mode-copy">
                   <span class="mode-name">Multiply</span>
-                  <span class="mode-desc">One long row, carried column by column.</span>
-                  <span class="mode-shapes">1&#215;1 &nbsp; 2&#215;1 &nbsp; 3&#215;1 &nbsp; 4&#215;1</span>
+                  <span class="mode-desc">Groups, tables, short multiplication, then long multiplication from Year 4.</span>
+                  <span class="mode-shapes" id="multiplyShape"></span>
                 </span>
                 <kbd>2</kbd>
               </button>
+
+              <button class="mode-btn add" type="button" data-mode="add">
+                <span class="mode-sign" aria-hidden="true">+</span>
+                <span class="mode-copy">
+                  <span class="mode-name">Add</span>
+                  <span class="mode-desc">Facts and number sentences, then column addition from Year 2.</span>
+                  <span class="mode-shapes" id="addShape"></span>
+                </span>
+                <kbd>3</kbd>
+              </button>
+
+              <button class="mode-btn subtract" type="button" data-mode="subtract">
+                <span class="mode-sign" aria-hidden="true">&#8722;</span>
+                <span class="mode-copy">
+                  <span class="mode-name">Subtract</span>
+                  <span class="mode-desc">Facts and number sentences, then column subtraction by crossing out from Year 2.</span>
+                  <span class="mode-shapes" id="subtractShape"></span>
+                </span>
+                <kbd>4</kbd>
+              </button>
             </div>
 
-            <p class="no-mouse">No mouse needed. Press <kbd>1</kbd> or <kbd>2</kbd>.</p>
+            <p class="no-mouse">No mouse needed. <kbd>&#8592;</kbd> <kbd>&#8594;</kbd> set the school year, then press <kbd>1</kbd> to <kbd>4</kbd>.</p>
           </div>
         </div>
       </section>
@@ -92,20 +107,15 @@
         <div class="game-status">
           <div class="mode-block">
             <span class="mode-chip" id="modeChip">Multiply</span>
-            <span class="mode-shape" id="modeShape">2-digit &#215; 2-digit</span>
+            <span class="mode-shape" id="modeShape"></span>
           </div>
 
-          <ol class="ladder ladder-game" id="gameLadder" aria-label="Digit level">
-            <li data-stage="1"><span class="ladder-node">1</span><span class="ladder-label">1 digit</span></li>
-            <li data-stage="2"><span class="ladder-node">2</span><span class="ladder-label">2 digits</span></li>
-            <li data-stage="3"><span class="ladder-node">3</span><span class="ladder-label">3 digits</span></li>
-            <li data-stage="4"><span class="ladder-node">4</span><span class="ladder-label">4 digits</span></li>
-          </ol>
+          <ol class="ladder ladder-game" id="gameLadder" aria-label="School year"></ol>
 
           <div class="streak-chip" id="streakChip">
             <span class="streak-top"><span class="streak-label" id="gateLabel">Clean streak</span><strong id="streakValue">0 / 10</strong></span>
-            <span class="gate-line" id="gateLine">to 2 digits</span>
-            <span class="streak-meter" id="streakMeter" role="progressbar" aria-label="Clean rounds toward the next digit" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"></span>
+            <span class="gate-line" id="gateLine">Year 1 check</span>
+            <span class="streak-meter" id="streakMeter" role="progressbar" aria-label="Clean rounds toward the year check" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"></span>
           </div>
         </div>
 
@@ -114,7 +124,7 @@
             <div class="sheet" id="sheet">
               <div class="sheet-head">
                 <div class="sheet-title"><span class="sheet-dot" aria-hidden="true"></span><span id="sheetTitle">Long multiplication</span></div>
-                <div class="sheet-status" id="sheetStatus">row 1 of 2</div>
+                <div class="sheet-status" id="sheetStatus"></div>
               </div>
               <div class="worksheet-holder">
                 <div class="worksheet" id="worksheet" aria-hidden="true"></div>
@@ -131,15 +141,16 @@
                 <span class="turn-kicker"><span class="turn-dot" aria-hidden="true"></span>Your turn</span>
                 <span class="stage-chip" id="stageChip">Multiply</span>
               </div>
-              <div class="step-line" id="stepLine">row 1 of 2</div>
+              <div class="step-line" id="stepLine"></div>
               <p class="prompt" id="prompt"></p>
               <p class="subprompt" id="subprompt"></p>
+              <p class="fix-note" id="fixNote" hidden></p>
 
               <div class="carry-dock" id="carryDock">
-                <button class="carry-btn" id="carryBtn" type="button" disabled aria-label="Carry">
-                  <span class="carry-icon" aria-hidden="true">&#8593;</span>
-                  <span class="carry-label" id="carryBtnLabel">Carry</span>
-                  <kbd>Space</kbd>
+                <button class="carry-btn hand-in-btn test-only" id="handInBtn" type="button" disabled aria-label="Hand in (Enter)">
+                  <span class="carry-icon" aria-hidden="true">&#10003;</span>
+                  <span class="carry-label">Hand in</span>
+                  <kbd>Enter</kbd>
                 </button>
               </div>
 
@@ -153,12 +164,17 @@
                 <button type="button" data-digit="7" tabindex="-1">7</button>
                 <button type="button" data-digit="8" tabindex="-1">8</button>
                 <button type="button" data-digit="9" tabindex="-1">9</button>
+                <button class="key-minus" id="minusKey" type="button" tabindex="-1" aria-label="Minus" hidden>&#8722;</button>
                 <button class="key-zero" type="button" data-digit="0" tabindex="-1">0</button>
               </div>
 
               <div class="console-foot" id="consoleFoot">
                 <span><kbd>0-9</kbd> type</span>
-                <span id="footCarry"><kbd>Space</kbd> carry</span>
+                <span class="test-only"><kbd>&#8592;&#8593;&#8594;&#8595;</kbd> move</span>
+                <span class="test-only"><kbd>&#9003;</kbd> clear</span>
+                <span class="test-only"><kbd>Enter</kbd> hand in</span>
+                <span class="guided-only"><kbd>0</kbd> nothing to carry</span>
+                <span id="footMinus" hidden><kbd>&#8722;</kbd> below zero</span>
                 <span><kbd>Esc</kbd> pause</span>
                 <span><kbd>H</kbd> help</span>
               </div>
@@ -185,22 +201,29 @@
 
       <div class="help-grid">
         <div class="help-block">
-          <h3>Read the rows</h3>
-          <p>Every row of the sum is already on the sheet. The glowing box is your box. Type the digit that belongs there. Division answers stay whole: a quotient, plus a remainder when there is one.</p>
+          <h3>Read the sheet</h3>
+          <p>Every box is already on the sheet. The glowing box is your box. Written methods fill from the right; a whole answer fills from the left. The cursor stops at every small box: type the carry, the amount left over in short division, or 1 to exchange a ten in subtraction. Type 0 if there is none; a 0 is not written on the sheet. In subtraction the top digits you exchange are crossed out. A remainder goes after R; an answer below zero starts with &#8722;.</p>
         </div>
         <div class="help-block">
-          <h3>Carry with Space</h3>
-          <p>In multiplication, a CARRY button lights up when a carried digit needs a home. Press <kbd>Space</kbd> or <kbd>Enter</kbd> to lift it into the box above.</p>
+          <h3>Fix it and finish</h3>
+          <p>A wrong digit shows you why and what the box needs. Fix it to keep going. The problem still gets finished, but it does not count as a clean round.</p>
         </div>
         <div class="help-block">
-          <h3>Ten clean to climb</h3>
-          <p>Start at one digit. Ten clean rounds in a row add the next digit, up to four. The count starts again for each new digit. Only the first number grows; the second stays a single digit. A wrong digit ends the round and resets the ten count, but your digit level stays.</p>
+          <h3>Learn, then test</h3>
+          <p>Each year starts with guided learning, one box at a time. Once enough rounds in a row are clean, that year's test starts by itself: every box is open, you move with the arrow keys (<kbd>Tab</kbd> follows the method), type to fill, <kbd>Backspace</kbd> to clear, and press <kbd>Enter</kbd> to hand in. Only the answer is marked; small boxes are for your working. A wrong answer shows the proper answer and working, then the next problem.</p>
+        </div>
+        <div class="help-block">
+          <h3>Year checks</h3>
+          <p>Set the school year from 1 to 7 with the arrow keys. Every area starts there, and each year is pitched for a strong pupil in that year. Learning and the test each need clean rounds in a row: 10 when rounds are short, 5 for medium ones, 3 for long multiplication and long division. Passing the test moves only that area up a year, so one area can run ahead of the others. A round with a fix sends the count back to zero. Passed checks are saved on this device.</p>
         </div>
       </div>
 
       <div class="help-keys">
+        <span><kbd>&#8592; &#8594;</kbd> School year</span>
+        <span><kbd>1</kbd>-<kbd>4</kbd> Divide, multiply, add, subtract</span>
         <span><kbd>0-9</kbd> Type a digit</span>
-        <span><kbd>Space</kbd> Carry</span>
+        <span><kbd>0</kbd> Nothing to carry or exchange</span>
+        <span><kbd>&#8722;</kbd> Below zero</span>
         <span><kbd>Esc</kbd> Pause</span>
         <span><kbd>H</kbd> Help</span>
         <span><kbd>Enter</kbd> Continue</span>
@@ -217,15 +240,15 @@
       <h2 id="pauseTitle">Take a breath.</h2>
       <p class="pause-copy" id="pauseCopy">Your run is waiting.</p>
       <div class="pause-stats">
-        <span class="pause-stat"><span class="pause-stat-label">Digit level</span><strong id="pauseStage">1 digit</strong></span>
+        <span class="pause-stat"><span class="pause-stat-label">School year</span><strong id="pauseYear">Year 1</strong></span>
         <span class="pause-stat"><span class="pause-stat-label">Clean streak</span><strong id="pauseStreak">0 / 10</strong></span>
-        <span class="pause-stat"><span class="pause-stat-label">Next digit</span><strong id="pauseGate">2 digits</strong></span>
+        <span class="pause-stat"><span class="pause-stat-label">Year check</span><strong id="pauseCheck">Not yet</strong></span>
       </div>
       <div class="pause-actions">
         <button class="help-gotit" id="resumeBtn" type="button">Resume <kbd>Esc</kbd></button>
         <button class="pause-quit" id="quitBtn" type="button">Quit to start <kbd>Q</kbd></button>
       </div>
-      <p class="pause-note">Quitting returns to the start and starts the digit ladder again.</p>
+      <p class="pause-note">Quitting returns to the start. Passed year checks stay saved on this device.</p>
     </div>
   </div>
 

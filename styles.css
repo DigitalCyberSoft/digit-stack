@@ -461,6 +461,20 @@ kbd {
   display: block;
 }
 
+.ladder-large li {
+  cursor: pointer;
+}
+
+.ladder-pass {
+  min-height: 0.75rem;
+  color: var(--green);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .ladder-large li.is-current .ladder-tag {
   display: block;
   color: var(--orange-deep);
@@ -549,7 +563,7 @@ kbd {
 
 .mode-list {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
 .mode-btn {
@@ -607,6 +621,16 @@ kbd {
   color: var(--ink);
 }
 
+.mode-btn.add .mode-sign {
+  background: var(--green);
+  color: var(--cream);
+}
+
+.mode-btn.subtract .mode-sign {
+  background: var(--yellow);
+  color: var(--ink);
+}
+
 .mode-copy {
   display: flex;
   min-width: 0;
@@ -634,7 +658,6 @@ kbd {
   font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.01em;
-  white-space: nowrap;
 }
 
 .mode-btn > kbd {
@@ -959,7 +982,8 @@ kbd {
   font-weight: 600;
 }
 
-.row.dividend::before {
+.row.dividend::before,
+.row.in-bracket::before {
   content: '';
   position: absolute;
   top: 0;
@@ -1218,6 +1242,139 @@ kbd {
   white-space: nowrap;
 }
 
+/* Subtraction: a top digit that has been exchanged is crossed out; its new
+   value sits in the small box above. */
+.cell.given.crossed {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+  text-decoration-color: var(--orange-deep);
+  text-decoration-thickness: 2px;
+}
+
+.cell.carry-slot.auto-filled {
+  border-style: solid;
+  border-color: rgba(19, 122, 86, 0.45);
+  background: rgba(19, 122, 86, 0.08);
+  color: var(--green);
+}
+
+.row.is-exchange .cell.carry-slot {
+  min-width: 26px;
+}
+
+.cell.sign-box.skipped {
+  border-color: transparent;
+  background: transparent;
+}
+
+/* A small box answered with 0: checked, nothing written. */
+.cell.carry-slot.zeroed {
+  border-style: solid;
+  border-color: rgba(18, 36, 59, 0.12);
+  background: transparent;
+  opacity: 0.6;
+}
+
+/* Test mode */
+.cell.bringdown.test-box {
+  border: 2px dashed rgba(18, 36, 59, 0.24);
+  color: var(--ink);
+  font-size: calc(var(--cell) * 0.5);
+}
+
+.cell.bringdown.test-box.filled {
+  border-color: transparent;
+}
+
+.cell.bringdown.test-box.active {
+  border: 3px solid var(--orange);
+  background: var(--paper-hi);
+}
+
+.cell.mark-right {
+  color: var(--green);
+}
+
+.cell.input.mark-wrong,
+.cell.mark-wrong {
+  border: 2px solid var(--red);
+  background: rgba(185, 44, 30, 0.08);
+  color: var(--red);
+}
+
+.cell.mark-wrong::after {
+  content: attr(data-was);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  z-index: 20;
+  transform: translateX(-50%);
+  padding: 2px 5px;
+  border-radius: 2px;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.cell.solution {
+  color: var(--blue);
+}
+
+.console.is-test .guided-only,
+.console:not(.is-test) .test-only {
+  display: none;
+}
+
+/* A wrong digit stays in the active box, in red, until the right one is typed. */
+.cell.active.wrong {
+  border-color: var(--red);
+  background: rgba(185, 44, 30, 0.08);
+  color: var(--red);
+}
+
+.cell.active.wrong::after {
+  background: var(--green);
+  color: #fff;
+}
+
+.cell.sign-cell {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.cell.remainder-label {
+  color: var(--orange-deep);
+  font-size: calc(var(--cell) * 0.4);
+}
+
+/* Short division: carried amounts sit inside the bracket, above the digit they join. */
+.row.in-bracket .cell.blank {
+  height: calc(var(--cell) * 0.6);
+}
+
+/* Year 1 pictures: one row of dots per group. */
+.dot-picture {
+  display: grid;
+  gap: calc(var(--cell) * 0.2) calc(var(--cell) * 0.12);
+  justify-content: center;
+  margin: 0 auto 16px;
+  padding: 12px 14px;
+  border: 1px dashed rgba(18, 36, 59, 0.24);
+  border-radius: 3px;
+}
+
+.dot-picture .dot {
+  display: block;
+  width: calc(var(--cell) * 0.34);
+  height: calc(var(--cell) * 0.34);
+  border-radius: 50%;
+  background: var(--orange);
+}
+
 .row.rule {
   height: clamp(10px, 1.4vw, 16px);
 }
@@ -1427,6 +1584,18 @@ kbd {
   user-select: none;
 }
 
+.fix-note {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--red-hi);
+  background: rgba(248, 243, 231, 0.055);
+  color: var(--cream);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .carry-dock {
   margin-top: 14px;
   height: 62px;
@@ -1568,6 +1737,19 @@ kbd {
   height: clamp(38px, 5vh, 47px);
 }
 
+.keypad.has-minus button.key-zero {
+  grid-column: 2 / -1;
+}
+
+.keypad button.key-minus {
+  grid-column: 1;
+  height: clamp(38px, 5vh, 47px);
+}
+
+.keypad button.key-minus[hidden] {
+  display: none;
+}
+
 .keypad.is-locked button {
   opacity: 0.28;
   pointer-events: none;
@@ -1596,15 +1778,15 @@ kbd {
   gap: 4px;
 }
 
-.console.is-division .carry-dock {
+.console.no-carry .carry-dock {
   display: none;
 }
 
-.console.is-division .console-main {
+.console.no-carry .console-main {
   justify-content: flex-start;
 }
 
-.console.is-division .keypad {
+.console.no-carry .keypad {
   margin-top: 18px;
 }
 
@@ -2057,6 +2239,7 @@ kbd {
       'step keypad'
       'prompt keypad'
       'sub keypad'
+      'fix keypad'
       'carry keypad'
       'foot keypad';
     column-gap: 22px;
@@ -2080,6 +2263,10 @@ kbd {
     min-height: 0;
   }
 
+  .fix-note {
+    grid-area: fix;
+  }
+
   .carry-dock {
     grid-area: carry;
   }
@@ -2094,16 +2281,17 @@ kbd {
     grid-area: foot;
   }
 
-  .console.is-division .console-main {
+  .console.no-carry .console-main {
     grid-template-areas:
       'head keypad'
       'step keypad'
       'prompt keypad'
       'sub keypad'
+      'fix keypad'
       'foot keypad';
   }
 
-  .console.is-division .keypad {
+  .console.no-carry .keypad {
     margin-top: 0;
   }
 }
@@ -2206,10 +2394,11 @@ kbd {
   }
 
   .keypad {
+    align-self: stretch;
     margin-top: 14px;
   }
 
-  .console.is-division .console-main {
+  .console.no-carry .console-main {
     display: flex;
   }
 
@@ -2240,6 +2429,10 @@ kbd {
 }
 
 @media (max-width: 460px) {
+  .worksheet.is-sentence {
+    --cell: clamp(1.6rem, 7vw, 2.6rem);
+  }
+
   :root {
     --cell: clamp(2.25rem, 8.8vw, 3.15rem);
     --gutter: clamp(2.65rem, 12vw, 3.4rem);

@@ -1,6 +1,8 @@
 # Digit Stack
 
-A keyboard-first browser game for practising long multiplication and long division on a worksheet that fills in one digit at a time.
+A keyboard-first browser game for practising addition, subtraction, multiplication and division, set by school year from Year 1 to Year 7. Content and written layouts follow the national curriculum in England and its Mathematics Appendix 1.
+
+Each year is pitched for a strong pupil in that year: its own content at the top of the range, plus the next year's methods, plus missing-number problems in Years 1 and 2. The programmes of study set one programme for the majority of pupils and say pupils who grasp concepts rapidly should get "rich and sophisticated problems before any acceleration through new content".
 
 ## Run it
 
@@ -12,23 +14,49 @@ python3 -m http.server 8000
 
 Then open http://localhost:8000.
 
-## How to play
+## Learn, then test
 
-- Press `1` for divide or `2` for multiply.
-- Every row of the worksheet is shown before play starts. The glowing box with the `TYPE` flag is the active box.
-- Type the digit for that box. A wrong digit ends the round immediately.
-- In multiplication, the `CARRY` button lights when a carry is due. Press `Space` or `Enter` to lift it into the small box above the next column.
-- The clean streak must reach 10 in a row to add a digit. The digit level goes 1, 2, 3, 4. The count starts again for each new digit. A miss resets the clean streak but leaves the digit level alone.
-- Only the first number grows. The second number stays a single digit, so the progression ends up at problems such as `204 / 2` and `2040 / 2`.
-- Division stays in whole numbers. A remainder is written as `R`, for example `7 R 2`. No decimal answers are shown.
-- Keyboard: `0-9` type, `Space` or `Enter` carry, `Esc` pause, `H` help, `S` sound. The on-screen keypad is optional.
+Every area and year has two stages, and the game moves between them by itself.
+
+1. **Learn (guided).** The game takes the child through the method one box at a time, with a prompt for each step.
+2. **Test.** Once enough learning rounds in a row are clean, that year's test starts. Every box is open with no prompts. Arrow keys move between boxes and `Tab` follows the method's order. Typing fills a box and moves on in the direction that row is written; `Backspace` clears; `-` toggles the sign box; `Enter` hands in, asking once more if answer boxes are empty. Only the answer boxes are marked; carries, exchanges, left-overs, products and differences are working. A wrong answer marks each answer box, shows the proper answer and the full working, sets the count back to 0, and `Enter` goes to the next problem.
+
+Enough clean tests in a row pass the year, and the next year starts with learning. Learning and the test each need the same number of clean rounds in a row, set by how long that area's rounds are in that year: 10 when a round averages under 5 key presses, 5 for 5 to 15, 3 above 15. Each area (divide, multiply, add, subtract) moves up on its own. Progress is saved in the browser.
+
+Tests use the same problems as learning, so they include short and long multiplication and division.
+
+## How to play (learning)
+
+- Set the child's school year with the left and right arrow keys, then press `1` Divide, `2` Multiply, `3` Add or `4` Subtract. Every area starts at the school year.
+- Every box is on the sheet before play starts. The glowing box with the `TYPE` flag is the active box.
+- The cursor stops at every small box: type the carry, the amount left over in short division, or `1` to exchange a ten in subtraction. Type `0` when there is none; a 0 is not written on the sheet. The stop happens whether or not anything moves, so it gives nothing away.
+- Subtraction is by crossing out (decomposition). After a `1`, the child types the new value of the column that gives the ten; across a zero they type each changed digit. Exchanged digits are crossed out.
+- Long division types each difference straight in.
+- From Year 5, some Add and Subtract answers are below zero. The answer starts with a sign box: press `-` for a negative answer, or type the first digit for a positive one.
+- A wrong digit shows why and what the box needs. Fix it to finish the problem. A round with a fix does not count as clean, so the count goes back to 0. `Enter` then tries the same problem again and `N` starts a new one.
+- In Years 1 and 2 the answer fills from the left, the way a number is written. Written methods fill from the right.
+- Keyboard: arrows set the school year, `1`-`4` choose the area, `0-9` type, `-` minus, `Esc` pause, `H` help, `S` sound. The on-screen keypad is optional.
+
+## What each year covers
+
+| Year | Age | Multiply | Divide | Add and Subtract |
+| --- | --- | --- | --- | --- |
+| 1 | 5-6 | Rows of 2, 5 or 10 dots up to 100; 2, 5, 10 tables | Sharing and grouping; dividing by 2, 5, 10 | Facts to 20; 2-digit and 1s, 10s or 2-digit; three 1-digit numbers; missing numbers such as 7 = ? − 9 |
+| 2 | 6-7 | 2, 3, 4, 5, 8, 10 tables; missing numbers | Same tables; missing numbers | 3-digit and 1s, 10s or 100s; missing numbers; 2- and 3-digit columns |
+| 3 | 7-8 | 2- or 3-digit × 1-digit | 2- or 3-digit ÷ 1-digit, exact | 3- and 4-digit columns |
+| 4 | 8-9 | 3- or 4-digit × 1-digit; 2-digit × 2-digit | 3- or 4-digit ÷ 1-digit with remainders | 4- and 5-digit columns |
+| 5 | 9-10 | 3- or 4-digit × 2-digit | 4-digit ÷ 1-digit; 3- or 4-digit ÷ 2-digit | 5- and 6-digit columns; below zero with small numbers |
+| 6 | 10-11 | 4-digit × 2-digit; 3- or 4-digit × 3-digit | 4- or 5-digit ÷ 2-digit | 6-digit columns; below zero up to 100 |
+| 7 | 11-12 | 4- or 5-digit × 3-digit | 5-digit ÷ 2-digit; 4-digit ÷ 3-digit | 6- and 7-digit columns; adding and subtracting negatives |
+
+About 1 in 4 column subtractions exchange across a zero, and from Year 5 about 1 in 3 Add and Subtract problems have answers below zero. Multiply and Divide stay with positive whole numbers. Decimals and fractions are not covered.
 
 ## Files
 
 - `index.html`: page structure.
 - `styles.css`: visual design.
-- `engine.js`: pure arithmetic, worksheet layout, and action-sequence engine.
-- `game.js`: game state, keyboard controls, rendering, and sound.
+- `engine.js`: pure arithmetic, worksheet layouts, year content, the action sequence and worked sheet for each problem, and the year-check table.
+- `game.js`: learning and test play, year checks, keyboard controls, rendering, and sound.
 - `assets/`: locally hosted fonts and their OFL license files.
 
 No build step or third-party runtime dependencies.

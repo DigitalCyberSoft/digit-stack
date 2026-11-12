@@ -4,27 +4,79 @@
   const Engine = window.DigitStackEngine;
   if (!Engine) throw new Error('Digit Stack arithmetic engine failed to load.');
 
-  const MAX_STAGE = 4;
-  const CLEAN_TARGET = 10;
+  const YEARS = Engine.YEARS;
+  const AREAS = Engine.AREAS;
+  const FIRST_YEAR = YEARS[0];
+  const TOP_YEAR = YEARS[YEARS.length - 1];
+  const MINUS = Engine.MINUS;
 
-  const STAGE_INFO = {
-    multiply: {
-      1: { shape: '1-digit × 1-digit' },
-      2: { shape: '2-digit × 1-digit' },
-      3: { shape: '3-digit × 1-digit' },
-      4: { shape: '4-digit × 1-digit' }
+  const AREA_INFO = {
+    divide: { key: '1', sign: '÷', name: 'Divide' },
+    multiply: { key: '2', sign: '×', name: 'Multiply' },
+    add: { key: '3', sign: '+', name: 'Add' },
+    subtract: { key: '4', sign: MINUS, name: 'Subtract' }
+  };
+
+  // Ages follow the key stage tables on gov.uk ("The national curriculum").
+  const YEAR_INFO = {
+    1: {
+      age: '5-6',
+      multiply: 'Dot rows up to 100; 2, 5 and 10 tables',
+      divide: 'Sharing and grouping; ÷ 2, 5 and 10',
+      add: 'Facts to 20, 2-digit sums, missing numbers',
+      subtract: 'Facts to 20, 2-digit take-aways, missing numbers'
     },
-    divide: {
-      1: { shape: '1-digit ÷ 1-digit' },
-      2: { shape: '2-digit ÷ 1-digit' },
-      3: { shape: '3-digit ÷ 1-digit' },
-      4: { shape: '4-digit ÷ 1-digit' }
+    2: {
+      age: '6-7',
+      multiply: '2, 3, 4, 5, 8, 10 tables; missing numbers',
+      divide: '÷ 2, 3, 4, 5, 8, 10; missing numbers',
+      add: '3-digit sentences, missing numbers, 2-3 digit columns',
+      subtract: '3-digit sentences, missing numbers, 2-3 digit columns'
+    },
+    3: {
+      age: '7-8',
+      multiply: '2- or 3-digit × 1-digit',
+      divide: '2- or 3-digit ÷ 1-digit, exact',
+      add: '3- or 4-digit columns',
+      subtract: '3- or 4-digit columns'
+    },
+    4: {
+      age: '8-9',
+      multiply: 'Up to 4-digit × 1-digit, 2-digit × 2-digit',
+      divide: '3- or 4-digit ÷ 1-digit, remainders',
+      add: '4- or 5-digit columns',
+      subtract: '4- or 5-digit columns'
+    },
+    5: {
+      age: '9-10',
+      multiply: '3- or 4-digit × 2-digit',
+      divide: '4-digit ÷ 1-digit, up to 4-digit ÷ 2-digit',
+      add: '5- or 6-digit columns; below zero',
+      subtract: '5- or 6-digit columns; below zero'
+    },
+    6: {
+      age: '10-11',
+      multiply: '4-digit × 2-digit, up to 4-digit × 3-digit',
+      divide: '4- or 5-digit ÷ 2-digit',
+      add: '6-digit columns; below zero to 100',
+      subtract: '6-digit columns; below zero to 100'
+    },
+    7: {
+      age: '11-12',
+      multiply: '4- or 5-digit × 3-digit',
+      divide: '5-digit ÷ 2-digit, 4-digit ÷ 3-digit',
+      add: '6- or 7-digit columns; adding negatives',
+      subtract: '6- or 7-digit columns; subtracting negatives'
     }
   };
 
   const STORAGE = {
-    sound: 'digitstack.sound.v1'
+    sound: 'digitstack.sound.v1',
+    progress: 'digitstack.progress.v1'
   };
+
+  const TEST_HELP = 'Arrows move between boxes; Tab follows the method. Type to fill a box, ' +
+    'Backspace clears it. Small boxes are for working and are not marked. Press Enter to hand in.';
 
   function $(id) {
     return document.getElementById(id);
@@ -34,7 +86,15 @@
     app: document.querySelector('.app'),
     setupScreen: $('setupScreen'),
     gameScreen: $('gameScreen'),
+    setupLadder: $('setupLadder'),
+    shapes: {
+      divide: $('divideShape'),
+      multiply: $('multiplyShape'),
+      add: $('addShape'),
+      subtract: $('subtractShape')
+    },
     modeButtons: Array.from(document.querySelectorAll('[data-mode]')),
+    handInBtn: $('handInBtn'),
     soundBtn: $('soundBtn'),
     helpBtn: $('helpBtn'),
     pauseBtn: $('pauseBtn'),
@@ -57,10 +117,10 @@
     stepLine: $('stepLine'),
     prompt: $('prompt'),
     subprompt: $('subprompt'),
-    carryBtn: $('carryBtn'),
-    carryBtnLabel: $('carryBtnLabel'),
+    fixNote: $('fixNote'),
     keypad: $('keypad'),
-    footCarry: $('footCarry'),
+    minusKey: $('minusKey'),
+    footMinus: $('footMinus'),
     endPanel: $('endPanel'),
     endKicker: $('endKicker'),
     endTitle: $('endTitle'),
@@ -71,9 +131,9 @@
     helpClose: $('helpClose'),
     helpGotIt: $('helpGotIt'),
     pauseOverlay: $('pauseOverlay'),
-    pauseStage: $('pauseStage'),
+    pauseYear: $('pauseYear'),
     pauseStreak: $('pauseStreak'),
-    pauseGate: $('pauseGate'),
+    pauseCheck: $('pauseCheck'),
     resumeBtn: $('resumeBtn'),
     quitBtn: $('quitBtn'),
     liveRegion: $('liveRegion')
@@ -82,9 +142,11 @@
   const state = {
     screen: 'setup',
     operation: null,
-    stage: 1,
+    year: FIRST_YEAR,
     cleanStreak: 0,
-    pendingStage: null,
+    pendingYear: null,
+    roundClean: true,
+    fixes: 0,
     problem: null,
     actions: [],
     actionIndex: 0,
@@ -97,7 +159,15 @@
     audioCtx: null,
     helpOpen: false,
     pauseOpen: false,
-    previousFocus: null
+    previousFocus: null,
+    progress: null,
+    mode: 'guided',
+    pendingTest: false,
+    selectedCellId: null,
+    entries: new Map(),
+    handInWarned: false,
+    solution: null,
+    fillOrder: []
   };
 
   /* Storage is optional. A blocked store should not stop the game. */
@@ -115,12 +185,103 @@
     try {
       window.localStorage.setItem(key, String(value));
     } catch (err) {
-      // Preferences and best scores are not required to play.
+      // Preferences and saved progress are not required to play.
     }
   }
 
   function seedPreferences() {
     state.soundOn = readStored(STORAGE.sound, 'on') !== 'off';
+  }
+
+  /* Progress: the child's school year and the year checks passed per area. */
+
+  function emptyPassed() {
+    const passed = {};
+    AREAS.forEach(function (area) { passed[area] = []; });
+    return passed;
+  }
+
+  function emptyProgress() {
+    return { schoolYear: FIRST_YEAR, passed: emptyPassed(), learned: emptyPassed() };
+  }
+
+  function knownYears(list) {
+    if (!Array.isArray(list)) return [];
+    return list.filter(function (year) { return YEARS.indexOf(year) !== -1; });
+  }
+
+  // A missing or unreadable record starts a fresh ladder, the same as a
+  // first visit. JSON.parse has no non-throwing form.
+  function readProgress() {
+    const raw = readStored(STORAGE.progress, null);
+    if (raw === null) return emptyProgress();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (err) {
+      if (err instanceof SyntaxError) return emptyProgress();
+      throw err;
+    }
+    if (!data || typeof data !== 'object') return emptyProgress();
+    const savedPassed = data.passed && typeof data.passed === 'object' ? data.passed : {};
+    const savedLearned = data.learned && typeof data.learned === 'object' ? data.learned : {};
+    const passed = emptyPassed();
+    const learned = emptyPassed();
+    AREAS.forEach(function (area) {
+      passed[area] = knownYears(savedPassed[area]);
+      learned[area] = knownYears(savedLearned[area]);
+    });
+    return {
+      schoolYear: YEARS.indexOf(data.schoolYear) !== -1 ? data.schoolYear : FIRST_YEAR,
+      passed: passed,
+      learned: learned
+    };
+  }
+
+  // Each area and year is learned first, in guided play, then tested. The
+  // learning gate unlocks the test; passing the test passes the year check.
+  function phaseFor(operation, year) {
+    return state.progress.learned[operation].indexOf(year) !== -1 ? 'test' : 'guided';
+  }
+
+  function markLearned(operation, year) {
+    const list = state.progress.learned[operation];
+    if (list.indexOf(year) === -1) {
+      list.push(year);
+      list.sort(function (a, b) { return a - b; });
+    }
+    saveProgress();
+  }
+
+  // Each area starts at the school year and sits one year above its highest
+  // passed check, so one area can run ahead without moving the others.
+  function areaLevel(operation) {
+    const passed = state.progress.passed[operation];
+    const highest = passed.length ? Math.max.apply(null, passed) : 0;
+    return Math.min(TOP_YEAR, Math.max(state.progress.schoolYear, highest + 1));
+  }
+
+  function saveProgress() {
+    writeStored(STORAGE.progress, JSON.stringify(state.progress));
+  }
+
+  function hasPassed(operation, year) {
+    return Boolean(operation) && state.progress.passed[operation].indexOf(year) !== -1;
+  }
+
+  function markPassed(operation, year) {
+    const list = state.progress.passed[operation];
+    if (list.indexOf(year) === -1) {
+      list.push(year);
+      list.sort(function (a, b) { return a - b; });
+    }
+    saveProgress();
+  }
+
+  // Clean rounds in a row a check needs, set by how long that area's rounds
+  // are in that year.
+  function cleanTarget() {
+    return Engine.cleanRounds(state.operation, state.year);
   }
 
   /* Sound */
@@ -186,9 +347,8 @@
       tone(320, 0.17, { endFrequency: 720, type: 'triangle', gain: 0.035 });
     } else if (name === 'bring') {
       tone(520, 0.13, { endFrequency: 300, type: 'sine', gain: 0.022 });
-    } else if (name === 'fail') {
-      tone(180, 0.3, { endFrequency: 72, type: 'sawtooth', gain: 0.038 });
-      tone(118, 0.34, { type: 'square', gain: 0.014, delay: 0.02 });
+    } else if (name === 'miss') {
+      tone(240, 0.18, { endFrequency: 160, type: 'triangle', gain: 0.032 });
     } else if (name === 'win') {
       [523.25, 659.25, 783.99, 1046.5].forEach(function (frequency, index) {
         tone(frequency, 0.19, { type: 'triangle', gain: 0.028, delay: index * 0.085 });
@@ -213,15 +373,83 @@
     return lower.charAt(0).toUpperCase() + lower.slice(1);
   }
 
-  function digitWord(number) {
-    return number + (number === 1 ? ' digit' : ' digits');
-  }
-
   function blurFocus() {
     const active = document.activeElement;
     if (active && active !== document.body && typeof active.blur === 'function') {
       active.blur();
     }
+  }
+
+  /* Year ladders */
+
+  function buildLadders() {
+    [els.setupLadder, els.gameLadder].forEach(function (list) {
+      const isSetup = list === els.setupLadder;
+      list.innerHTML = '';
+      YEARS.forEach(function (year) {
+        const item = document.createElement('li');
+        item.dataset.year = String(year);
+        const node = document.createElement('span');
+        node.className = 'ladder-node';
+        node.textContent = String(year);
+        const label = document.createElement('span');
+        label.className = 'ladder-label';
+        label.textContent = isSetup ? 'Year ' + year : 'Y' + year;
+        item.appendChild(node);
+        item.appendChild(label);
+        if (isSetup) {
+          const tag = document.createElement('span');
+          tag.className = 'ladder-tag';
+          tag.textContent = 'age ' + YEAR_INFO[year].age;
+          const pass = document.createElement('span');
+          pass.className = 'ladder-pass';
+          item.appendChild(tag);
+          item.appendChild(pass);
+        }
+        list.appendChild(item);
+      });
+    });
+  }
+
+  function areaSummary(operation) {
+    const level = areaLevel(operation);
+    const ahead = level - state.progress.schoolYear;
+    return 'Year ' + level + (ahead > 0 ? ' (' + ahead + ' ahead)' : '') +
+      (phaseFor(operation, level) === 'test' ? ', test' : ', learning');
+  }
+
+  function updateSetupLadder() {
+    Array.from(els.setupLadder.children).forEach(function (item) {
+      const year = Number(item.dataset.year);
+      const selected = year === state.progress.schoolYear;
+      const passedAreas = AREAS.filter(function (area) { return hasPassed(area, year); });
+      item.classList.toggle('is-current', selected);
+      item.classList.toggle('is-done', !selected && passedAreas.length === AREAS.length);
+      if (selected) {
+        item.setAttribute('aria-current', 'true');
+      } else {
+        item.removeAttribute('aria-current');
+      }
+      const pass = item.querySelector('.ladder-pass');
+      pass.textContent = passedAreas.map(function (area) { return AREA_INFO[area].sign; }).join('');
+      pass.setAttribute('aria-label', passedAreas.length
+        ? 'Passed: ' + passedAreas.map(function (area) { return AREA_INFO[area].name; }).join(', ')
+        : 'No checks passed');
+    });
+    AREAS.forEach(function (area) {
+      els.shapes[area].textContent = areaSummary(area) + ': ' + YEAR_INFO[areaLevel(area)][area];
+    });
+  }
+
+  function selectYear(year) {
+    if (YEARS.indexOf(year) === -1) return;
+    state.progress.schoolYear = year;
+    saveProgress();
+    updateSetupLadder();
+    els.liveRegion.textContent = 'School year ' + year + ', age ' + YEAR_INFO[year].age + '. ' +
+      AREAS.map(function (area) {
+        return AREA_INFO[area].name + ' is at ' + areaSummary(area) + ', key ' + AREA_INFO[area].key;
+      }).join('. ') + '.';
   }
 
   /* Screens */
@@ -232,9 +460,9 @@
     if (state.pauseOpen) closePause();
     state.screen = 'setup';
     state.operation = null;
-    state.stage = 1;
     state.cleanStreak = 0;
-    state.pendingStage = null;
+    state.pendingYear = null;
+    state.pendingTest = false;
     state.problem = null;
     state.actions = [];
     state.actionIndex = 0;
@@ -244,21 +472,25 @@
     els.pauseBtn.hidden = true;
     els.consoleMain.hidden = false;
     els.endPanel.hidden = true;
+    updateSetupLadder();
     window.scrollTo(0, 0);
     blurFocus();
-    els.liveRegion.textContent = 'Choose divide or multiply. Press 1 or 2.';
+    els.liveRegion.textContent = 'Choose the school year with the arrow keys. Then press 1 to divide, ' +
+      '2 to multiply, 3 to add or 4 to subtract.';
   }
 
   function startRun(operation) {
-    if (state.screen !== 'setup') return;
+    if (state.screen !== 'setup' || AREAS.indexOf(operation) === -1) return;
     ensureAudio();
     state.operation = operation;
-    state.stage = 1;
+    state.year = areaLevel(operation);
+    state.mode = phaseFor(operation, state.year);
     state.cleanStreak = 0;
-    state.pendingStage = null;
+    state.pendingYear = null;
+    state.pendingTest = false;
     state.screen = 'playing';
     window.scrollTo(0, 0);
-    loadProblem(Engine.generateProblem(operation, 1));
+    loadProblem(Engine.generateProblem(operation, state.year));
   }
 
   function loadProblem(problem) {
@@ -268,6 +500,8 @@
     state.actionIndex = 0;
     state.screen = 'playing';
     state.lockInput = false;
+    state.roundClean = true;
+    state.fixes = 0;
     els.setupScreen.hidden = true;
     els.gameScreen.hidden = false;
     els.pauseBtn.hidden = false;
@@ -275,58 +509,88 @@
     els.endPanel.hidden = true;
     els.endPanel.className = 'end-panel';
     els.sheetStatus.classList.remove('is-win', 'is-fail');
-    els.console.classList.toggle('is-division', problem.operation === 'divide');
-    els.footCarry.hidden = problem.operation === 'divide';
+    // The dock only holds the Hand in button, so only a test shows it.
+    els.console.classList.toggle('no-carry', state.mode !== 'test');
+    els.footMinus.hidden = !problem.signBox;
+    els.minusKey.hidden = !problem.signBox;
+    els.keypad.classList.toggle('has-minus', Boolean(problem.signBox));
+    els.console.classList.toggle('is-test', state.mode === 'test');
+    els.handInBtn.disabled = state.mode !== 'test';
+    hideFixNote();
     updateModeUI();
     renderWorksheet(problem);
     updateLadder();
     updateStreak();
-    setIdleCarry();
     setKeypadEnabled(true);
-    activateAction();
+    if (state.mode === 'test') {
+      startTest(problem);
+    } else {
+      activateAction();
+    }
     blurFocus();
   }
 
   function retryProblem() {
-    if (state.screen !== 'failed' || !state.problem) return;
+    if (state.screen !== 'fixed' || !state.problem) return;
     ensureAudio();
     loadProblem(state.problem);
   }
 
   function newProblem() {
-    if (state.screen !== 'failed') return;
+    if (state.screen !== 'fixed' && state.screen !== 'testFailed') return;
     ensureAudio();
-    loadProblem(Engine.generateProblem(state.operation, state.stage));
+    loadProblem(Engine.generateProblem(state.operation, state.year));
   }
 
   function nextProblem() {
     if (state.screen !== 'won') return;
     ensureAudio();
-    const pending = state.pendingStage;
-    state.pendingStage = null;
-    if (pending) {
-      state.stage = pending;
+    const pendingYear = state.pendingYear;
+    const pendingTest = state.pendingTest;
+    state.pendingYear = null;
+    state.pendingTest = false;
+    if (pendingTest) {
+      state.mode = 'test';
+      state.cleanStreak = 0;
+    } else if (pendingYear) {
+      state.year = pendingYear;
+      state.mode = phaseFor(state.operation, state.year);
       state.cleanStreak = 0;
     }
-    loadProblem(Engine.generateProblem(state.operation, state.stage));
+    loadProblem(Engine.generateProblem(state.operation, state.year));
   }
 
   function updateModeUI() {
     if (!state.operation) return;
-    els.modeChip.textContent = state.operation === 'divide' ? '÷ Divide' : '× Multiply';
-    const info = STAGE_INFO[state.operation][state.stage];
-    els.modeShape.textContent = info ? info.shape : '';
+    const info = AREA_INFO[state.operation];
+    els.modeChip.textContent = info.sign + ' ' + info.name + (state.mode === 'test' ? ' · Test' : ' · Learn');
+    els.modeShape.textContent = 'Year ' + state.year + ': ' + YEAR_INFO[state.year][state.operation];
   }
 
   /* Worksheet */
 
+  function renderPicture(picture) {
+    const grid = document.createElement('div');
+    grid.className = 'dot-picture';
+    grid.style.gridTemplateColumns = 'repeat(' + picture.cols + ', auto)';
+    for (let i = 0; i < picture.rows * picture.cols; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      grid.appendChild(dot);
+    }
+    return grid;
+  }
+
   function renderWorksheet(problem) {
     els.worksheet.innerHTML = '';
+    els.worksheet.classList.toggle('is-sentence', problem.method === 'fact');
     state.cellEls.clear();
     state.rowEls.clear();
     state.groupChips.clear();
-    const template = 'var(--gutter) repeat(' + problem.width + ', var(--cell))';
+    const template = (problem.noGutter ? '' : 'var(--gutter) ') +
+      'repeat(' + problem.width + ', var(--cell))';
     const fragment = document.createDocumentFragment();
+    if (problem.picture) fragment.appendChild(renderPicture(problem.picture));
 
     problem.rows.forEach(function (row) {
       const rowEl = document.createElement('div');
@@ -350,16 +614,20 @@
       rowEl.className = 'row row-' + row.kind +
         (row.isOperator ? ' is-operator' : '') +
         (row.kind === 'dividend' ? ' dividend' : '') +
-        (row.kind === 'sum' ? ' sum' : '');
+        (row.kind === 'sum' ? ' sum' : '') +
+        (row.inBracket ? ' in-bracket' : '') +
+        (row.isExchange ? ' is-exchange' : '');
       rowEl.style.gridTemplateColumns = template;
 
-      const gutter = document.createElement('div');
-      gutter.className = 'gutter';
-      let gutterText = row.gutter || '';
-      if (row.kind === 'sum' && !gutterText) gutterText = '=';
-      gutter.textContent = gutterText;
-      gutter.setAttribute('aria-hidden', 'true');
-      rowEl.appendChild(gutter);
+      if (!problem.noGutter) {
+        const gutter = document.createElement('div');
+        gutter.className = 'gutter';
+        let gutterText = row.gutter || '';
+        if (row.kind === 'sum' && !gutterText && problem.operation === 'multiply') gutterText = '=';
+        gutter.textContent = gutterText;
+        gutter.setAttribute('aria-hidden', 'true');
+        rowEl.appendChild(gutter);
+      }
 
       for (let col = 0; col < problem.width; col++) {
         const cell = row.cells[col];
@@ -374,6 +642,9 @@
         let cellClass = 'cell ' + cell.kind;
         if (cell.kind === 'carry') cellClass += ' carry-slot';
         if (cell.shiftZero) cellClass += ' shift-zero';
+        if (cell.sign) cellClass += ' sign-cell';
+        if (cell.signBox) cellClass += ' sign-box';
+        if (cell.remainderLabel) cellClass += ' remainder-label';
         if (cell.kind === 'bringdown') cellClass += ' pending';
         cellEl.className = cellClass;
         cellEl.dataset.cellId = cell.id;
@@ -381,7 +652,13 @@
         if (cell.kind === 'given') {
           cellEl.textContent = String(cell.value);
         } else if (cell.kind === 'bringdown') {
-          cellEl.textContent = '↓';
+          // In a test the child writes the brought-down digit themselves.
+          if (state.mode === 'test') {
+            cellEl.classList.remove('pending');
+            cellEl.classList.add('test-box');
+          } else {
+            cellEl.textContent = '↓';
+          }
         }
         state.cellEls.set(cell.id, { el: cellEl, cell: cell, row: row });
         rowEl.appendChild(cellEl);
@@ -405,12 +682,12 @@
   }
 
   function clearActiveMarks() {
-    els.worksheet.querySelectorAll('.cell.active, .cell.carry-target, .cell.bringdown-active').forEach(function (el) {
-      el.classList.remove('active', 'carry-target', 'bringdown-active');
+    els.worksheet.querySelectorAll('.cell.active, .cell.bringdown-active').forEach(function (el) {
+      el.classList.remove('active', 'bringdown-active');
       el.removeAttribute('data-flag');
     });
-    els.worksheet.querySelectorAll('.row.is-active, .row.is-carry-target').forEach(function (el) {
-      el.classList.remove('is-active', 'is-carry-target');
+    els.worksheet.querySelectorAll('.row.is-active').forEach(function (el) {
+      el.classList.remove('is-active');
     });
   }
 
@@ -420,20 +697,6 @@
     els.keypad.querySelectorAll('button').forEach(function (button) {
       button.disabled = !enabled;
     });
-  }
-
-  function setIdleCarry() {
-    els.carryBtn.disabled = true;
-    els.carryBtn.classList.remove('is-live');
-    els.carryBtnLabel.textContent = 'Carry';
-    els.carryBtn.setAttribute('aria-label', 'Carry, not needed right now');
-  }
-
-  function setLiveCarry(value) {
-    els.carryBtn.disabled = false;
-    els.carryBtn.classList.add('is-live');
-    els.carryBtnLabel.textContent = 'Carry ' + value;
-    els.carryBtn.setAttribute('aria-label', 'Carry ' + value + ' to the next column');
   }
 
   function currentAction() {
@@ -453,39 +716,25 @@
     const rowEl = state.rowEls.get(action.rowId);
     state.lockInput = false;
 
-    if (action.kind === 'digit') {
-      entry.el.classList.add('active');
-      entry.el.dataset.flag = 'type';
-      if (rowEl) rowEl.classList.add('is-active');
-      setIdleCarry();
-      setKeypadEnabled(true);
-    } else if (action.kind === 'carry') {
-      entry.el.classList.add('active');
-      entry.el.dataset.flag = 'carry';
-      if (rowEl) rowEl.classList.add('is-active');
-      const targetRow = state.rowEls.get(action.targetRowId);
-      if (targetRow) targetRow.classList.add('is-carry-target');
-      const targetEntry = state.cellEls.get(action.targetCellId);
-      if (targetEntry) targetEntry.el.classList.add('carry-target');
-      setLiveCarry(action.value);
-      setKeypadEnabled(false);
-    } else if (action.kind === 'bringdown') {
+    if (action.kind === 'bringdown') {
       state.lockInput = true;
       entry.el.classList.add('bringdown-active');
       if (rowEl) rowEl.classList.add('is-active');
-      setIdleCarry();
       setKeypadEnabled(false);
       state.timer = window.setTimeout(function () {
         resolveBringdown(action);
       }, 480);
+    } else {
+      // Digits, moves and signs all mark the same kind of box, so the box
+      // never tells the child which of them is due.
+      entry.el.classList.add('active');
+      entry.el.dataset.flag = 'type';
+      if (rowEl) rowEl.classList.add('is-active');
+      setKeypadEnabled(true);
     }
 
     updateActionUI(action);
     announceAction(action);
-    if (action.kind === 'bringdown') {
-      revealActiveCell(entry.el);
-      return;
-    }
     revealActiveCell(entry.el);
   }
 
@@ -493,14 +742,20 @@
     els.stageChip.textContent = titleCase(action.stage);
     els.prompt.textContent = action.prompt;
     els.subprompt.textContent = action.subprompt;
-    const groupIndex = Math.max(0, state.problem.groups.findIndex(function (group) {
-      return group.id === action.groupId;
-    }));
-    const word = state.problem.operation === 'divide' ? 'Step' : 'Row';
-    const label = word + ' ' + (groupIndex + 1) + ' of ' + state.problem.groups.length;
+    let label;
+    if (!state.problem.groupWord) {
+      label = 'Type the answer';
+    } else {
+      const groupIndex = Math.max(0, state.problem.groups.findIndex(function (group) {
+        return group.id === action.groupId;
+      }));
+      label = state.problem.groupWord + ' ' + (groupIndex + 1) + ' of ' + state.problem.groups.length;
+    }
     els.stepLine.textContent = label;
-    els.sheetStatus.textContent = label.toLowerCase();
-    els.sheetStatus.classList.remove('is-win', 'is-fail');
+    if (state.roundClean) {
+      els.sheetStatus.textContent = label.toLowerCase();
+      els.sheetStatus.classList.remove('is-win', 'is-fail');
+    }
     updateRowMapForAction(action.groupId);
   }
 
@@ -516,18 +771,6 @@
     });
   }
 
-  function updateRowMapForFailure(groupId) {
-    const groups = state.problem.groups;
-    const current = groups.findIndex(function (group) { return group.id === groupId; });
-    groups.forEach(function (group, index) {
-      const chip = state.groupChips.get(group.id);
-      if (!chip) return;
-      chip.classList.toggle('is-done', index < current);
-      chip.classList.toggle('is-missed', index === current);
-      chip.classList.remove('is-active');
-    });
-  }
-
   function markAllGroupsDone() {
     state.problem.groups.forEach(function (group) {
       const chip = state.groupChips.get(group.id);
@@ -540,8 +783,13 @@
   function announceAction(action) {
     let message = els.stepLine.textContent + '. ' + titleCase(action.stage) + '. ' +
       action.prompt + ' ' + action.subprompt;
-    if (action.kind === 'digit') message += ' Type a digit.';
-    if (action.kind === 'carry') message += ' Press Space or Enter to carry.';
+    if (action.kind === 'sign') {
+      message += ' Press minus for an answer below zero, or type the first digit.';
+    } else if (action.choice) {
+      message += ' Type the small digit, or 0 if there is none.';
+    } else if (action.kind === 'digit') {
+      message += ' Type a digit.';
+    }
     els.liveRegion.textContent = message;
   }
 
@@ -570,8 +818,8 @@
     });
   }
 
-  function flashKey(digit) {
-    const key = els.keypad.querySelector('button[data-digit="' + digit + '"]');
+  function flashKey(selector) {
+    const key = els.keypad.querySelector(selector);
     if (!key) return;
     key.classList.add('just-pressed');
     window.setTimeout(function () { key.classList.remove('just-pressed'); }, 120);
@@ -589,54 +837,97 @@
     }
   }
 
+  function crossOut(cellId) {
+    const entry = state.cellEls.get(cellId);
+    if (entry) entry.el.classList.add('crossed');
+  }
+
+  // A typed digit can also cross out the top digit it replaces and fill the
+  // receiving column of an exchange. A 0 at a small box writes nothing; the
+  // box is only marked as checked.
+  function applyDigit(action, digit) {
+    const entry = state.cellEls.get(action.cellId);
+    clearMissMark(action);
+    if (action.shown === null) {
+      if (entry && !entry.el.textContent) entry.el.classList.add('zeroed');
+    } else {
+      fillCell(entry, action.shown !== undefined ? action.shown : digit,
+        entry && entry.cell.kind === 'carry' ? 'just-carried' : 'just-filled');
+    }
+    if (action.crossCellId) crossOut(action.crossCellId);
+    (action.alsoFill || []).forEach(function (fill) {
+      fillCell(state.cellEls.get(fill.cellId), fill.value, 'just-carried');
+      const filled = state.cellEls.get(fill.cellId);
+      if (filled) filled.el.classList.add('auto-filled');
+      if (fill.crossCellId) crossOut(fill.crossCellId);
+    });
+  }
+
+  function advance(steps) {
+    state.actionIndex += steps;
+    if (state.actionIndex >= state.actions.length) {
+      finishProblem();
+      return;
+    }
+    activateAction();
+  }
+
   function submitDigit(digit) {
     if (state.screen !== 'playing' || state.lockInput) return;
     const action = currentAction();
     if (!action) return;
     ensureAudio();
+    flashKey('button[data-digit="' + digit + '"]');
 
-    if (action.kind !== 'digit') {
-      if (action.kind === 'carry') nudgeCarry();
+    if (action.kind === 'sign') {
+      const next = state.actions[state.actionIndex + 1];
+      if (action.value === '+' && digit === action.firstDigit) {
+        clearMissMark(action);
+        const signEntry = state.cellEls.get(action.cellId);
+        if (signEntry) {
+          signEntry.el.textContent = '';
+          signEntry.el.classList.add('filled', 'skipped');
+        }
+        applyDigit(next, digit);
+        playSound('tick');
+        advance(2);
+        return;
+      }
+      handleMiss(
+        action,
+        String(digit),
+        'Not quite. ' + action.why,
+        action.value === MINUS ? MINUS : String(action.firstDigit)
+      );
       return;
     }
+    if (action.kind !== 'digit') return;
 
-    flashKey(digit);
     if (digit !== action.value) {
-      failProblem(action, digit);
+      handleMiss(action, String(digit), 'Not quite. This box needs ' + action.value + '. ' + action.why,
+        String(action.value));
       return;
     }
-
-    fillCell(state.cellEls.get(action.cellId), digit, 'just-filled');
+    applyDigit(action, digit);
     playSound('tick');
-    state.actionIndex += 1;
-    if (state.actionIndex >= state.actions.length) {
-      finishProblem();
-      return;
-    }
-    activateAction();
+    advance(1);
   }
 
-  function performCarry() {
+  function submitMinus() {
     if (state.screen !== 'playing' || state.lockInput) return;
     const action = currentAction();
-    if (!action || action.kind !== 'carry') return;
+    if (!action || action.kind !== 'sign') return;
     ensureAudio();
-    fillCell(state.cellEls.get(action.cellId), action.value, 'just-carried');
-    playSound('carry');
-    state.actionIndex += 1;
-    if (state.actionIndex >= state.actions.length) {
-      finishProblem();
+    flashKey('#minusKey');
+    if (action.value === MINUS) {
+      const entry = state.cellEls.get(action.cellId);
+      clearMissMark(action);
+      fillCell(entry, MINUS, 'just-filled');
+      playSound('tick');
+      advance(1);
       return;
     }
-    activateAction();
-  }
-
-  function nudgeCarry() {
-    els.carryBtn.classList.remove('is-nudged');
-    void els.carryBtn.offsetWidth;
-    els.carryBtn.classList.add('is-nudged');
-    window.setTimeout(function () { els.carryBtn.classList.remove('is-nudged'); }, 320);
-    els.liveRegion.textContent = 'Press Space or Enter to carry.';
+    handleMiss(action, MINUS, 'Not quite. ' + action.why, String(action.firstDigit));
   }
 
   function resolveBringdown(action) {
@@ -650,12 +941,7 @@
     }
     playSound('bring');
     state.lockInput = false;
-    state.actionIndex += 1;
-    if (state.actionIndex >= state.actions.length) {
-      finishProblem();
-      return;
-    }
-    activateAction();
+    advance(1);
   }
 
   function clearTimer() {
@@ -665,27 +951,88 @@
     }
   }
 
+  /* Mistakes: show why, then let the right input go in. */
+
+  function hideFixNote() {
+    els.fixNote.hidden = true;
+    els.fixNote.textContent = '';
+  }
+
+  // A box can already show a value (an exchange box that gave a ten away),
+  // so a wrong digit is shown over it and the old value comes back after.
+  function clearMissMark(action) {
+    const entry = state.cellEls.get(action.cellId);
+    if (entry && entry.el.classList.contains('wrong')) {
+      entry.el.classList.remove('wrong');
+      entry.el.textContent = entry.el.dataset.before || '';
+      delete entry.el.dataset.before;
+    }
+    const rowEl = state.rowEls.get(action.rowId);
+    if (rowEl) rowEl.classList.remove('is-failed');
+    hideFixNote();
+    if (!state.roundClean) {
+      els.sheetStatus.textContent = 'fixed, keep going';
+    }
+  }
+
+  function handleMiss(action, shownText, note, needed) {
+    const firstMiss = state.roundClean;
+    state.roundClean = false;
+    state.fixes += 1;
+    state.cleanStreak = 0;
+    state.pendingYear = null;
+
+    const entry = state.cellEls.get(action.cellId);
+    if (entry) {
+      if (!entry.el.classList.contains('wrong')) entry.el.dataset.before = entry.el.textContent;
+      entry.el.textContent = shownText;
+      entry.el.classList.add('wrong');
+      entry.el.dataset.flag = '✓ ' + needed;
+    }
+    const rowEl = state.rowEls.get(action.rowId);
+    if (rowEl) rowEl.classList.add('is-failed');
+
+    els.fixNote.textContent = note;
+    els.fixNote.hidden = false;
+    updateStreak();
+    els.sheetStatus.textContent = 'Fix this box';
+    els.sheetStatus.classList.remove('is-win');
+    els.sheetStatus.classList.add('is-fail');
+
+    els.sheet.classList.remove('is-shaking');
+    void els.sheet.offsetWidth;
+    els.sheet.classList.add('is-shaking');
+    window.setTimeout(function () { els.sheet.classList.remove('is-shaking'); }, 500);
+
+    playSound('miss');
+    els.liveRegion.textContent = note + ' The box needs ' + needed + '.' +
+      (firstMiss ? ' This round no longer counts as clean, so the clean count is back to 0.' : '');
+  }
+
   /* Ladder and clean-round meter */
 
   function updateLadder() {
-    const promotionWin = state.screen === 'won' && state.pendingStage !== null;
+    const promotionWin = state.screen === 'won' && state.pendingYear !== null &&
+      state.pendingYear !== state.year;
     Array.from(els.gameLadder.children).forEach(function (item) {
-      const stage = Number(item.dataset.stage);
+      const year = Number(item.dataset.year);
       item.classList.remove('is-done', 'is-current', 'is-next');
-      if (stage < state.stage) {
-        item.classList.add('is-done');
-      } else if (stage === state.stage) {
+      if (year === state.year) {
         item.classList.add(promotionWin ? 'is-done' : 'is-current');
+      } else if (hasPassed(state.operation, year)) {
+        item.classList.add('is-done');
       }
-      if (state.pendingStage === stage && promotionWin) {
+      if (promotionWin && year === state.pendingYear) {
         item.classList.add('is-next');
       }
     });
   }
 
-  function buildStreakMeter() {
+  function buildStreakMeter(count) {
     els.streakMeter.innerHTML = '';
-    for (let i = 0; i < CLEAN_TARGET; i++) {
+    els.streakMeter.style.gridTemplateColumns = 'repeat(' + count + ', minmax(0, 1fr))';
+    els.streakMeter.setAttribute('aria-valuemax', String(count));
+    for (let i = 0; i < count; i++) {
       const pip = document.createElement('span');
       pip.setAttribute('aria-hidden', 'true');
       els.streakMeter.appendChild(pip);
@@ -693,27 +1040,27 @@
   }
 
   function updateStreak() {
-    const shown = Math.max(0, Math.min(state.cleanStreak, CLEAN_TARGET));
+    const target = cleanTarget();
+    if (els.streakMeter.children.length !== target) buildStreakMeter(target);
+    const shown = Math.max(0, Math.min(state.cleanStreak, target));
     const pips = els.streakMeter.children;
     for (let i = 0; i < pips.length; i++) {
       pips[i].classList.toggle('is-on', i < shown);
     }
     els.streakMeter.setAttribute('aria-valuenow', String(shown));
-    els.streakMeter.setAttribute('aria-valuetext', shown + ' of ' + CLEAN_TARGET + ' clean rounds');
-    if (state.stage === MAX_STAGE) {
-      els.streakChip.classList.remove('is-full');
-      els.streakMeter.hidden = true;
-      els.gateLabel.textContent = 'Digit level';
-      els.streakValue.textContent = 'Top';
-      els.gateLine.textContent = '4 digits reached';
+    els.streakMeter.setAttribute('aria-valuetext', shown + ' of ' + target + ' clean rounds');
+    els.streakChip.classList.toggle('is-full', shown >= target);
+    els.gateLabel.textContent = state.mode === 'test' ? 'Test streak' : 'Learning streak';
+    els.streakValue.textContent = shown + ' / ' + target;
+    if (state.pendingTest) {
+      els.gateLine.textContent = 'Year ' + state.year + ' test unlocked';
+    } else if (state.pendingYear && state.pendingYear !== state.year) {
+      els.gateLine.textContent = 'Year ' + state.pendingYear + ' unlocked';
+    } else if (state.mode === 'test') {
+      els.gateLine.textContent = 'Year ' + state.year + ' test' +
+        (hasPassed(state.operation, state.year) ? ' passed' : '');
     } else {
-      els.streakChip.classList.toggle('is-full', shown >= CLEAN_TARGET);
-      els.streakMeter.hidden = false;
-      els.gateLabel.textContent = 'Clean streak';
-      els.streakValue.textContent = shown + ' / ' + CLEAN_TARGET;
-      els.gateLine.textContent = state.pendingStage
-        ? state.pendingStage + ' digits unlocked'
-        : 'to ' + (state.stage + 1) + ' digits';
+      els.gateLine.textContent = 'Year ' + state.year + ': learn, then test';
     }
   }
 
@@ -748,130 +1095,397 @@
     });
   }
 
-  function failProblem(action, typedDigit) {
-    clearTimer();
-    state.screen = 'failed';
-    state.lockInput = true;
-    state.cleanStreak = 0;
-    state.pendingStage = null;
+  /* Test mode: every box open, arrows to move, Enter to hand in. */
 
-    clearActiveMarks();
-    const entry = state.cellEls.get(action.cellId);
-    if (entry) {
-      entry.el.textContent = String(typedDigit);
-      entry.el.classList.add('wrong');
-      entry.el.dataset.correct = String(action.value);
-      const rowEl = state.rowEls.get(action.rowId);
-      if (rowEl) rowEl.classList.add('is-failed');
-    }
-
-    setIdleCarry();
-    setKeypadEnabled(false);
-    els.sheetStatus.textContent = 'Wrong digit';
-    els.sheetStatus.classList.remove('is-win');
-    els.sheetStatus.classList.add('is-fail');
-    updateLadder();
-    updateStreak();
-    updateRowMapForFailure(action.groupId);
-
-    els.sheet.classList.remove('is-shaking');
-    void els.sheet.offsetWidth;
-    els.sheet.classList.add('is-shaking');
-    window.setTimeout(function () { els.sheet.classList.remove('is-shaking'); }, 500);
-
-    playSound('fail');
-    showFailurePanel(action);
-    els.liveRegion.textContent = 'Wrong digit. The box needed ' + action.value + '. ' +
-      action.why + ' The ten count is back to zero. You stay at digit level ' +
-      state.stage + '.';
+  function isFillable(cell) {
+    return cell.kind === 'input' || cell.kind === 'carry' || cell.kind === 'bringdown';
   }
 
-  function showFailurePanel(action) {
-    els.consoleMain.hidden = true;
-    els.endPanel.hidden = false;
-    els.endPanel.className = 'end-panel is-fail';
-    els.endKicker.textContent = 'Round over';
-    els.endTitle.textContent = 'Wrong digit.';
-    els.endAnswer.textContent = 'This box needed ' + action.value + '. ' + action.why;
-    els.endDetail.textContent = state.stage === MAX_STAGE
-      ? 'The clean streak is back to 0. You stay at the top digit level.'
-      : 'The clean streak is back to 0. You stay at digit level ' + state.stage +
-        '. Ten clean rounds in a row add a digit.';
-    els.endActions.innerHTML = '';
-    const primary = printEndButton('Try again', 'Enter', 'primary', retryProblem);
-    printEndButton('New problem', 'N', '', newProblem);
-    printEndButton('Pause', 'Esc', 'ghost', openPause);
-    focusButtonSoon(primary);
+  // Tab order follows the method: the boxes in the order guided mode visits
+  // them, then any small boxes the method never needed.
+  function testOrder(problem) {
+    const order = [];
+    problem.actions.forEach(function (action) {
+      if (order.indexOf(action.cellId) === -1) order.push(action.cellId);
+    });
+    problem.rows.forEach(function (row) {
+      (row.cells || []).forEach(function (cell) {
+        if (cell && isFillable(cell) && order.indexOf(cell.id) === -1) order.push(cell.id);
+      });
+    });
+    return order;
+  }
+
+  function markedCellIds() {
+    const ids = [];
+    state.problem.rows.forEach(function (row) {
+      if (state.problem.markRowIds.indexOf(row.id) === -1) return;
+      row.cells.forEach(function (cell) {
+        if (cell && cell.kind === 'input') ids.push(cell.id);
+      });
+    });
+    return ids;
+  }
+
+  // Answers are written left to right in a number sentence and in the answer
+  // above a division bracket; everything else in a written method is worked
+  // from the right. Small boxes do not move on by themselves.
+  function rowDirection(row) {
+    if (row.kind === 'carry') return 0;
+    if (row.kind === 'fact' || row.id === 'q') return 1;
+    return -1;
+  }
+
+  function rowIndexOf(cellId) {
+    const entry = state.cellEls.get(cellId);
+    return state.problem.rows.indexOf(entry.row);
+  }
+
+  function fillableInRow(rowIndex) {
+    const row = state.problem.rows[rowIndex];
+    return (row.cells || []).filter(function (cell) { return cell && isFillable(cell); });
+  }
+
+  function rowNeighbour(cellId, direction) {
+    const entry = state.cellEls.get(cellId);
+    const cells = fillableInRow(rowIndexOf(cellId));
+    const candidates = cells.filter(function (cell) {
+      return direction > 0 ? cell.col > entry.cell.col : cell.col < entry.cell.col;
+    });
+    if (!candidates.length) return null;
+    candidates.sort(function (a, b) {
+      return Math.abs(a.col - entry.cell.col) - Math.abs(b.col - entry.cell.col);
+    });
+    return candidates[0].id;
+  }
+
+  function verticalNeighbour(cellId, direction) {
+    const entry = state.cellEls.get(cellId);
+    for (let r = rowIndexOf(cellId) + direction; r >= 0 && r < state.problem.rows.length; r += direction) {
+      const cells = fillableInRow(r);
+      if (!cells.length) continue;
+      cells.sort(function (a, b) {
+        return Math.abs(a.col - entry.cell.col) - Math.abs(b.col - entry.cell.col) || b.col - a.col;
+      });
+      return cells[0].id;
+    }
+    return null;
+  }
+
+  function describeCell(cellId) {
+    const entry = state.cellEls.get(cellId);
+    const role = markedCellIds().indexOf(cellId) !== -1
+      ? (entry.cell.signBox ? 'sign box' : 'answer box')
+      : (entry.cell.kind === 'carry' ? 'small working box' : 'working box');
+    const text = state.entries.get(cellId);
+    return role + ', ' + (text ? 'holds ' + text : 'empty');
+  }
+
+  function selectCell(cellId) {
+    if (!cellId || !state.cellEls.has(cellId)) return;
+    clearActiveMarks();
+    state.selectedCellId = cellId;
+    const entry = state.cellEls.get(cellId);
+    entry.el.classList.add('active');
+    entry.el.dataset.flag = 'type';
+    const rowEl = state.rowEls.get(entry.row.id);
+    if (rowEl) rowEl.classList.add('is-active');
+    els.liveRegion.textContent = describeCell(cellId) + '.';
+    revealActiveCell(entry.el);
+  }
+
+  function setEntry(cellId, text) {
+    const entry = state.cellEls.get(cellId);
+    if (!entry) return;
+    if (text) {
+      state.entries.set(cellId, text);
+    } else {
+      state.entries.delete(cellId);
+    }
+    entry.el.textContent = text;
+    entry.el.classList.toggle('filled', Boolean(text));
+    // Writing a new value above a top digit crosses that digit out.
+    if (entry.row.isExchange) {
+      const top = state.cellEls.get('a-c' + entry.cell.col);
+      if (top) top.el.classList.toggle('crossed', Boolean(text));
+    }
+  }
+
+  function startTest(problem) {
+    state.entries = new Map();
+    state.handInWarned = false;
+    state.solution = Engine.solutionOf(problem);
+    state.fillOrder = testOrder(problem);
+    els.stageChip.textContent = 'Test';
+    els.stepLine.textContent = 'Fill the boxes, then hand in';
+    els.prompt.textContent = problem.question;
+    els.subprompt.textContent = TEST_HELP;
+    els.sheetStatus.textContent = 'test';
+    els.rowMap.querySelectorAll('.row-chip').forEach(function (chip) {
+      chip.classList.remove('is-active', 'is-done');
+    });
+    selectCell(state.fillOrder[0]);
+    els.liveRegion.textContent = 'Test. ' + problem.question + ' ' + TEST_HELP + ' ' +
+      describeCell(state.selectedCellId) + '.';
+  }
+
+  function resetHandInWarning() {
+    if (state.handInWarned) {
+      state.handInWarned = false;
+      hideFixNote();
+    }
+  }
+
+  function testType(digit) {
+    if (state.screen !== 'playing' || state.mode !== 'test') return;
+    const id = state.selectedCellId;
+    const entry = state.cellEls.get(id);
+    if (!entry) return;
+    ensureAudio();
+    flashKey('button[data-digit="' + digit + '"]');
+    resetHandInWarning();
+    if (entry.cell.signBox) {
+      const next = rowNeighbour(id, 1);
+      if (next) {
+        selectCell(next);
+        testType(digit);
+      }
+      return;
+    }
+    const before = state.entries.get(id) || '';
+    // Exchange boxes can hold two digits, such as 12.
+    const text = entry.row.isExchange && before.length === 1 ? before + digit : String(digit);
+    setEntry(id, text);
+    playSound('tick');
+    const direction = rowDirection(entry.row);
+    if (direction && entry.cell.kind === 'input') {
+      const next = rowNeighbour(id, direction);
+      if (next) selectCell(next);
+    }
+  }
+
+  function testBackspace() {
+    if (state.screen !== 'playing' || state.mode !== 'test') return;
+    const id = state.selectedCellId;
+    const entry = state.cellEls.get(id);
+    if (!entry) return;
+    resetHandInWarning();
+    const text = state.entries.get(id) || '';
+    if (text) {
+      setEntry(id, text.length > 1 ? text.slice(0, -1) : '');
+      return;
+    }
+    const direction = rowDirection(entry.row);
+    if (!direction) return;
+    const previous = rowNeighbour(id, -direction);
+    if (previous) {
+      selectCell(previous);
+      setEntry(previous, '');
+    }
+  }
+
+  function testMinus() {
+    if (state.screen !== 'playing' || state.mode !== 'test' || !state.problem.signBox) return;
+    const sign = state.problem.rows[0].cells.find(function (cell) { return cell && cell.signBox; });
+    if (!sign) return;
+    resetHandInWarning();
+    flashKey('#minusKey');
+    setEntry(sign.id, state.entries.get(sign.id) === MINUS ? '' : MINUS);
+    playSound('tick');
+  }
+
+  function testMove(key, shift) {
+    const id = state.selectedCellId;
+    let next = null;
+    if (key === 'ArrowLeft') next = rowNeighbour(id, -1);
+    if (key === 'ArrowRight') next = rowNeighbour(id, 1);
+    if (key === 'ArrowUp') next = verticalNeighbour(id, -1);
+    if (key === 'ArrowDown') next = verticalNeighbour(id, 1);
+    if (key === 'Tab') {
+      const index = state.fillOrder.indexOf(id);
+      const count = state.fillOrder.length;
+      next = state.fillOrder[(index + (shift ? count - 1 : 1)) % count];
+    }
+    if (next) selectCell(next);
+  }
+
+  function handIn() {
+    if (state.screen !== 'playing' || state.mode !== 'test') return;
+    ensureAudio();
+    const marked = markedCellIds();
+    const empty = marked.filter(function (id) {
+      return !state.entries.get(id) && !state.cellEls.get(id).cell.signBox;
+    });
+    if (empty.length && !state.handInWarned) {
+      state.handInWarned = true;
+      els.fixNote.textContent = empty.length + (empty.length === 1 ? ' answer box is' : ' answer boxes are') +
+        ' empty. Press Enter again to hand in, or keep going.';
+      els.fixNote.hidden = false;
+      els.liveRegion.textContent = els.fixNote.textContent;
+      return;
+    }
+    const correct = marked.every(function (id) {
+      return (state.entries.get(id) || '') === (state.solution.values[id] || '');
+    });
+    markTest(marked, correct);
+    state.roundClean = correct;
+    completeRound();
+  }
+
+  // Answer boxes are marked right or wrong. After a wrong answer every other
+  // box shows the proper working, with exchanged digits crossed out.
+  function markTest(marked, correct) {
+    clearActiveMarks();
+    marked.forEach(function (id) {
+      const entry = state.cellEls.get(id);
+      const typed = state.entries.get(id) || '';
+      const proper = state.solution.values[id] || '';
+      if (typed === proper) {
+        entry.el.classList.add('mark-right');
+        return;
+      }
+      entry.el.textContent = proper;
+      entry.el.classList.add('filled', 'mark-wrong');
+      entry.el.dataset.was = typed ? 'was ' + typed : 'was empty';
+    });
+    if (correct) return;
+    state.cellEls.forEach(function (entry, id) {
+      if (marked.indexOf(id) !== -1 || !isFillable(entry.cell)) return;
+      const proper = state.solution.values[id];
+      entry.el.textContent = proper === undefined ? '' : proper;
+      entry.el.classList.toggle('filled', proper !== undefined);
+      entry.el.classList.toggle('solution', proper !== undefined);
+      if (entry.row.isExchange) {
+        const top = state.cellEls.get('a-c' + entry.cell.col);
+        if (top) top.el.classList.remove('crossed');
+      }
+    });
+    state.solution.crossed.forEach(crossOut);
   }
 
   function finishProblem() {
-    clearTimer();
-    state.screen = 'won';
-    state.lockInput = true;
-    state.cleanStreak += 1;
-    if (state.stage === MAX_STAGE) {
-      state.cleanStreak = Math.min(state.cleanStreak, CLEAN_TARGET);
-    }
+    completeRound();
+  }
 
-    let promotion = false;
-    if (state.stage < MAX_STAGE && state.cleanStreak >= CLEAN_TARGET) {
-      state.pendingStage = state.stage + 1;
-      promotion = true;
+  function completeRound() {
+    clearTimer();
+    state.lockInput = true;
+    hideFixNote();
+
+    let passedNow = false;
+    if (state.roundClean) {
+      state.screen = 'won';
+      state.cleanStreak += 1;
+      if (state.cleanStreak >= cleanTarget()) {
+        passedNow = true;
+        if (state.mode === 'guided') {
+          // Learning done: the same year's test comes next.
+          markLearned(state.operation, state.year);
+          state.pendingTest = true;
+        } else {
+          markPassed(state.operation, state.year);
+          // The top year has nowhere to go, so its tests start again.
+          state.pendingYear = state.year < TOP_YEAR ? state.year + 1 : state.year;
+        }
+      } else {
+        state.pendingYear = null;
+      }
     } else {
-      state.pendingStage = null;
+      state.screen = state.mode === 'test' ? 'testFailed' : 'fixed';
+      state.cleanStreak = 0;
+      state.pendingYear = null;
     }
 
     clearActiveMarks();
-    setIdleCarry();
     setKeypadEnabled(false);
-    els.sheetStatus.textContent = 'Solved';
-    els.sheetStatus.classList.remove('is-fail');
-    els.sheetStatus.classList.add('is-win');
-    state.problem.answerRowIds.forEach(function (rowId) {
-      const rowEl = state.rowEls.get(rowId);
-      if (rowEl) rowEl.classList.add('answer-solved');
-    });
+    els.sheetStatus.textContent = state.roundClean
+      ? (state.mode === 'test' ? 'Correct' : 'Solved')
+      : (state.mode === 'test' ? 'Not quite' : 'Solved with a fix');
+    els.sheetStatus.classList.toggle('is-win', state.roundClean);
+    els.sheetStatus.classList.toggle('is-fail', !state.roundClean);
+    // A failed test keeps its own right and wrong marks instead.
+    if (state.roundClean || state.mode !== 'test') {
+      state.problem.answerRowIds.forEach(function (rowId) {
+        const rowEl = state.rowEls.get(rowId);
+        if (rowEl) rowEl.classList.add('answer-solved');
+      });
+    }
 
     updateLadder();
     updateStreak();
     markAllGroupsDone();
-    playSound('win');
-    showWinPanel(promotion);
+    playSound(state.roundClean ? 'win' : 'tick');
+    showEndPanel(passedNow);
 
-    let spoken = 'Solved. ' + state.problem.answer.expression + '. Clean streak ' +
-      state.cleanStreak + '. ';
-    if (promotion) {
-      spoken += 'Ten clean rounds. Digit level ' + state.pendingStage + ' unlocked.';
-    } else if (state.stage === MAX_STAGE) {
-      spoken += 'Top digit level.';
+    let spoken = (state.mode === 'test' ? (state.roundClean ? 'Correct. ' : 'Not quite. The answer is ') : 'Solved. ') +
+      state.problem.answer.expression + '. ';
+    if (!state.roundClean && state.mode === 'test') {
+      spoken += 'The proper working is on the sheet. The clean count is 0. Press Enter for the next problem.';
+    } else if (!state.roundClean) {
+      spoken += 'This round had a fix, so the clean count is 0. Press Enter to try it again or N for a new problem.';
+    } else if (passedNow && state.pendingTest) {
+      spoken += cleanTarget() + ' clean rounds. Learning done. The Year ' + state.year + ' test is next.';
+    } else if (passedNow) {
+      spoken += cleanTarget() + ' clean tests. Year ' + state.year + ' check passed.';
     } else {
-      spoken += state.cleanStreak + ' of 10 clean rounds toward the next digit.';
+      spoken += state.cleanStreak + ' of ' + cleanTarget() + (state.mode === 'test' ? ' clean tests toward the Year ' +
+        state.year + ' check.' : ' clean rounds toward the Year ' + state.year + ' test.');
     }
     els.liveRegion.textContent = spoken;
   }
 
-  function showWinPanel(promotion) {
+  function showEndPanel(passedNow) {
     els.consoleMain.hidden = true;
     els.endPanel.hidden = false;
-    els.endPanel.className = 'end-panel is-win';
-    els.endKicker.textContent = promotion ? 'Ten clean rounds' : 'Clean round';
     els.endTitle.textContent = 'Solved.';
     els.endAnswer.textContent = state.problem.answer.expression;
-
-    if (promotion) {
-      els.endDetail.textContent = 'That is 10 clean rounds in a row at this digit level. ' +
-        'Digit level ' + state.pendingStage + ' is unlocked. The clean streak starts again at 0.';
-    } else if (state.stage === MAX_STAGE) {
-      els.endDetail.textContent = 'Top digit level. Clean streak ' +
-        Math.min(state.cleanStreak, CLEAN_TARGET) + ' of 10.';
-    } else {
-      els.endDetail.textContent = state.cleanStreak + ' of 10 clean rounds toward digit level ' +
-        (state.stage + 1) + '.';
-    }
-
     els.endActions.innerHTML = '';
-    const label = promotion ? 'Start ' + state.pendingStage + ' digits' : 'Next problem';
-    const primary = printEndButton(label, 'Enter', 'primary', nextProblem);
+
+    let primary;
+    if (!state.roundClean && state.mode === 'test') {
+      els.endPanel.className = 'end-panel is-fail';
+      els.endKicker.textContent = 'Not quite';
+      els.endTitle.textContent = 'The answer is';
+      els.endDetail.textContent = 'Your boxes are marked and the proper working is on the sheet. ' +
+        'The clean count is back to 0.';
+      primary = printEndButton('Next problem', 'Enter', 'primary', newProblem);
+    } else if (!state.roundClean) {
+      els.endPanel.className = 'end-panel is-fail';
+      els.endKicker.textContent = state.fixes === 1 ? 'Solved with a fix' : 'Solved with ' + state.fixes + ' fixes';
+      els.endDetail.textContent = 'A round with a fix does not count, so the clean count is back to 0. ' +
+        'Try it again to make it clean, or start a new one.';
+      primary = printEndButton('Try it again', 'Enter', 'primary', retryProblem);
+      printEndButton('New problem', 'N', '', newProblem);
+    } else if (passedNow && state.pendingTest) {
+      els.endPanel.className = 'end-panel is-win';
+      els.endKicker.textContent = 'Learning done';
+      els.endDetail.textContent = cleanTarget() + ' clean rounds in a row. Next is the Year ' + state.year +
+        ' test: every box is open, and you hand in the whole answer.';
+      primary = printEndButton('Start the test', 'Enter', 'primary', nextProblem);
+    } else if (passedNow) {
+      els.endPanel.className = 'end-panel is-win';
+      els.endKicker.textContent = 'Year ' + state.year + ' check passed';
+      els.endDetail.textContent = state.year < TOP_YEAR
+        ? cleanTarget() + ' clean tests in a row. Year ' + state.pendingYear +
+          ' is next, starting with learning.'
+        : cleanTarget() + ' clean tests in a row at Year ' + TOP_YEAR +
+          ', the top year. The tests carry on.';
+      primary = printEndButton(
+        state.year < TOP_YEAR ? 'Start Year ' + state.pendingYear : 'Next problem',
+        'Enter',
+        'primary',
+        nextProblem
+      );
+    } else {
+      els.endPanel.className = 'end-panel is-win';
+      els.endKicker.textContent = state.mode === 'test' ? 'Correct' : 'Clean round';
+      els.endDetail.textContent = state.mode === 'test'
+        ? state.cleanStreak + ' of ' + cleanTarget() + ' clean tests in a row toward the Year ' +
+          state.year + ' check.'
+        : state.cleanStreak + ' of ' + cleanTarget() + ' clean rounds in a row toward the Year ' +
+          state.year + ' test.';
+      primary = printEndButton('Next problem', 'Enter', 'primary', nextProblem);
+    }
     printEndButton('Pause', 'Esc', 'ghost', openPause);
     focusButtonSoon(primary);
   }
@@ -923,11 +1537,11 @@
   }
 
   function updatePauseStats() {
-    els.pauseStage.textContent = digitWord(state.stage);
-    els.pauseStreak.textContent = Math.min(state.cleanStreak, CLEAN_TARGET) + ' / ' + CLEAN_TARGET;
-    els.pauseGate.textContent = state.stage === MAX_STAGE
-      ? 'Top level'
-      : digitWord(state.stage + 1);
+    els.pauseYear.textContent = 'Year ' + state.year;
+    els.pauseStreak.textContent = Math.min(state.cleanStreak, cleanTarget()) + ' / ' + cleanTarget();
+    els.pauseCheck.textContent = hasPassed(state.operation, state.year)
+      ? 'Passed'
+      : (state.mode === 'test' ? 'Testing' : 'Learning');
   }
 
   function openPause() {
@@ -1039,13 +1653,54 @@
       return;
     }
 
+    if (state.screen === 'playing' && state.mode === 'test') {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        openPause();
+      } else if (/^[0-9]$/.test(event.key)) {
+        event.preventDefault();
+        if (!event.repeat) testType(Number(event.key));
+      } else if (event.key === 'Backspace' || event.key === 'Delete') {
+        event.preventDefault();
+        testBackspace();
+      } else if (event.key === '-' || event.key === MINUS) {
+        event.preventDefault();
+        testMinus();
+      } else if (/^Arrow/.test(event.key) || event.key === 'Tab') {
+        event.preventDefault();
+        testMove(event.key, event.shiftKey);
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (!event.repeat) handIn();
+      }
+      return;
+    }
+
+    if (state.screen === 'testFailed') {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        openPause();
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === ' ' || event.key === 'n' || event.key === 'N') &&
+        !isFocusedButton(event)) {
+        event.preventDefault();
+        newProblem();
+      }
+      return;
+    }
+
     if (state.screen === 'setup') {
-      if (event.key === '1') {
+      const area = AREAS.find(function (name) { return AREA_INFO[name].key === event.key; });
+      if (area) {
         event.preventDefault();
-        startRun('divide');
-      } else if (event.key === '2') {
+        startRun(area);
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
         event.preventDefault();
-        startRun('multiply');
+        selectYear(state.progress.schoolYear - 1);
+      } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        selectYear(state.progress.schoolYear + 1);
       }
       return;
     }
@@ -1061,17 +1716,14 @@
         if (!event.repeat) submitDigit(Number(event.key));
         return;
       }
-      if (event.key === ' ' || event.key === 'Enter') {
-        const action = currentAction();
-        if (action && action.kind === 'carry' && !state.lockInput) {
-          event.preventDefault();
-          if (!event.repeat) performCarry();
-        }
+      if (event.key === '-' || event.key === MINUS) {
+        event.preventDefault();
+        if (!event.repeat) submitMinus();
       }
       return;
     }
 
-    if (state.screen === 'failed') {
+    if (state.screen === 'fixed') {
       if (event.key === 'Escape') {
         event.preventDefault();
         openPause();
@@ -1095,6 +1747,11 @@
         openPause();
         return;
       }
+      if (event.key === 'n' || event.key === 'N') {
+        event.preventDefault();
+        nextProblem();
+        return;
+      }
       if ((event.key === 'Enter' || event.key === ' ') && !isFocusedButton(event)) {
         event.preventDefault();
         nextProblem();
@@ -1111,6 +1768,24 @@
         startRun(button.dataset.mode);
         button.blur();
       });
+    });
+
+    els.setupLadder.addEventListener('click', function (event) {
+      const item = event.target.closest('li[data-year]');
+      if (item) selectYear(Number(item.dataset.year));
+    });
+
+    els.worksheet.addEventListener('click', function (event) {
+      if (state.screen !== 'playing' || state.mode !== 'test') return;
+      const target = event.target.closest('[data-cell-id]');
+      if (!target) return;
+      const entry = state.cellEls.get(target.dataset.cellId);
+      if (entry && isFillable(entry.cell)) selectCell(target.dataset.cellId);
+    });
+
+    els.handInBtn.addEventListener('click', function () {
+      handIn();
+      els.handInBtn.blur();
     });
 
     els.soundBtn.addEventListener('click', function () {
@@ -1130,17 +1805,17 @@
     });
 
     els.keypad.addEventListener('click', function (event) {
-      const key = event.target.closest('button[data-digit]');
+      const key = event.target.closest('button');
       if (!key || key.disabled) return;
       ensureAudio();
-      submitDigit(Number(key.dataset.digit));
+      if (key.dataset.digit !== undefined) {
+        if (state.mode === 'test') testType(Number(key.dataset.digit));
+        else submitDigit(Number(key.dataset.digit));
+      } else if (key === els.minusKey) {
+        if (state.mode === 'test') testMinus();
+        else submitMinus();
+      }
       key.blur();
-    });
-
-    els.carryBtn.addEventListener('click', function () {
-      ensureAudio();
-      performCarry();
-      els.carryBtn.blur();
     });
 
     els.helpClose.addEventListener('click', closeHelp);
@@ -1160,22 +1835,37 @@
 
   window.__digitStack = {
     getState: function () {
+      const levels = {};
+      AREAS.forEach(function (area) { levels[area] = areaLevel(area); });
       return {
         screen: state.screen,
         operation: state.operation,
-        stage: state.stage,
+        year: state.year,
+        schoolYear: state.progress.schoolYear,
+        areaLevels: levels,
+        cleanTarget: state.operation ? cleanTarget() : null,
         cleanStreak: state.cleanStreak,
-        pendingStage: state.pendingStage,
+        pendingYear: state.pendingYear,
+        roundClean: state.roundClean,
+        fixes: state.fixes,
         actionIndex: state.actionIndex,
         action: currentAction(),
-        problem: state.problem
+        problem: state.problem,
+        progress: JSON.parse(JSON.stringify(state.progress)),
+        mode: state.mode,
+        pendingTest: state.pendingTest,
+        selectedCellId: state.selectedCellId,
+        entries: Object.fromEntries(state.entries),
+        handInWarned: state.handInWarned,
+        fillOrder: state.fillOrder.slice()
       };
     }
   };
 
   function init() {
     seedPreferences();
-    buildStreakMeter();
+    state.progress = readProgress();
+    buildLadders();
     updateSoundUI();
     bindEvents();
     showSetup();
