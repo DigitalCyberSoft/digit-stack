@@ -2,6 +2,8 @@
   'use strict';
 
   const Engine = window.DigitStackEngine;
+  // Theme and colour settings, applied by theme.js in <head>.
+  const DISPLAY = window.DigitStackDisplay;
   if (!Engine) throw new Error('Digit Stack arithmetic engine failed to load.');
 
   const YEARS = Engine.YEARS;
@@ -100,7 +102,14 @@
     },
     modeButtons: Array.from(document.querySelectorAll('[data-mode]')),
     handInBtn: $('handInBtn'),
+    turnLabel: $('turnLabel'),
+    tutorBack: $('tutorBack'),
+    tutorNext: $('tutorNext'),
+    tutorSkip: $('tutorSkip'),
+    watchBtn: $('watchBtn'),
     soundBtn: $('soundBtn'),
+    themeBtn: $('themeBtn'),
+    cvdBtn: $('cvdBtn'),
     helpBtn: $('helpBtn'),
     pauseBtn: $('pauseBtn'),
     modeChip: $('modeChip'),
@@ -176,7 +185,8 @@
     solution: null,
     fillOrder: [],
     play: null,
-    saving: true
+    saving: true,
+    tutorial: null
   };
 
   /* Storage is optional: a blocked store should not stop the game, but the
@@ -234,7 +244,7 @@
   }
 
   function emptyProgress() {
-    return { schoolYear: FIRST_YEAR, passed: emptyPassed(), learned: emptyPassed() };
+    return { schoolYear: FIRST_YEAR, passed: emptyPassed(), learned: emptyPassed(), watched: emptyPassed() };
   }
 
   function knownYears(list) {
@@ -257,16 +267,20 @@
     if (!data || typeof data !== 'object') return emptyProgress();
     const savedPassed = data.passed && typeof data.passed === 'object' ? data.passed : {};
     const savedLearned = data.learned && typeof data.learned === 'object' ? data.learned : {};
+    const savedWatched = data.watched && typeof data.watched === 'object' ? data.watched : {};
     const passed = emptyPassed();
     const learned = emptyPassed();
+    const watched = emptyPassed();
     AREAS.forEach(function (area) {
       passed[area] = knownYears(savedPassed[area]);
       learned[area] = knownYears(savedLearned[area]);
+      watched[area] = knownYears(savedWatched[area]);
     });
     return {
       schoolYear: YEARS.indexOf(data.schoolYear) !== -1 ? data.schoolYear : FIRST_YEAR,
       passed: passed,
-      learned: learned
+      learned: learned,
+      watched: watched
     };
   }
 
@@ -278,6 +292,20 @@
 
   function markLearned(operation, year) {
     const list = state.progress.learned[operation];
+    if (list.indexOf(year) === -1) {
+      list.push(year);
+      list.sort(function (a, b) { return a - b; });
+    }
+    saveProgress();
+  }
+
+  // The worked example for a year plays by itself once, before learning.
+  function hasWatched(operation, year) {
+    return state.progress.watched[operation].indexOf(year) !== -1;
+  }
+
+  function markWatched(operation, year) {
+    const list = state.progress.watched[operation];
     if (list.indexOf(year) === -1) {
       list.push(year);
       list.sort(function (a, b) { return a - b; });
@@ -411,7 +439,11 @@
   }
 
   function savePlay() {
-    if (state.operation) state.play.areas[state.operation] = currentRecord();
+    // While an example plays, the area's saved place stays as it was, so a
+    // replay returns to the same step.
+    if (state.operation && state.screen !== 'tutorial') {
+      state.play.areas[state.operation] = currentRecord();
+    }
     state.play.operation = state.operation;
     return writeStored(STORAGE.play, JSON.stringify(state.play));
   }
@@ -496,6 +528,41 @@
       ensureAudio();
       playSound('tick');
     }
+  }
+
+  /* Display: light, dark or automatic, and colour-blind friendly colours */
+
+  const THEME_NAMES = { auto: 'automatic', light: 'light', dark: 'dark' };
+
+  function updateDisplayUI() {
+    const now = DISPLAY.get();
+    const name = THEME_NAMES[now.theme];
+    els.themeBtn.setAttribute('aria-label', 'Theme: ' + name + '. Press T to change.');
+    els.themeBtn.title = 'Theme: ' + name + ' (T)';
+    els.cvdBtn.setAttribute('aria-pressed', String(now.cvd));
+    els.cvdBtn.title = 'Colour-blind friendly colours: ' + (now.cvd ? 'on' : 'off') + ' (C)';
+  }
+
+  // Automatic, then light, then dark.
+  function cycleTheme() {
+    const themes = DISPLAY.themes;
+    const next = themes[(themes.indexOf(DISPLAY.get().theme) + 1) % themes.length];
+    DISPLAY.set({ theme: next });
+    writeStored(DISPLAY.keys.theme, next);
+    updateDisplayUI();
+    els.liveRegion.textContent = next === 'auto'
+      ? 'Automatic theme: light or dark to match this device.'
+      : (next === 'dark' ? 'Dark theme.' : 'Light theme.');
+  }
+
+  function toggleCvd() {
+    const on = !DISPLAY.get().cvd;
+    DISPLAY.set({ cvd: on });
+    writeStored(DISPLAY.keys.cvd, on ? 'on' : 'off');
+    updateDisplayUI();
+    els.liveRegion.textContent = on
+      ? 'Colour-blind friendly colours on. Right answers are blue with a tick and wrong ones are orange.'
+      : 'Colour-blind friendly colours off.';
   }
 
   /* Text helpers */
@@ -596,6 +663,8 @@
     if (state.pauseOpen) closePause();
     state.screen = 'setup';
     state.operation = null;
+    state.tutorial = null;
+    els.console.classList.remove('is-tutorial');
     delete document.body.dataset.area;
     state.cleanStreak = 0;
     state.pendingYear = null;
@@ -636,6 +705,10 @@
     state.pendingTest = false;
     state.screen = 'playing';
     window.scrollTo(0, 0);
+    if (!round && state.mode === 'guided' && !hasWatched(operation, state.year)) {
+      startTutorial();
+      return;
+    }
     if (round) {
       try {
         loadProblem(round.problem, round);
@@ -666,6 +739,8 @@
     els.endPanel.hidden = true;
     els.endPanel.className = 'end-panel';
     els.sheetStatus.classList.remove('is-win', 'is-fail');
+    els.console.classList.remove('is-tutorial');
+    els.turnLabel.textContent = 'Your turn';
     // The dock only holds the Hand in button, so only a test shows it.
     els.console.classList.toggle('no-carry', state.mode !== 'test');
     els.footMinus.hidden = !problem.signBox;
@@ -735,6 +810,177 @@
     if (state.cellEls.has(saved.selectedCellId)) selectCell(saved.selectedCellId);
   }
 
+  /* Tutorial: the game works an example, one box at a time, saying why.
+     It plays by itself the first time a year is learned, and W replays it
+     while learning. Afterwards the area picks up its saved place. */
+
+  function currentExample() {
+    return state.tutorial.problems[state.tutorial.index];
+  }
+
+  function startTutorial() {
+    clearTimer();
+    state.tutorial = {
+      problems: Engine.tutorialProblems(state.operation, state.year),
+      index: 0,
+      step: 0
+    };
+    state.screen = 'tutorial';
+    state.lockInput = false;
+    els.setupScreen.hidden = true;
+    els.gameScreen.hidden = false;
+    els.pauseBtn.hidden = false;
+    els.consoleMain.hidden = false;
+    els.endPanel.hidden = true;
+    els.endPanel.className = 'end-panel';
+    els.console.classList.add('is-tutorial', 'no-carry');
+    els.console.classList.remove('is-test');
+    els.footMinus.hidden = true;
+    els.minusKey.hidden = true;
+    els.turnLabel.textContent = 'Watch';
+    hideFixNote();
+    window.scrollTo(0, 0);
+    savePlay();
+    showTutorialStep();
+  }
+
+  // Writes one step's box the way play does, and marks it as the step shown.
+  function showTutorialAction(action) {
+    const entry = state.cellEls.get(action.cellId);
+    if (action.kind === 'bringdown') {
+      if (entry) {
+        entry.el.classList.remove('pending');
+        entry.el.classList.add('revealed');
+        entry.el.textContent = String(action.value);
+      }
+      playSound('bring');
+    } else if (action.kind === 'sign') {
+      if (action.value === MINUS) {
+        fillCell(entry, MINUS, 'just-filled');
+      } else if (entry) {
+        entry.el.textContent = '';
+        entry.el.classList.add('filled', 'skipped');
+      }
+      playSound('tick');
+    } else {
+      applyDigit(action, action.value);
+      playSound('tick');
+    }
+    const rowEl = state.rowEls.get(action.rowId);
+    if (rowEl) rowEl.classList.add('is-active');
+    if (entry) {
+      entry.el.classList.add('tutor-step');
+      revealActiveCell(entry.el);
+    }
+  }
+
+  // Step 0 introduces the example, steps 1 to n each write one box with the
+  // reason for it, and the last step shows the answer.
+  function showTutorialStep() {
+    const tutorial = state.tutorial;
+    const problem = currentExample();
+    const count = problem.actions.length;
+    const more = tutorial.index + 1 < tutorial.problems.length;
+    state.problem = problem;
+    state.actions = problem.actions;
+    renderWorksheet(problem);
+    updateModeUI();
+    updateLadder();
+    updateStreak();
+    const written = Math.min(tutorial.step, count);
+    restoreSteps({ actionIndex: Math.max(0, written - 1), roundClean: true, fixes: 0 });
+    const action = written >= 1 ? problem.actions[written - 1] : null;
+    if (action) showTutorialAction(action);
+
+    const example = 'Example ' + (tutorial.index + 1) + ' of ' + tutorial.problems.length;
+    let stage;
+    let stepText;
+    let prompt;
+    let detail;
+    if (tutorial.step === 0) {
+      stage = 'Example';
+      stepText = example;
+      prompt = 'Watch an example: ' + problem.title.toLowerCase() + '.';
+      detail = problem.question + ' Press Enter or the right arrow to see each step.';
+    } else if (tutorial.step <= count) {
+      stage = titleCase(action.stage);
+      stepText = example + ', step ' + tutorial.step + ' of ' + count;
+      prompt = action.prompt;
+      detail = action.why;
+    } else {
+      stage = 'Answer';
+      stepText = example + ', finished';
+      prompt = problem.answer.expression;
+      detail = more
+        ? 'Next, an example of ' + tutorial.problems[tutorial.index + 1].title.toLowerCase() + '.'
+        : 'Now it is your turn. Press Enter to start.';
+      problem.answerRowIds.forEach(function (rowId) {
+        const rowEl = state.rowEls.get(rowId);
+        if (rowEl) rowEl.classList.add('answer-solved');
+      });
+    }
+    if (action && tutorial.step <= count) {
+      updateRowMapForAction(action.groupId);
+    } else if (tutorial.step > count) {
+      markAllGroupsDone();
+    }
+    els.stageChip.textContent = stage;
+    els.stepLine.textContent = stepText;
+    els.prompt.textContent = prompt;
+    els.subprompt.textContent = detail;
+    els.sheetStatus.textContent = example.toLowerCase();
+    els.sheetStatus.classList.remove('is-win', 'is-fail');
+    els.tutorBack.disabled = tutorial.index === 0 && tutorial.step === 0;
+    els.tutorNext.firstChild.textContent = tutorial.step > count && !more ? 'My turn ' : 'Next ';
+    els.liveRegion.textContent = stepText + '. ' + prompt + ' ' + detail;
+  }
+
+  function tutorialNext() {
+    if (state.screen !== 'tutorial') return;
+    ensureAudio();
+    const tutorial = state.tutorial;
+    if (tutorial.step <= currentExample().actions.length) {
+      tutorial.step += 1;
+    } else if (tutorial.index + 1 < tutorial.problems.length) {
+      tutorial.index += 1;
+      tutorial.step = 0;
+    } else {
+      finishTutorial();
+      return;
+    }
+    showTutorialStep();
+  }
+
+  function tutorialBack() {
+    if (state.screen !== 'tutorial') return;
+    const tutorial = state.tutorial;
+    if (tutorial.step > 0) {
+      tutorial.step -= 1;
+    } else if (tutorial.index > 0) {
+      tutorial.index -= 1;
+      tutorial.step = currentExample().actions.length + 1;
+    } else {
+      return;
+    }
+    showTutorialStep();
+  }
+
+  function finishTutorial() {
+    if (state.screen !== 'tutorial') return;
+    const operation = state.operation;
+    markWatched(operation, state.year);
+    state.tutorial = null;
+    beginArea(operation);
+  }
+
+  // W replays the example while learning. A test is the child's own work.
+  function watchExample() {
+    if (!state.operation || state.mode !== 'guided' || state.pendingTest || state.pendingYear) return;
+    if (state.screen !== 'playing' && state.screen !== 'won' && state.screen !== 'fixed') return;
+    ensureAudio();
+    startTutorial();
+  }
+
   function retryProblem() {
     if (state.screen !== 'fixed' || !state.problem) return;
     ensureAudio();
@@ -761,6 +1007,10 @@
       state.year = pendingYear;
       state.mode = phaseFor(state.operation, state.year);
       state.cleanStreak = 0;
+      if (state.mode === 'guided' && !hasWatched(state.operation, state.year)) {
+        startTutorial();
+        return;
+      }
     }
     loadProblem(Engine.generateProblem(state.operation, state.year));
   }
@@ -770,7 +1020,7 @@
     const info = AREA_INFO[state.operation];
     const stage = document.createElement('span');
     stage.className = 'mode-stage';
-    stage.textContent = state.mode === 'test' ? 'Test' : 'Learning';
+    stage.textContent = state.screen === 'tutorial' ? 'Example' : (state.mode === 'test' ? 'Test' : 'Learning');
     els.modeChip.textContent = info.name;
     els.modeChip.appendChild(stage);
     els.modeShape.textContent = 'Year ' + state.year + ': ' + YEAR_INFO[state.year][state.operation];
@@ -1006,7 +1256,7 @@
 
   function revealActiveCell(el) {
     window.requestAnimationFrame(function () {
-      if (!el || !el.isConnected || state.screen !== 'playing') return;
+      if (!el || !el.isConnected || (state.screen !== 'playing' && state.screen !== 'tutorial')) return;
       if (state.helpOpen || state.pauseOpen) return;
       const rect = el.getBoundingClientRect();
       const padY = 54;
@@ -1760,9 +2010,9 @@
   function updatePauseStats() {
     els.pauseYear.textContent = 'Year ' + state.year;
     els.pauseStreak.textContent = Math.min(state.cleanStreak, cleanTarget()) + ' / ' + cleanTarget();
-    els.pauseCheck.textContent = hasPassed(state.operation, state.year)
-      ? 'Passed'
-      : (state.mode === 'test' ? 'Testing' : 'Learning');
+    els.pauseCheck.textContent = state.screen === 'tutorial'
+      ? 'Watching'
+      : (hasPassed(state.operation, state.year) ? 'Passed' : (state.mode === 'test' ? 'Testing' : 'Learning'));
   }
 
   function openPause() {
@@ -1860,6 +2110,45 @@
 
     if (state.helpOpen || state.pauseOpen) {
       handleModalKeys(event);
+      return;
+    }
+
+    if (event.key === 't' || event.key === 'T') {
+      event.preventDefault();
+      cycleTheme();
+      return;
+    }
+    if (event.key === 'c' || event.key === 'C') {
+      event.preventDefault();
+      toggleCvd();
+      return;
+    }
+    if ((event.key === 'w' || event.key === 'W') && state.screen !== 'setup' && state.screen !== 'tutorial') {
+      event.preventDefault();
+      watchExample();
+      return;
+    }
+
+    if (state.screen === 'tutorial') {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        openPause();
+      } else if (event.key === 'ArrowRight' || ((event.key === 'Enter' || event.key === ' ') && !isFocusedButton(event))) {
+        event.preventDefault();
+        if (!event.repeat || event.key === 'ArrowRight') tutorialNext();
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        tutorialBack();
+      } else if (event.key === 'n' || event.key === 'N') {
+        event.preventDefault();
+        finishTutorial();
+      } else if (event.key === 's' || event.key === 'S') {
+        event.preventDefault();
+        toggleSound();
+      } else if (event.key === 'h' || event.key === 'H' || event.key === '?') {
+        event.preventDefault();
+        openHelp();
+      }
       return;
     }
 
@@ -2007,9 +2296,36 @@
       }
     });
 
+    els.tutorNext.addEventListener('click', function () {
+      tutorialNext();
+      els.tutorNext.blur();
+    });
+    els.tutorBack.addEventListener('click', function () {
+      tutorialBack();
+      els.tutorBack.blur();
+    });
+    els.tutorSkip.addEventListener('click', function () {
+      finishTutorial();
+      els.tutorSkip.blur();
+    });
+    els.watchBtn.addEventListener('click', function () {
+      watchExample();
+      els.watchBtn.blur();
+    });
+
     els.handInBtn.addEventListener('click', function () {
       handIn();
       els.handInBtn.blur();
+    });
+
+    els.themeBtn.addEventListener('click', function () {
+      cycleTheme();
+      els.themeBtn.blur();
+    });
+
+    els.cvdBtn.addEventListener('click', function () {
+      toggleCvd();
+      els.cvdBtn.blur();
     });
 
     els.soundBtn.addEventListener('click', function () {
@@ -2082,7 +2398,15 @@
         entries: Object.fromEntries(state.entries),
         handInWarned: state.handInWarned,
         fillOrder: state.fillOrder.slice(),
-        saving: state.saving
+        saving: state.saving,
+        display: DISPLAY.get(),
+        tutorial: state.tutorial ? {
+          index: state.tutorial.index,
+          step: state.tutorial.step,
+          examples: state.tutorial.problems.map(function (problem) {
+            return { title: problem.title, question: problem.question, steps: problem.actions.length };
+          })
+        } : null
       };
     }
   };
@@ -2093,6 +2417,7 @@
     state.play = readPlay();
     buildLadders();
     updateSoundUI();
+    updateDisplayUI();
     bindEvents();
     // Opening the game picks up the area that was left open.
     const openArea = state.play.operation;

@@ -30,7 +30,8 @@ async function solveTest(page) {
   await page.keyboard.press('Enter'); await page.waitForTimeout(60);
   return st(page);
 }
-async function fresh(page, progress) { await page.goto(URL); await page.evaluate(p => { localStorage.clear(); if (p) localStorage.setItem('digitstack.progress.v1', JSON.stringify(p)); }, progress || null); await page.goto(URL); await page.waitForTimeout(40); }
+// Not about tutorials: every year's worked example starts as watched.
+async function fresh(page, progress) { await page.goto(URL); await page.evaluate(p => { localStorage.clear(); localStorage.setItem('digitstack.progress.v1', JSON.stringify(Object.assign({ schoolYear: 1 }, p || {}, { watched: { divide: [1, 2, 3, 4, 5, 6, 7], multiply: [1, 2, 3, 4, 5, 6, 7], add: [1, 2, 3, 4, 5, 6, 7], subtract: [1, 2, 3, 4, 5, 6, 7] } }))); }, progress || null); await page.goto(URL); await page.waitForTimeout(40); }
 async function setYear(page, y) { let c = (await st(page)).schoolYear; while (c !== y) { await page.keyboard.press(c < y ? 'ArrowRight' : 'ArrowLeft'); c = (await st(page)).schoolYear; } }
 async function find(page, year, key, want, then, limit = 200) {
   await fresh(page); await setYear(page, year); await page.keyboard.press(key); await page.waitForTimeout(50);

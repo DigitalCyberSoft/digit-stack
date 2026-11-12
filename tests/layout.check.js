@@ -12,7 +12,7 @@ const out = []; const errors = [];
   for (const [w, h] of [[390, 844], [860, 900], [1280, 860]]) {
     const page = await (await browser.newContext({ viewport: { width: w, height: h } })).newPage();
     page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-    await page.goto('http://127.0.0.1:8773/'); await page.evaluate(() => localStorage.clear()); await page.reload();
+    await page.goto('http://127.0.0.1:8773/'); await page.evaluate(() => { localStorage.clear(); localStorage.setItem('digitstack.progress.v1', JSON.stringify({ schoolYear: 1, watched: { divide: [1, 2, 3, 4, 5, 6, 7], multiply: [1, 2, 3, 4, 5, 6, 7], add: [1, 2, 3, 4, 5, 6, 7], subtract: [1, 2, 3, 4, 5, 6, 7] } })); }); await page.reload();
     for (let i = 0; i < 2; i++) await page.keyboard.press('ArrowRight');           // school year 3
     await page.keyboard.press('1'); await page.waitForTimeout(80);                  // short division, no carries
     const a = (await page.evaluate(() => window.__digitStack.getState())).action;

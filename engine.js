@@ -1821,6 +1821,50 @@
     throw new Error('Unknown operation: ' + operation);
   }
 
+  /* Tutorials: worked examples, one for each layout a year uses */
+
+  const TUTORIAL_SAMPLES = 600;
+
+  // The kinds of step a worked example can show: each decision both ways
+  // (something to carry and nothing to carry), bringing down, exchanging
+  // across a zero, crossing out, a carry written in front, and a remainder.
+  function teachingFeatures(problem) {
+    const seen = {};
+    problem.actions.forEach(function (action) {
+      if (action.choice) {
+        seen[action.choice + (action.value === MINUS || action.value > 0 ? ' yes' : ' no')] = true;
+      }
+      if (action.kind === 'bringdown') seen.bringdown = true;
+      if (action.alsoFill && action.alsoFill.length) seen.acrossZero = true;
+      if (action.crossCellId) seen.crossOut = true;
+      if (action.isLeadingCarry) seen.carryInFront = true;
+    });
+    const hasRemainder = problem.rows.some(function (row) {
+      return (row.cells || []).some(function (cell) { return cell && cell.remainderLabel; });
+    });
+    if (hasRemainder) seen.remainder = true;
+    return Object.keys(seen).length;
+  }
+
+  // One example per layout the year uses (column addition, short division and
+  // so on), each the one that shows the most kinds of step in the fewest
+  // steps, shortest layout first. Among equals, two steps beat one, so a
+  // fact shows a two-digit answer rather than 2 rows of 2.
+  function tutorialProblems(operation, year) {
+    assertYear(year);
+    const best = {};
+    for (let i = 0; i < TUTORIAL_SAMPLES; i++) {
+      const problem = generateProblem(operation, year);
+      const steps = problem.actions.length;
+      const score = teachingFeatures(problem) * 100 + Math.min(steps, 2) * 10 - steps;
+      if (!best[problem.title] || score > best[problem.title].score) {
+        best[problem.title] = { problem: problem, score: score };
+      }
+    }
+    return Object.keys(best).map(function (title) { return best[title].problem; })
+      .sort(function (a, b) { return a.actions.length - b.actions.length; });
+  }
+
   /* Test mode */
 
   // The finished sheet: what every box holds once the method is complete and
@@ -1898,6 +1942,7 @@
     roundInputs: roundInputs,
     solutionOf: solutionOf,
     generateProblem: generateProblem,
+    tutorialProblems: tutorialProblems,
     generateMultiplication: generateMultiplication,
     generateDivision: generateDivision,
     generateAddition: generateAddition,

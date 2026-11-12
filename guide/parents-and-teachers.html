@@ -6,6 +6,8 @@
   <title>Digit Stack: Parents and Teachers</title>
   <meta name="description" content="A guide for parents and teachers: what Digit Stack covers in each school year, how a child moves up, the written methods it uses, how it marks, and how it saves progress.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%2318233d'/%3E%3Crect%20x='15'%20y='11'%20width='33'%20height='9'%20rx='2'%20fill='%232e6fd6'/%3E%3Crect%20x='10'%20y='22'%20width='42'%20height='9'%20rx='2'%20fill='%23ee5a2f'/%3E%3Crect%20x='13'%20y='33'%20width='37'%20height='9'%20rx='2'%20fill='%232c9e5a'/%3E%3Crect%20x='11'%20y='44'%20width='40'%20height='9'%20rx='2'%20fill='%23f4c12b'/%3E%3C/svg%3E">
+  <meta name="color-scheme" content="light dark">
+  <script src="../theme.js"></script>
   <link rel="stylesheet" href="guide.css">
 </head>
 <body>
@@ -32,13 +34,14 @@
         <p>On this page</p>
         <ol>
           <li><a href="#progress">How a child moves up</a></li>
-          <li><a href="#learn-test">Learn, then test</a></li>
+          <li><a href="#learn-test">Watch, learn, then test</a></li>
           <li><a href="#years">What each year covers</a></li>
           <li><a href="#pitch">Pitched for strong pupils</a></li>
           <li><a href="#methods">The written methods</a></li>
           <li><a href="#small-boxes">Why every small box needs a digit</a></li>
           <li><a href="#marking">Mistakes and marking</a></li>
           <li><a href="#saving">Saving and privacy</a></li>
+          <li><a href="#display">Display settings</a></li>
           <li><a href="#limits">Current limits</a></li>
           <li><a href="#using">Using it at home or at school</a></li>
           <li><a href="#sources">Sources</a></li>
@@ -52,12 +55,17 @@
         <figcaption>School year 4, with Multiply two years ahead and in its test.</figcaption>
       </figure>
 
-      <h2 id="learn-test">2. Learn, then test</h2>
-      <p>Each area and year has two stages, and the game moves between them by itself.</p>
+      <h2 id="learn-test">2. Watch, learn, then test</h2>
+      <p>Each area and year has three stages, and the game moves between them by itself.</p>
       <ol>
+        <li><strong>Watch.</strong> The first time a year is opened in an area, the game works an example for each layout that year uses (Year 4 multiply shows short multiplication, then long). It fills in one box per step and shows the same reason it gives a child who gets that box wrong. Each example is picked to show the year&#8217;s decisions both ways, such as a carry and no carry, in as few steps as possible. <kbd>N</kbd> skips it, and <kbd>W</kbd> replays it at any point in learning and returns to the same box. Tests have no examples.</li>
         <li><strong>Learn.</strong> The game guides the child one box at a time, with a prompt for each step. A wrong digit gets an explanation, and the child corrects it to finish the problem.</li>
         <li><strong>Test.</strong> Every box is open and there are no prompts. The child moves between boxes with the arrow keys and hands in with <kbd>Enter</kbd>. Only the answer is marked.</li>
       </ol>
+      <figure>
+        <img src="img/tutorial-step.webp" width="1280" height="820" loading="lazy" alt="Watching: a worked example of column addition, with the box just filled highlighted and the reason shown beside it.">
+        <figcaption>Watching: one box per step, with the reason.</figcaption>
+      </figure>
       <div class="shots">
         <figure>
           <img src="img/learn-carry.webp" width="1280" height="820" loading="lazy" alt="Learning: 789 plus 642 with a glowing small box and the prompt Next column, 8 plus 4.">
@@ -154,7 +162,7 @@
           <figcaption>Short multiplication, 342 &#215; 7.</figcaption>
         </figure>
         <figure class="sheet-shot">
-          <img src="img/method-long-multiply.webp" width="788" height="617" loading="lazy" alt="Long multiplication: 124 times 26, with rows 744 and 2480 added to make 3224.">
+          <img src="img/method-long-multiply.webp" width="788" height="655" loading="lazy" alt="Long multiplication: 124 times 26, with rows 744 and 2480 added to make 3224.">
           <figcaption>Long multiplication, 124 &#215; 26.</figcaption>
         </figure>
         <figure class="sheet-shot">
@@ -177,7 +185,7 @@
       </figure>
 
       <h2 id="marking">7. Mistakes and marking</h2>
-      <p>Colours on the sheet carry meaning. The child&#8217;s digits are blue and the question&#8217;s are black. Marked answers are green when right and red when wrong, and the proper working shown after a wrong test answer is purple. Each area also has its own colour around the page: blue for divide, orange for multiply, green for add and yellow for subtract.</p>
+      <p>Colours on the sheet carry meaning. The child&#8217;s digits are blue and the question&#8217;s are black. Marked answers are green when right and red when wrong, and the proper working shown after a wrong test answer is purple. Each area also has its own colour around the page: blue for divide, orange for multiply, green for add and yellow for subtract. With colour-blind friendly colours on, these change; see <a href="#display">Display settings</a>.</p>
       <h3>In learning</h3>
       <p>A wrong digit shows why and what the box needs. The child corrects it and finishes the problem, but the round is not clean, so the count goes back to 0. Afterwards <kbd>Enter</kbd> tries the same problem again and <kbd>N</kbd> starts a new one.</p>
       <figure>
@@ -204,7 +212,25 @@
         <li>The game sends nothing anywhere. It loads only its own files: no analytics, no adverts, no outside scripts. It is hosted on GitHub Pages, and GitHub&#8217;s own terms and privacy statement cover visits to the page.</li>
       </ul>
 
-      <h2 id="limits">9. Current limits</h2>
+      <h2 id="display">9. Display settings</h2>
+      <p>Two settings are saved on the device, and the guides follow them too.</p>
+      <ul>
+        <li><strong>Theme</strong> (<kbd>T</kbd>, or the sun and moon button): automatic, light or dark. Automatic follows the device&#8217;s setting and changes with it.</li>
+        <li><strong>Colour-blind friendly colours</strong> (<kbd>C</kbd>, or the eye button). Right answers turn blue and wrong ones orange; the proper working after a wrong test answer turns reddish purple with a dotted underline; each right answer gets a tick and &#8220;Not quite&#8221; gets a cross; and the book covers use a palette made for colour vision deficiency, with wine for add.</li>
+      </ul>
+      <p>The colours were checked by simulating protanopia, deuteranopia and tritanopia with the model of Machado, Oliveira and Fernandes (2009). With the usual colours, right and wrong are 7 apart for protanopia (CIE76 delta E, where about 2 is just noticeable), though a wrong box also has a border and a &#8220;was&#8221; label; in dark mode the child&#8217;s digits and the proper working are 1 apart, which is no difference at all. With colour-blind friendly colours, right and wrong are at least 85 apart and the digits and working at least 20, in light and dark. Text meets the WCAG contrast minimums in all four combinations.</p>
+      <div class="shots">
+        <figure>
+          <img src="img/dark-learn.webp" width="1280" height="820" loading="lazy" alt="The dark theme: the same squared page in dark blue with light digits, and the box to fill still yellow.">
+          <figcaption>Dark.</figcaption>
+        </figure>
+        <figure class="sheet-shot">
+          <img src="img/cvd-test-wrong.webp" width="788" height="454" loading="lazy" alt="A marked test with colour-blind friendly colours: right digits in blue with ticks, the wrong digit in orange with a was 8 ticket, and the working in reddish purple with dotted underlines.">
+          <figcaption>Colour-blind friendly colours on a marked test.</figcaption>
+        </figure>
+      </div>
+
+      <h2 id="limits">10. Current limits</h2>
       <ul>
         <li><strong>Number only.</strong> There are no fractions, decimals, percentages, measurement, geometry or statistics.</li>
         <li><strong>Whole numbers in multiplication and division.</strong> Negative numbers appear only in add and subtract, from Year 5, as number sentences.</li>
@@ -212,7 +238,7 @@
         <li><strong>One learner per browser.</strong> There are no accounts and no class reports.</li>
       </ul>
 
-      <h2 id="using">10. Using it at home or at school</h2>
+      <h2 id="using">11. Using it at home or at school</h2>
       <ul>
         <li>It is tested in Google Chrome at computer and phone sizes. A physical keyboard is best; on tablets and phones the on-screen number keys can be tapped instead.</li>
         <li>To move a child to a different year, set the school year on the start screen. Areas already ahead stay ahead.</li>
@@ -224,7 +250,7 @@
         <figcaption>On a phone, with the on-screen number keys.</figcaption>
       </figure>
 
-      <h2 id="sources">11. Sources</h2>
+      <h2 id="sources">12. Sources</h2>
       <ul>
         <li>Department for Education, <a href="https://www.gov.uk/government/publications/national-curriculum-in-england-mathematics-programmes-of-study/national-curriculum-in-england-mathematics-programmes-of-study">National curriculum in England: mathematics programmes of study</a>.</li>
         <li>Department for Education, <a href="https://assets.publishing.service.gov.uk/media/5a7c5b95e5274a7ee501a6e5/Mathematics_Appendix_1.pdf">Mathematics Appendix 1: examples of formal written methods for addition, subtraction, multiplication and division</a> (PDF).</li>

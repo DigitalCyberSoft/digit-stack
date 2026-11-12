@@ -6,6 +6,8 @@
   <title>Digit Stack: Number skills by school year</title>
   <meta name="description" content="A keyboard-first game for practising addition, subtraction, multiplication and division, set by school year from Year 1 to Year 7 (national curriculum in England), pitched for strong pupils. Clean rounds in a row pass a year's check.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%2318233d'/%3E%3Crect%20x='15'%20y='11'%20width='33'%20height='9'%20rx='2'%20fill='%232e6fd6'/%3E%3Crect%20x='10'%20y='22'%20width='42'%20height='9'%20rx='2'%20fill='%23ee5a2f'/%3E%3Crect%20x='13'%20y='33'%20width='37'%20height='9'%20rx='2'%20fill='%232c9e5a'/%3E%3Crect%20x='11'%20y='44'%20width='40'%20height='9'%20rx='2'%20fill='%23f4c12b'/%3E%3C/svg%3E">
+  <meta name="color-scheme" content="light dark">
+  <script src="theme.js"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -24,6 +26,25 @@
           <svg class="sound-off" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor"></path>
             <path d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+          </svg>
+        </button>
+        <button class="icon-btn theme-btn" id="themeBtn" type="button" aria-label="Theme: automatic. Press T to change." title="Theme: automatic (T)">
+          <svg class="theme-icon theme-auto" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle>
+            <path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor"></path>
+          </svg>
+          <svg class="theme-icon theme-light" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4.2" fill="currentColor"></circle>
+            <path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path>
+          </svg>
+          <svg class="theme-icon theme-dark" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1Z" fill="currentColor"></path>
+          </svg>
+        </button>
+        <button class="icon-btn cvd-btn" id="cvdBtn" type="button" aria-pressed="false" aria-label="Colour-blind friendly colours (C)" title="Colour-blind friendly colours: off (C)">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M2.5 12s3.5-6.2 9.5-6.2S21.5 12 21.5 12s-3.5 6.2-9.5 6.2S2.5 12 2.5 12Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"></path>
+            <circle cx="12" cy="12" r="3.1" fill="currentColor"></circle>
           </svg>
         </button>
         <button class="icon-btn help-icon" id="helpBtn" type="button" aria-label="How to play (H)">?</button>
@@ -49,7 +70,7 @@
             <div class="setup-rules">
               <p><span class="rule-mark" aria-hidden="true">&#9633;</span><span><strong>Type in the glowing box.</strong> A wrong digit shows you why. Type the right one to finish the problem.</span></p>
               <p><span class="rule-mark arrow" aria-hidden="true">&#8593;</span><span><strong>Every small box gets a digit.</strong> The cursor stops at each one: type the carry or what is left over, or 1 to exchange in subtraction. Type 0 if there is none.</span></p>
-              <p><span class="rule-mark stair" aria-hidden="true">&#9650;</span><span><strong>Learn, then test.</strong> Each year starts with guided learning. Enough clean rounds in a row unlock that year's test, where every box is open; enough clean tests pass the year. The count is 10 when rounds are short, 5 for medium ones, 3 for long multiplication and long division. Each area moves up on its own. A round with a fix sends the count back to zero.</span></p>
+              <p><span class="rule-mark stair" aria-hidden="true">&#9650;</span><span><strong>Watch, learn, then test.</strong> Each year starts with a worked example to watch, then guided learning. Enough clean rounds in a row unlock that year's test, where every box is open; enough clean tests pass the year. The count is 10 when rounds are short, 5 for medium ones, 3 for long multiplication and long division. Each area moves up on its own. A round with a fix sends the count back to zero.</span></p>
               <p><span class="rule-mark" aria-hidden="true">R</span><span><strong>Whole numbers only.</strong> A remainder is written after R. From Year 5, answers can be below zero: press &#8722; first. No decimal answers.</span></p>
             </div>
           </div>
@@ -140,7 +161,7 @@
           <aside class="console" id="console" aria-label="Game controls">
             <div class="console-main" id="consoleMain">
               <div class="console-head">
-                <span class="turn-kicker"><span class="turn-dot" aria-hidden="true"></span>Your turn</span>
+                <span class="turn-kicker"><span class="turn-dot" aria-hidden="true"></span><span id="turnLabel">Your turn</span></span>
                 <span class="stage-chip" id="stageChip">Multiply</span>
               </div>
               <div class="step-line" id="stepLine"></div>
@@ -170,12 +191,21 @@
                 <button class="key-zero" type="button" data-digit="0" tabindex="-1">0</button>
               </div>
 
+              <div class="tutor-dock tutorial-only" id="tutorDock">
+                <button class="tutor-btn primary" id="tutorNext" type="button">Next <kbd>&#8594;</kbd></button>
+                <button class="tutor-btn" id="tutorBack" type="button"><kbd>&#8592;</kbd> Back</button>
+                <button class="tutor-btn ghost" id="tutorSkip" type="button">Skip to my turn <kbd>N</kbd></button>
+              </div>
+
               <div class="console-foot" id="consoleFoot">
-                <span><kbd>0-9</kbd> type</span>
+                <span class="not-tutorial"><kbd>0-9</kbd> type</span>
+                <span class="tutorial-only"><kbd>&#8594;</kbd> next step</span>
+                <span class="tutorial-only"><kbd>&#8592;</kbd> back</span>
                 <span class="test-only"><kbd>&#8592;&#8593;&#8594;&#8595;</kbd> move</span>
                 <span class="test-only"><kbd>&#9003;</kbd> clear</span>
                 <span class="test-only"><kbd>Enter</kbd> hand in</span>
                 <span class="guided-only"><kbd>0</kbd> nothing to carry</span>
+                <button class="foot-btn guided-only" id="watchBtn" type="button"><kbd>W</kbd> watch an example</button>
                 <span id="footMinus" hidden><kbd>&#8722;</kbd> below zero</span>
                 <span><kbd>Esc</kbd> pause</span>
                 <span><kbd>H</kbd> help</span>
@@ -211,8 +241,8 @@
           <p>A wrong digit shows you why and what the box needs. Fix it to keep going. The problem still gets finished, but it does not count as a clean round.</p>
         </div>
         <div class="help-block">
-          <h3>Learn, then test</h3>
-          <p>Each year starts with guided learning, one box at a time. Once enough rounds in a row are clean, that year's test starts by itself: every box is open, you move with the arrow keys (<kbd>Tab</kbd> follows the method), type to fill, <kbd>Backspace</kbd> to clear, and press <kbd>Enter</kbd> to hand in. Only the answer is marked; small boxes are for your working. A wrong answer shows the proper answer and working, then the next problem.</p>
+          <h3>Watch, learn, then test</h3>
+          <p>Each year starts with a worked example: the game fills in each box and says why (<kbd>&#8594;</kbd> next step, <kbd>&#8592;</kbd> back, <kbd>N</kbd> skip; <kbd>W</kbd> watches it again while learning). Then guided learning, one box at a time. Once enough rounds in a row are clean, that year's test starts by itself: every box is open, you move with the arrow keys (<kbd>Tab</kbd> follows the method), type to fill, <kbd>Backspace</kbd> to clear, and press <kbd>Enter</kbd> to hand in. Only the answer is marked; small boxes are for your working. A wrong answer shows the proper answer and working, then the next problem.</p>
         </div>
         <div class="help-block">
           <h3>Year checks</h3>
@@ -229,6 +259,9 @@
         <span><kbd>Esc</kbd> Pause</span>
         <span><kbd>H</kbd> Help</span>
         <span><kbd>Enter</kbd> Continue</span>
+        <span><kbd>T</kbd> Light, dark or automatic</span>
+        <span><kbd>C</kbd> Colour-blind friendly colours</span>
+        <span><kbd>W</kbd> Watch an example</span>
       </div>
 
       <button class="help-gotit" id="helpGotIt" type="button">Got it <kbd>Enter</kbd></button>

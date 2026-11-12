@@ -28,7 +28,7 @@ async function answer(page, wrongFirst) {
   }
   return true;
 }
-async function fresh(page, learnedYear) { await page.goto(URL); await page.evaluate(y => { localStorage.clear(); if (y) { const all = ['divide', 'multiply', 'add', 'subtract']; const p = { schoolYear: y, passed: {}, learned: {} }; all.forEach(a => { p.passed[a] = []; p.learned[a] = [y]; }); localStorage.setItem('digitstack.progress.v1', JSON.stringify(p)); } }, learnedYear || 0); await page.goto(URL); await page.waitForTimeout(40); }
+async function fresh(page, learnedYear) { await page.goto(URL); await page.evaluate(y => { localStorage.clear(); const all = ['divide', 'multiply', 'add', 'subtract']; const p = { schoolYear: y || 1, passed: {}, learned: {}, watched: {} }; all.forEach(a => { p.passed[a] = []; p.learned[a] = y ? [y] : []; p.watched[a] = [1, 2, 3, 4, 5, 6, 7]; }); localStorage.setItem('digitstack.progress.v1', JSON.stringify(p)); }, learnedYear || 0); await page.goto(URL); await page.waitForTimeout(40); }
 // A year the child has already learned opens in its test.
 async function startTest(page, year, key) {
   await fresh(page, year);

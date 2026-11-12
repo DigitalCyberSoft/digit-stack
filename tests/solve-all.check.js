@@ -24,7 +24,7 @@ async function solve(page) {
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   for (const [year, key, rounds, label] of [[1, '2', 3, 'Y1 multiply pictures/facts'], [1, '1', 3, 'Y1 divide'], [2, '2', 3, 'Y2 multiply facts'], [2, '4', 4, 'Y2 subtract'], [5, '2', 2, 'Y5 long multiplication'], [6, '1', 2, 'Y6 long division'], [7, '1', 2, 'Y7 long division'], [7, '2', 1, 'Y7 long multiplication'], [6, '3', 3, 'Y6 add']]) {
-    await page.goto(URL); await page.evaluate(() => localStorage.clear()); await page.goto(URL);
+    await page.goto(URL); await page.evaluate(() => { localStorage.clear(); localStorage.setItem('digitstack.progress.v1', JSON.stringify({ schoolYear: 1, watched: { divide: [1, 2, 3, 4, 5, 6, 7], multiply: [1, 2, 3, 4, 5, 6, 7], add: [1, 2, 3, 4, 5, 6, 7], subtract: [1, 2, 3, 4, 5, 6, 7] } })); }); await page.goto(URL);
     let cur = (await st(page)).schoolYear; while (cur !== year) { await page.keyboard.press('ArrowRight'); cur = (await st(page)).schoolYear; }
     await page.keyboard.press(key); await page.waitForTimeout(60);
     let ok = true; const methods = new Set();

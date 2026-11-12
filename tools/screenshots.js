@@ -9,7 +9,7 @@ const server = http.createServer((req, res) => { const rel = decodeURIComponent(
 const MINUS = '−';
 const errors = [];
 
-// o: { year, area, mode, streak, progress, build, args, step, fill, wrong, selected }
+// o: { year, area, mode, streak, progress, build, args, step, fill, wrong, selected, theme, cvd }
 //  step: a step number, or 'last'. fill (tests): 'all' fills every box from the
 //  worked answer, an object fills those boxes. wrong: { id: value } overrides.
 async function open(page, o) {
@@ -17,11 +17,14 @@ async function open(page, o) {
   await page.evaluate(o => {
     const E = window.DigitStackEngine;
     const empty = () => ({ divide: [], multiply: [], add: [], subtract: [] });
-    const progress = { schoolYear: o.year, passed: empty(), learned: empty() };
+    const all = () => ({ divide: [1, 2, 3, 4, 5, 6, 7], multiply: [1, 2, 3, 4, 5, 6, 7], add: [1, 2, 3, 4, 5, 6, 7], subtract: [1, 2, 3, 4, 5, 6, 7] });
+    const progress = { schoolYear: o.year, passed: empty(), learned: empty(), watched: o.unwatched ? empty() : all() };
     Object.keys(o.progress || {}).forEach(k => { progress[k] = o.progress[k]; });
     if (o.mode === 'test' && progress.learned[o.area].indexOf(o.year) === -1) progress.learned[o.area].push(o.year);
     localStorage.clear();
     localStorage.setItem('digitstack.progress.v1', JSON.stringify(progress));
+    if (o.theme) localStorage.setItem('digitstack.theme.v1', o.theme);
+    if (o.cvd) localStorage.setItem('digitstack.cvd.v1', 'on');
     if (!o.area) return;
     let round = null;
     if (o.build) {
@@ -116,6 +119,17 @@ async function shot(page, name, target) {
   ]) {
     await open(desk, Object.assign({ step: 'last' }, o)); await finish(desk); made.push(await shot(desk, name, '#sheet'));
   }
+
+  // A worked example, three steps in, on a year's first visit.
+  await open(desk, { area: 'add', year: 3, unwatched: true });
+  for (let k = 0; k < 3; k++) { await desk.keyboard.press('ArrowRight'); await desk.waitForTimeout(150); }
+  await desk.waitForTimeout(400); made.push(await shot(desk, 'tutorial-step'));
+
+  // Display settings: dark, and colour-blind friendly colours on a marked test.
+  await open(desk, { year: 3, theme: 'dark' }); made.push(await shot(desk, 'dark-start'));
+  await open(desk, Object.assign({ streak: 2, step: 1, theme: 'dark' }, add789)); made.push(await shot(desk, 'dark-learn'));
+  await open(desk, { area: 'multiply', year: 3, mode: 'test', streak: 2, cvd: true, build: 'buildMultiplication', args: [342, 7, 3], fill: { 'p0-c3': '4', 'p0-c2': '8', 'p0-c1': '3', 'p0-c0': '2' } });
+  await desk.keyboard.press('Enter'); await desk.waitForTimeout(700); made.push(await shot(desk, 'cvd-test-wrong', '#sheet'));
 
   // Phone, with the on-screen keypad.
   await open(phone, { area: 'multiply', year: 4, streak: 1, build: 'buildMultiplication', args: [2741, 6, 4], step: 3 }); made.push(await shot(phone, 'phone'));

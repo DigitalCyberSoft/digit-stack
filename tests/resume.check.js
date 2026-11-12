@@ -13,7 +13,7 @@ const prog = (year, learned = {}, passed = {}) => ({ schoolYear: year, passed: O
 const play = (operation, areas, version = 1) => ({ version, operation, areas });
 async function fresh(page, progress, saved) {
   await page.goto(URL);
-  await page.evaluate(([p, q, keys]) => { localStorage.clear(); if (p) localStorage.setItem(keys[1], JSON.stringify(p)); if (q !== null) localStorage.setItem(keys[0], typeof q === 'string' ? q : JSON.stringify(q)); }, [progress || null, saved === undefined ? null : saved, [PLAY, PROGRESS]]);
+  await page.evaluate(([p, q, keys]) => { localStorage.clear(); localStorage.setItem(keys[1], JSON.stringify(Object.assign({ schoolYear: 1 }, p || {}, { watched: { divide: [1, 2, 3, 4, 5, 6, 7], multiply: [1, 2, 3, 4, 5, 6, 7], add: [1, 2, 3, 4, 5, 6, 7], subtract: [1, 2, 3, 4, 5, 6, 7] } }))); if (q !== null) localStorage.setItem(keys[0], typeof q === 'string' ? q : JSON.stringify(q)); }, [progress || null, saved === undefined ? null : saved, [PLAY, PROGRESS]]);
   await page.goto(URL); await wait(page);
 }
 async function reopen(page) { await page.reload(); await wait(page); return st(page); }
@@ -161,7 +161,9 @@ const statusText = page => page.evaluate(() => document.getElementById('sheetSta
     await bp.goto(URL); await wait(bp);
     const shownNote = await bp.locator('#saveNote').isVisible();
     // Year 3 addition takes at least 5 presses, so one press leaves the round open.
+    // With nothing saved, the year opens on its worked example; skip it.
     await setYear(bp, 3); await bp.keyboard.press('3'); await wait(bp);
+    if ((await st(bp)).screen === 'tutorial') { await bp.keyboard.press('n'); await wait(bp); }
     const a = (await st(bp)).action; await act(bp, a);
     const bs = await st(bp);
     await bp.keyboard.press('Escape'); await wait(bp);

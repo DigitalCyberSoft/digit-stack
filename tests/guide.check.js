@@ -39,12 +39,12 @@ const PAGES = ['guide/students.html', 'guide/parents-and-teachers.html'];
     check(rel + ': no sideways scroll at 390 px', overflow <= 0, overflow + 'px');
   }
 
-  await desk.goto(URL); await desk.evaluate(() => localStorage.clear()); await desk.goto(URL);
+  await desk.goto(URL); await desk.evaluate(() => { localStorage.clear(); localStorage.setItem('digitstack.progress.v1', JSON.stringify({ schoolYear: 1, watched: { divide: [1, 2, 3, 4, 5, 6, 7], multiply: [1, 2, 3, 4, 5, 6, 7], add: [1, 2, 3, 4, 5, 6, 7], subtract: [1, 2, 3, 4, 5, 6, 7] } })); }); await desk.goto(URL);
   const guideLinks = await desk.evaluate(() => Array.from(document.querySelectorAll('.guide-links a')).map(a => a.getAttribute('href')));
   const statuses = []; for (const href of guideLinks) statuses.push((await desk.request.get(URL + href)).status());
   check('the start screen links to both guides', JSON.stringify(guideLinks) === JSON.stringify(PAGES) && statuses.every(s => s === 200), JSON.stringify(guideLinks) + ' ' + statuses);
 
-  await phone.goto(URL); await phone.evaluate(() => localStorage.clear()); await phone.goto(URL);
+  await phone.goto(URL); await phone.evaluate(() => { localStorage.clear(); localStorage.setItem('digitstack.progress.v1', JSON.stringify({ schoolYear: 1, watched: { divide: [1, 2, 3, 4, 5, 6, 7], multiply: [1, 2, 3, 4, 5, 6, 7], add: [1, 2, 3, 4, 5, 6, 7], subtract: [1, 2, 3, 4, 5, 6, 7] } })); }); await phone.goto(URL);
   await phone.locator('[data-mode="add"]').tap(); await phone.waitForTimeout(80);
   const before = await phone.evaluate(() => window.__digitStack.getState());
   await phone.locator('#keypad button[data-digit="' + before.action.value + '"]').tap(); await phone.waitForTimeout(80);
