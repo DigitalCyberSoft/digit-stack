@@ -54,17 +54,19 @@ async function drawAnswer(page, wrong) {
   await page.keyboard.press('Enter'); await wait(page, 60);
 }
 
-// Types the right answer, or a wrong one in the first box when `wrong` is set, then hands in.
+// Types the right answer, or a wrong one in the first box when `wrong` is set, then hands in. Typed over a wrong answer, it
+// sets each sign box to what it must hold (minus toggles) and clears a box that must stay blank.
 async function answer(page, wrong) {
   if ((await st(page)).problem.method === 'draw') return drawAnswer(page, wrong);
   const boxes = await answerBoxes(page);
   let first = true;
   for (const b of boxes) {
     await page.click('[data-cell-id="' + b.id + '"]');
-    if (b.sign) { if (b.v === MINUS) await page.keyboard.press('-'); continue; }
+    if (b.sign) { if ((b.v === MINUS) !== ((await st(page)).entries[b.id] === MINUS)) await page.keyboard.press('-'); continue; }
     if (wrong && first && !b.compare && !b.option) { await page.keyboard.press(String((Number(b.v) + 1) % 10)); first = false; continue; }
     if (wrong && first && b.option) { const s = await st(page); const other = s.problem.options.find(o => o[1] !== b.v); await page.keyboard.press(String(other[0])); first = false; continue; }
     if (wrong && first && b.compare) { await page.keyboard.press(b.v === '<' ? '>' : '<'); first = false; continue; }
+    if (!b.key && (await st(page)).entries[b.id]) await page.keyboard.press('Backspace');
     for (const ch of b.key) await page.keyboard.press(ch);
   }
   await page.keyboard.press('Enter'); await wait(page, 60);
@@ -76,16 +78,17 @@ async function answer(page, wrong) {
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
-  // Grade bands on a bell curve centred on 86% (standard deviation 6): A from 98% (the top 2%), B from 92%, C from 80%, D
-  // below that down to 50%, + and − in 2-point thirds, A+ only for 100%, and under 50% is always F. Both sides of every edge.
+  // Grade bands, set out of 30 as a bell: a D− from 15 right (50%), an A+ only for 30, the four middle grades two scores wide,
+  // each grade starting at the rounded percentage of its lowest score out of 30, and under 50% always F. Both sides of every edge.
   await fresh(page, 4);
-  const bands = await page.evaluate(() => [100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 88, 87, 84, 83, 80, 79, 78, 77, 76, 75, 74, 73, 50, 49, 0]
+  const bands = await page.evaluate(() => [100, 99, 97, 96, 93, 92, 90, 89, 83, 82, 77, 76, 70, 69, 63, 62, 60, 59, 57, 56, 53, 52, 50, 49, 0]
     .map(p => p + ':' + window.__digitStack.gradeFor(p)).join(' '));
-  check('grade bands follow the bell curve: A from 98%, B from 92%, C from 80%, D' + MINUS + ' from 50%, and under 50% is F', bands ===
-    '100:A+ 99:A 98:A 97:B+ 96:B+ 95:B 94:B 93:B− 92:B− 91:C+ 88:C+ 87:C 84:C 83:C− 80:C− 79:D+ 78:D+ 77:D 76:D 75:D− 74:D− 73:D− 50:D− 49:F 0:F', bands);
-  // Out of 30 (the percentage rounded as on the results): only a perfect score is an A, and 22 right is a pass, but only just.
-  const ladder = await page.evaluate(() => [30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 15, 14].map(k => k + ':' + window.__digitStack.gradeFor(Math.round(100 * k / 30))).join(' '));
-  check('out of 30, only 30 right is an A, 22 right (73%) is a D' + MINUS + ', and 14 right (47%) is an F', ladder === '30:A+ 29:B+ 28:B− 27:C+ 26:C 25:C− 24:C− 23:D 22:D− 21:D− 15:D− 14:F', ladder);
+  check('grade bands run from D' + MINUS + ' at 50% to A+ at 100%, and under 50% is F', bands ===
+    '100:A+ 99:A 97:A 96:A− 93:A− 92:B+ 90:B+ 89:B 83:B 82:B− 77:B− 76:C+ 70:C+ 69:C 63:C 62:C− 60:C− 59:D+ 57:D+ 56:D 53:D 52:D− 50:D− 49:F 0:F', bands);
+  // Every score out of 30 from 30 down to 14 (the percentage rounded as on the results).
+  const ladder = await page.evaluate(() => Array.from({ length: 17 }, (_, i) => 30 - i).map(k => k + ':' + window.__digitStack.gradeFor(Math.round(100 * k / 30))).join(' '));
+  check('out of 30, 15 is a D' + MINUS + ', 30 an A+, and C, C+, B' + MINUS + ' and B take two scores each', ladder ===
+    '30:A+ 29:A 28:A− 27:B+ 26:B 25:B 24:B− 23:B− 22:C+ 21:C+ 20:C 19:C 18:C− 17:D+ 16:D 15:D− 14:F', ladder);
 
   // Setting up by keyboard.
   const before = await stored(page, 'digitstack.play.v1');
@@ -177,8 +180,8 @@ async function answer(page, wrong) {
   s = await st(page);
   const right = s.mixed && s.mixed.results ? s.mixed.results.filter(r => r.correct).length : -1;
   check('E again hands the test in, and the changed answer counts: 7 right', s.screen === 'mixedResults' && s.mixed.finished && right === 7, 'right=' + right);
-  check('the grade follows the score (7 of 10 is 70%: D' + MINUS + ')', s.mixed.grade === 'D' + MINUS && /7 out of 10/.test(await page.locator('#endTitle').innerText()) &&
-    (await page.locator('#endAnswer').textContent()) === 'Grade D' + MINUS, await page.locator('#endAnswer').textContent());
+  check('the grade follows the score (7 of 10 is 70%: C+)', s.mixed.grade === 'C+' && /7 out of 10/.test(await page.locator('#endTitle').innerText()) &&
+    (await page.locator('#endAnswer').textContent()) === 'Grade C+', await page.locator('#endAnswer').textContent());
   check('each question has a chip, right or not', (await page.locator('.question-chip').count()) === 10 && (await page.locator('.question-chip.is-missed').count()) === 3);
   // What to practise next: the areas of the three questions not right (each area had one question, so they tie and keep the areas'
   // order), each with the key that opens it.
@@ -345,28 +348,33 @@ async function answer(page, wrong) {
   const allRight = await page.locator('#endFocus').innerText();
   check('a test with every answer right says so and suggests a hard test next', s.screen === 'mixedResults' && s.mixed.results.every(r => r.correct) &&
     /Every question was right/.test(allRight) && /try a hard test/.test(allRight) && (await page.locator('#endFocus .end-focus-item').count()) === 0, allRight);
+  check('every answer right is an A+', s.mixed.grade === 'A+' && (await page.locator('#endAnswer').textContent()) === 'Grade A+', s.mixed.grade);
 
-  // 22 of 30 right (the last 8 left blank) is 73%: a D−, a pass but only just.
-  await page.goto(URL);
-  await page.evaluate(() => {
-    const E = window.DigitStackEngine; const now = Date.now();
-    localStorage.clear();
-    const m = { version: 2, seed: 2230, fingerprint: E.fingerprint(), year: 4, count: 30, minutes: 0, difficulty: 'medium', index: 30, answers: [], current: null,
-      startedAt: now - 60000, deadline: null, finished: true, timeUp: false, endedAt: now, open: false };
-    E.withSeed(7, () => { let list = []; while (list.length < 30) list = list.concat(E.kit.shuffle(E.AREAS)); m.areas = E.kit.shuffle(list.slice(0, 30)); });
-    for (let i = 0; i < 22; i++) {
-      const p = E.withSeed((m.seed + i * 7919) >>> 0, () => E.generateProblem(m.areas[i], m.year, m.difficulty));
-      m.answers.push(p.method === 'draw' ? { board: E.drawing.solved(p) } : Object.assign({}, E.solutionOf(p).values));
-    }
-    localStorage.setItem('digitstack.mixed.v1', JSON.stringify(m));
-  });
-  await page.goto(URL); await wait(page, 100);
-  await page.keyboard.press('r'); await wait(page, 100);
-  s = await st(page);
-  const shown = [await page.locator('#endTitle').textContent(), await page.locator('#endAnswer').textContent(), (await page.locator('#endDetail').textContent()).split(' Time')[0]].join(' | ');
-  const passed = (await page.locator('#endPanel').getAttribute('class')).split(' ').includes('is-win');
-  check('22 of 30 right is 73%, grade D' + MINUS + ', shown as a pass', s.screen === 'mixedResults' && s.mixed.results.filter(r => r.correct).length === 22 &&
-    s.mixed.grade === 'D' + MINUS && shown === '22 out of 30 | Grade D' + MINUS + ' | 73%.' && passed, shown + ' | pass=' + passed);
+  // Marked 30-question tests through the results screen, the first k answered properly and the rest left blank: 22 right is
+  // a C+, 15 right the lowest pass (D−), and 14 right an F.
+  for (const [right, grade, detail, pass] of [[22, 'C+', '73%.', true], [15, 'D' + MINUS, '50%.', true], [14, 'F', '47%, under 50%: not a pass yet.', false]]) {
+    await page.goto(URL);
+    await page.evaluate(right => {
+      const E = window.DigitStackEngine; const now = Date.now();
+      localStorage.clear();
+      const m = { version: 2, seed: 2230, fingerprint: E.fingerprint(), year: 4, count: 30, minutes: 0, difficulty: 'medium', index: 30, answers: [], current: null,
+        startedAt: now - 60000, deadline: null, finished: true, timeUp: false, endedAt: now, open: false };
+      E.withSeed(7, () => { let list = []; while (list.length < 30) list = list.concat(E.kit.shuffle(E.AREAS)); m.areas = E.kit.shuffle(list.slice(0, 30)); });
+      for (let i = 0; i < right; i++) {
+        const p = E.withSeed((m.seed + i * 7919) >>> 0, () => E.generateProblem(m.areas[i], m.year, m.difficulty));
+        m.answers.push(p.method === 'draw' ? { board: E.drawing.solved(p) } : Object.assign({}, E.solutionOf(p).values));
+      }
+      localStorage.setItem('digitstack.mixed.v1', JSON.stringify(m));
+    }, right);
+    await page.goto(URL); await wait(page, 100);
+    await page.keyboard.press('r'); await wait(page, 100);
+    s = await st(page);
+    const shown = [await page.locator('#endTitle').textContent(), await page.locator('#endAnswer').textContent(), (await page.locator('#endDetail').textContent()).split(' Time')[0]].join(' | ');
+    const passed = (await page.locator('#endPanel').getAttribute('class')).split(' ').includes('is-win');
+    check(right + ' of 30 right is ' + detail.split('%')[0] + '%, grade ' + grade + (pass ? ', a pass' : ', not a pass'), s.screen === 'mixedResults' &&
+      s.mixed.results.filter(r => r.correct).length === right && s.mixed.grade === grade && shown === right + ' out of 30 | Grade ' + grade + ' | ' + detail &&
+      passed === pass, shown + ' | pass=' + passed);
+  }
 
   check('no console or page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await browser.close(); server.close();

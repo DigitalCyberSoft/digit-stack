@@ -150,15 +150,15 @@
   const MIXED_MINUTES = [0, 10, 15, 20, 30, 45, 60, 90];
   const MIXED_LEVELS = ['easy', 'medium', 'hard'];
 
-  // Grades follow a bell curve centred on 86% with a standard deviation of 6
-  // points: A is the top 2% (two deviations up, 98%), B the next 14% (from
-  // 92%), C the middle 68% (from 80%) and D the rest. + and − split B, C and
-  // D in thirds of a deviation (2 points), and A+ is a perfect score. The
-  // curve's own floor (74%) gives way to a pass mark of 50%, so D− runs from
-  // 50% to 75%: 22 of 30 (73%) is a D−, a pass but only just.
+  // Grades are a bell curve set out of 30 questions: 15 right (50%) is a D−,
+  // only 30 is an A+, and the four middle grades take two scores each (15 D−,
+  // 16 D, 17 D+, 18 C−, 19-20 C, 21-22 C+, 23-24 B−, 25-26 B, 27 B+, 28 A−,
+  // 29 A, 30 A+). Each grade starts at the percentage of its lowest score out
+  // of 30, rounded as on the results, so every test length uses the same
+  // curve. Under 50% is always a fail.
   const PASS_PERCENT = 50;
-  const GRADES = [[100, 'A+'], [98, 'A'], [96, 'B+'], [94, 'B'], [92, 'B' + MINUS], [88, 'C+'], [84, 'C'], [80, 'C' + MINUS],
-    [78, 'D+'], [76, 'D'], [PASS_PERCENT, 'D' + MINUS], [0, 'F']];
+  const GRADES = [[100, 'A+'], [97, 'A'], [93, 'A' + MINUS], [90, 'B+'], [83, 'B'], [77, 'B' + MINUS], [70, 'C+'], [63, 'C'], [60, 'C' + MINUS],
+    [57, 'D+'], [53, 'D'], [PASS_PERCENT, 'D' + MINUS], [0, 'F']];
 
   const TEST_HELP = 'Arrows move between boxes; Tab follows the method. Type to fill a box, ' +
     'Backspace clears it. Small boxes are for working and are not marked. Press Enter to hand in.';
