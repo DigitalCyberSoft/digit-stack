@@ -76,16 +76,16 @@ async function answer(page, wrong) {
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
-  // Grade bands: A from 90%, B from 80%, C from 70% and D from 60%, + for the top three points of each ten and − for the
-  // bottom three, and under 60% is always F. Both sides of every boundary.
+  // Grade bands on a bell curve centred on 86% (standard deviation 6): A from 98% (the top 2%), B from 92%, C from 80%, D
+  // below that down to 50%, + and − in 2-point thirds, A+ only for 100%, and under 50% is always F. Both sides of every edge.
   await fresh(page, 4);
-  const bands = await page.evaluate(() => [100, 97, 96, 93, 92, 90, 89, 87, 86, 83, 82, 80, 79, 77, 76, 73, 72, 70, 69, 67, 66, 63, 62, 60, 59, 50, 49, 0]
+  const bands = await page.evaluate(() => [100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 88, 87, 84, 83, 80, 79, 78, 77, 76, 75, 74, 73, 50, 49, 0]
     .map(p => p + ':' + window.__digitStack.gradeFor(p)).join(' '));
-  check('grade bands run A+ to D− in steps of three or four points, and under 60% is F', bands ===
-    '100:A+ 97:A+ 96:A 93:A 92:A− 90:A− 89:B+ 87:B+ 86:B 83:B 82:B− 80:B− 79:C+ 77:C+ 76:C 73:C 72:C− 70:C− 69:D+ 67:D+ 66:D 63:D 62:D− 60:D− 59:F 50:F 49:F 0:F', bands);
-  // With 30 questions each one missed after the first is a grade lower (the percentage is rounded as on the results).
-  const ladder = await page.evaluate(() => [30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17].map(k => k + ':' + window.__digitStack.gradeFor(Math.round(100 * k / 30))).join(' '));
-  check('out of 30, each question missed after the first drops a grade: 22 right is a C', ladder === '30:A+ 29:A+ 28:A 27:A− 26:B+ 25:B 24:B− 23:C+ 22:C 21:C− 20:D+ 19:D 18:D− 17:F', ladder);
+  check('grade bands follow the bell curve: A from 98%, B from 92%, C from 80%, D' + MINUS + ' from 50%, and under 50% is F', bands ===
+    '100:A+ 99:A 98:A 97:B+ 96:B+ 95:B 94:B 93:B− 92:B− 91:C+ 88:C+ 87:C 84:C 83:C− 80:C− 79:D+ 78:D+ 77:D 76:D 75:D− 74:D− 73:D− 50:D− 49:F 0:F', bands);
+  // Out of 30 (the percentage rounded as on the results): only a perfect score is an A, and 22 right is a pass, but only just.
+  const ladder = await page.evaluate(() => [30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 15, 14].map(k => k + ':' + window.__digitStack.gradeFor(Math.round(100 * k / 30))).join(' '));
+  check('out of 30, only 30 right is an A, 22 right (73%) is a D' + MINUS + ', and 14 right (47%) is an F', ladder === '30:A+ 29:B+ 28:B− 27:C+ 26:C 25:C− 24:C− 23:D 22:D− 21:D− 15:D− 14:F', ladder);
 
   // Setting up by keyboard.
   const before = await stored(page, 'digitstack.play.v1');
@@ -177,8 +177,8 @@ async function answer(page, wrong) {
   s = await st(page);
   const right = s.mixed && s.mixed.results ? s.mixed.results.filter(r => r.correct).length : -1;
   check('E again hands the test in, and the changed answer counts: 7 right', s.screen === 'mixedResults' && s.mixed.finished && right === 7, 'right=' + right);
-  check('the grade follows the score (7 of 10 is 70%: C' + MINUS + ')', s.mixed.grade === 'C' + MINUS && /7 out of 10/.test(await page.locator('#endTitle').innerText()) &&
-    (await page.locator('#endAnswer').textContent()) === 'Grade C' + MINUS, await page.locator('#endAnswer').textContent());
+  check('the grade follows the score (7 of 10 is 70%: D' + MINUS + ')', s.mixed.grade === 'D' + MINUS && /7 out of 10/.test(await page.locator('#endTitle').innerText()) &&
+    (await page.locator('#endAnswer').textContent()) === 'Grade D' + MINUS, await page.locator('#endAnswer').textContent());
   check('each question has a chip, right or not', (await page.locator('.question-chip').count()) === 10 && (await page.locator('.question-chip.is-missed').count()) === 3);
   // What to practise next: the areas of the three questions not right (each area had one question, so they tie and keep the areas'
   // order), each with the key that opens it.
@@ -217,7 +217,7 @@ async function answer(page, wrong) {
   // The advice stays on the start screen: the mixed card names the areas, and their books say what to practise.
   const NAMES = { divide: 'Divide', multiply: 'Multiply', add: 'Add', subtract: 'Subtract', number: 'Number', fractions: 'Fractions', measures: 'Measures', shape: 'Shape', data: 'Data', algebra: 'Algebra', words: 'Word problems' };
   const startNote = await page.locator('#mixedNote').innerText();
-  const tagged = await page.evaluate(() => Array.from(document.querySelectorAll('[data-mode]')).filter(b => { const t = b.querySelector('.mode-focus'); return t && !t.hidden; }).map(b => b.dataset.mode));
+  const tagged = await page.evaluate(() => Array.from(document.querySelectorAll('.mode-btn[data-mode]')).filter(b => { const t = b.querySelector('.mode-focus'); return t && !t.hidden; }).map(b => b.dataset.mode));
   check('the start screen keeps the advice: the mixed card names the areas and their books are tagged',
     startNote.includes('practise ' + NAMES[missedAreas[0]] + ', ' + NAMES[missedAreas[1]] + ' and ' + NAMES[missedAreas[2]] + ' next') &&
     JSON.stringify(tagged.slice().sort()) === JSON.stringify(missedAreas.slice().sort()), startNote + ' | ' + tagged.join(','));
@@ -245,7 +245,7 @@ async function answer(page, wrong) {
   s = await st(page);
   check('only the answered question counts: 1 of 20 is 5%, an F', s.mixed.results.filter(r => r.correct).length === 1 && s.mixed.results.filter(r => !r.answered).length === 19 && s.mixed.grade === 'F');
   const failDetail = await page.locator('#endDetail').textContent();
-  check('an F says it is under 60% and not a pass yet', failDetail.startsWith('5%, under 60%: not a pass yet.'), failDetail);
+  check('an F says it is under 50% and not a pass yet', failDetail.startsWith('5%, under 50%: not a pass yet.'), failDetail);
   check('the advice says time ran out, and counts questions not answered', /Time ran out with 19 questions not answered\./.test(await page.locator('.end-focus-note').innerText()) &&
     /not answered\./.test(await page.locator('.end-focus-what').first().innerText()), await page.locator('#endFocus').innerText());
   await page.keyboard.press('f'); await wait(page);
@@ -346,7 +346,7 @@ async function answer(page, wrong) {
   check('a test with every answer right says so and suggests a hard test next', s.screen === 'mixedResults' && s.mixed.results.every(r => r.correct) &&
     /Every question was right/.test(allRight) && /try a hard test/.test(allRight) && (await page.locator('#endFocus .end-focus-item').count()) === 0, allRight);
 
-  // 22 of 30 right (the last 8 left blank) is 73%: a C, where it used to be a B−.
+  // 22 of 30 right (the last 8 left blank) is 73%: a D−, a pass but only just.
   await page.goto(URL);
   await page.evaluate(() => {
     const E = window.DigitStackEngine; const now = Date.now();
@@ -364,8 +364,9 @@ async function answer(page, wrong) {
   await page.keyboard.press('r'); await wait(page, 100);
   s = await st(page);
   const shown = [await page.locator('#endTitle').textContent(), await page.locator('#endAnswer').textContent(), (await page.locator('#endDetail').textContent()).split(' Time')[0]].join(' | ');
-  check('22 of 30 right is 73%, grade C', s.screen === 'mixedResults' && s.mixed.results.filter(r => r.correct).length === 22 && s.mixed.grade === 'C' &&
-    shown === '22 out of 30 | Grade C | 73%.', shown);
+  const passed = (await page.locator('#endPanel').getAttribute('class')).split(' ').includes('is-win');
+  check('22 of 30 right is 73%, grade D' + MINUS + ', shown as a pass', s.screen === 'mixedResults' && s.mixed.results.filter(r => r.correct).length === 22 &&
+    s.mixed.grade === 'D' + MINUS && shown === '22 out of 30 | Grade D' + MINUS + ' | 73%.' && passed, shown + ' | pass=' + passed);
 
   check('no console or page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await browser.close(); server.close();

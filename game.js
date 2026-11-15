@@ -150,13 +150,15 @@
   const MIXED_MINUTES = [0, 10, 15, 20, 30, 45, 60, 90];
   const MIXED_LEVELS = ['easy', 'medium', 'hard'];
 
-  // Grades: A from 90%, B from 80%, C from 70% and D from 60%, with + for the
-  // top three points of each ten (97% or more for A+) and − for the bottom
-  // three. Under 60% is always a fail. With 30 questions, each one missed
-  // after the first is a grade lower: 22 right is 73%, a C.
-  const PASS_PERCENT = 60;
-  const GRADES = [[97, 'A+'], [93, 'A'], [90, 'A' + MINUS], [87, 'B+'], [83, 'B'], [80, 'B' + MINUS], [77, 'C+'], [73, 'C'], [70, 'C' + MINUS],
-    [67, 'D+'], [63, 'D'], [PASS_PERCENT, 'D' + MINUS], [0, 'F']];
+  // Grades follow a bell curve centred on 86% with a standard deviation of 6
+  // points: A is the top 2% (two deviations up, 98%), B the next 14% (from
+  // 92%), C the middle 68% (from 80%) and D the rest. + and − split B, C and
+  // D in thirds of a deviation (2 points), and A+ is a perfect score. The
+  // curve's own floor (74%) gives way to a pass mark of 50%, so D− runs from
+  // 50% to 75%: 22 of 30 (73%) is a D−, a pass but only just.
+  const PASS_PERCENT = 50;
+  const GRADES = [[100, 'A+'], [98, 'A'], [96, 'B+'], [94, 'B'], [92, 'B' + MINUS], [88, 'C+'], [84, 'C'], [80, 'C' + MINUS],
+    [78, 'D+'], [76, 'D'], [PASS_PERCENT, 'D' + MINUS], [0, 'F']];
 
   const TEST_HELP = 'Arrows move between boxes; Tab follows the method. Type to fill a box, ' +
     'Backspace clears it. Small boxes are for working and are not marked. Press Enter to hand in.';
@@ -178,7 +180,7 @@
       map[area] = $(area + 'Shape');
       return map;
     }, {}),
-    modeButtons: Array.from(document.querySelectorAll('[data-mode]')),
+    modeButtons: Array.from(document.querySelectorAll('.mode-btn[data-mode]')),
     // The "practise next" tags, made the first time the start screen shows.
     focusTags: {},
     mixedBtn: $('mixedBtn'),
