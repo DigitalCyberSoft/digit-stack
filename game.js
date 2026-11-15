@@ -150,9 +150,13 @@
   const MIXED_MINUTES = [0, 10, 15, 20, 30, 45, 60, 90];
   const MIXED_LEVELS = ['easy', 'medium', 'hard'];
 
-  // Grades: 5-point bands from 50%, and under 50% is always a fail.
-  const GRADES = [[95, 'A+'], [90, 'A'], [85, 'A' + MINUS], [80, 'B+'], [75, 'B'], [70, 'B' + MINUS], [65, 'C+'], [60, 'C'], [55, 'C' + MINUS],
-    [50, 'D'], [0, 'F']];
+  // Grades: A from 90%, B from 80%, C from 70% and D from 60%, with + for the
+  // top three points of each ten (97% or more for A+) and − for the bottom
+  // three. Under 60% is always a fail. With 30 questions, each one missed
+  // after the first is a grade lower: 22 right is 73%, a C.
+  const PASS_PERCENT = 60;
+  const GRADES = [[97, 'A+'], [93, 'A'], [90, 'A' + MINUS], [87, 'B+'], [83, 'B'], [80, 'B' + MINUS], [77, 'C+'], [73, 'C'], [70, 'C' + MINUS],
+    [67, 'D+'], [63, 'D'], [PASS_PERCENT, 'D' + MINUS], [0, 'F']];
 
   const TEST_HELP = 'Arrows move between boxes; Tab follows the method. Type to fill a box, ' +
     'Backspace clears it. Small boxes are for working and are not marked. Press Enter to hand in.';
@@ -3335,7 +3339,7 @@
     });
     const plan = Engine.mixedFocus(results);
     renderFocus(plan, m, results);
-    els.endDetail.textContent = percent + '%' + (grade === 'F' ? ', under 50%: not a pass yet.' : '.') + ' Time: ' + clockText(m.endedAt - m.startedAt) +
+    els.endDetail.textContent = percent + '%' + (grade === 'F' ? ', under ' + PASS_PERCENT + '%: not a pass yet.' : '.') + ' Time: ' + clockText(m.endedAt - m.startedAt) +
       (m.minutes ? ' of ' + m.minutes + ' minutes.' : '.') + ' ' + byArea.join(', ') + '.';
     els.endActions.innerHTML = '';
     printEndButton('Previous', '←', '', function () { stepReview(-1); });
