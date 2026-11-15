@@ -2872,7 +2872,36 @@
     return value / op[1];
   }
 
+  // Years 3 to 5: the rule is not given. Two numbers have been through the
+  // machine; work out what it does and what comes out for a third. Only one
+  // rule of the kind + n, − n or × n fits both pairs.
+  function machineFromPairs(year) {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const sym = pick(['+', MINUS, '×']);
+      const n = sym === '×' ? randInt(2, year === 3 ? 5 : 10) : randInt(2, year === 3 ? 20 : 50);
+      const ins = [];
+      while (ins.length < 3) {
+        const x = randInt(sym === MINUS ? n + 1 : 1, sym === '×' ? 12 : n + 40);
+        if (ins.indexOf(x) === -1) ins.push(x);
+      }
+      const outs = ins.map(function (x) { return applyOp(x, [sym, n]); });
+      if (outs.some(function (y) { return y <= 0 || y > 200; })) continue;
+      const rule = { '+': 'adds ' + n, '×': 'multiplies by ' + n }[sym] || 'takes away ' + n;
+      const pair = function (k, asked) { return [{ n: ins[k] }, { s: '→' }, asked ? { ask: outs[k] } : { n: outs[k] }]; };
+      return K.buildSentenceLines({
+        area: 'algebra', year: year, title: 'Function machines', stage: 'MACHINE',
+        prompt: 'The machine does the same thing to every number. Two numbers have been through it. What comes out when ' + ins[2] + ' goes in?',
+        why: ins[0] + ' becomes ' + outs[0] + ' and ' + ins[1] + ' becomes ' + outs[1] + ', so the machine ' + rule + '. ' + ins[2] + ' ' + sym + ' ' + n + ' = ' + outs[2] + '.',
+        lines: [pair(0, false), pair(1, false), pair(2, true)],
+        check: { kind: 'machinePairs' },
+        examples: 2
+      });
+    }
+    return null;
+  }
+
   ALGEBRA.machine = function (year) {
+    if (year >= 3 && randInt(0, 2) === 0) return machineFromPairs(year);
     for (let attempt = 0; attempt < 500; attempt++) {
       const steps = year >= 3 ? 2 : 1;
       const choices = year === 1 ? ['+', MINUS] : ['+', MINUS, '×', '÷'];
@@ -2941,22 +2970,150 @@
       { check: { kind: 'sequenceTerm', terms: terms, n: n } });
   };
 
-  // Years 4 and 5: a symbol or letter stands for a number.
+  /* Symbols and letters. A symbol stands in for a number: each question
+     says which number, or asks for it, and the symbol changes from question
+     to question, so no symbol seems to have a value of its own. Within one
+     question the same symbol is always the same number. */
+
+  const STAND_INS = ['★', '▲', '●', '■', '♦'];
+
+  function standIn(year) {
+    return year <= 4 ? pick(STAND_INS) : pick(['a', 'b', 'n', 'x', 'y']);
+  }
+
+  const SYMBOL_IDEA = ' A symbol stands for a number. Each question says which number, or asks you to find it, so it can be a different number every time.';
+  const LETTER_IDEA = ' A letter stands for a number, the same way a symbol does. Each question says which number, or asks you to find it.';
+
+  function ideaFor(letter) {
+    return STAND_INS.indexOf(letter) !== -1 ? SYMBOL_IDEA : LETTER_IDEA;
+  }
+
+  // "★ + ★ + 4" or "3n + 4": `times` lots of the symbol, then + c.
+  function lotsText(letter, times, c) {
+    const symbol = STAND_INS.indexOf(letter) !== -1;
+    return (symbol ? new Array(times).fill(letter).join(' + ') : times + letter) + (c ? ' + ' + c : '');
+  }
+
+  // The same as sentence tokens: each symbol in a cell of its own, or a term
+  // such as 3n in one cell.
+  function lotsTokens(letter, times, c) {
+    const symbol = STAND_INS.indexOf(letter) !== -1;
+    const tokens = [];
+    if (symbol) {
+      for (let k = 0; k < times; k++) {
+        if (k) tokens.push({ s: '+' });
+        tokens.push({ v: letter });
+      }
+    } else {
+      tokens.push({ v: times + letter, span: times >= 10 ? 2 : 1 });
+    }
+    return c ? tokens.concat([{ s: '+' }, { n: c }]) : tokens;
+  }
+
+  // The working for one value: "8 + 8 + 4 = 20", or "3 × 8 + 4 = 28".
+  function putIn(letter, times, c, value) {
+    const symbol = STAND_INS.indexOf(letter) !== -1;
+    const product = times * value;
+    const body = symbol ? new Array(times).fill(value).join(' + ') : times + ' × ' + value;
+    return body + (c ? ' + ' + c : '') + ' = ' + (c ? product + ' + ' + c + ' = ' : '') + (product + c);
+  }
+
+  // Years 4 and 5: the question says what the symbol stands for, written on
+  // the page as its first line; put that number in and work it out.
   ALGEBRA.symbols = function (year) {
     const value = randInt(2, 12);
-    const letter = year === 4 ? '★' : pick(['a', 'b', 'n', 'x', 'y']);
-    const k = randInt(2, 5);
+    const letter = standIn(year);
+    const times = year === 4 ? randInt(2, 3) : randInt(2, 5);
     const c = randInt(1, 15);
-    const result = k * value + c;
-    const tokens = year === 4
-      ? [{ t: letter + ' + ' + letter + (k === 3 ? ' + ' + letter : ''), span: k === 3 ? 4 : 3 }, { s: '+' }, { n: c }, { s: '=' }, { ask: (k === 3 ? 3 : 2) * value + c }]
-      : [{ t: k + letter, span: 1 }, { s: '+' }, { n: c }, { s: '=' }, { ask: result }];
-    const times = year === 4 ? (k === 3 ? 3 : 2) : k;
-    return sentence('algebra', year, year === 4 ? 'Symbols' : 'Letters', 'ALGEBRA',
-      (year === 4 ? letter + ' stands for ' : letter + ' = ') + value + '. Work out the value.',
-      (year === 4 ? letter + ' is ' + value + ', so ' : k + letter + ' means ' + k + ' × ' + letter + ', so ') + times + ' × ' + value + ' = ' + (times * value) + ', then + ' + c +
-        ' = ' + (times * value + c) + '.',
-      tokens, { check: { kind: 'value', expr: times + '*' + value + '+' + c } });
+    const symbol = STAND_INS.indexOf(letter) !== -1;
+    return K.buildSentenceLines({
+      area: 'algebra', year: year, title: year === 4 ? 'Symbols' : 'Letters', stage: 'ALGEBRA',
+      prompt: 'In this question ' + letter + ' stands for ' + value + '. Work out ' + lotsText(letter, times, c) + '.',
+      why: (symbol ? '' : times + letter + ' means ' + times + ' × ' + letter + '. ') + 'Put ' + value + ' in place of ' +
+        (symbol ? 'each ' : '') + letter + ': ' + putIn(letter, times, c, value) + '.' + ideaFor(letter),
+      lines: [[{ v: letter }, { s: '=' }, { n: value }], lotsTokens(letter, times, c).concat([{ s: '=' }, { ask: times * value + c }])],
+      check: { kind: 'symbolValue', letter: letter },
+      examples: 2
+    });
+  };
+
+  // Years 2 to 5: find the number a symbol stands for. Two of the same
+  // symbol in one question are the same number.
+  ALGEBRA.unknown = function (year) {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const letter = standIn(year);
+      const symbol = STAND_INS.indexOf(letter) !== -1;
+      const roll = year === 2 ? randInt(1, 2) : randInt(1, year === 3 ? 3 : 4);
+      let lhs;
+      let right;
+      let value;
+      let why;
+      if (roll === 1) {
+        value = randInt(2, year === 2 ? 15 : 40);
+        const c = randInt(2, year === 2 ? 9 : 30);
+        lhs = [{ v: letter }, { s: '+' }, { n: c }];
+        right = value + c;
+        why = letter + ' + ' + c + ' = ' + right + ', so ' + letter + ' is ' + c + ' less than ' + right + ': ' + right + ' ' + MINUS + ' ' + c + ' = ' + value + '.';
+      } else if (roll === 2) {
+        const c = randInt(2, year === 2 ? 9 : 30);
+        value = c + randInt(2, year === 2 ? 10 : 40);
+        lhs = [{ v: letter }, { s: MINUS }, { n: c }];
+        right = value - c;
+        why = letter + ' ' + MINUS + ' ' + c + ' = ' + right + ', so ' + letter + ' is ' + c + ' more than ' + right + ': ' + right + ' + ' + c + ' = ' + value + '.';
+      } else if (roll === 3) {
+        const k = randInt(2, year === 3 ? 10 : 12);
+        value = randInt(2, 12);
+        lhs = symbol ? [{ n: k }, { s: '×' }, { v: letter }] : [{ v: k + letter, span: k >= 10 ? 2 : 1 }];
+        right = k * value;
+        why = (symbol ? k + ' × ' + letter : k + letter + ' means ' + k + ' × ' + letter + ', and ' + k + letter) + ' = ' + right +
+          ', so ' + letter + ' = ' + right + ' ÷ ' + k + ' = ' + value + '.';
+      } else {
+        const times = symbol ? 2 : randInt(2, 6);
+        const c = randInt(1, 20);
+        value = randInt(2, 15);
+        lhs = lotsTokens(letter, times, c);
+        right = times * value + c;
+        why = 'Take ' + c + ' away first: ' + lotsText(letter, times, 0) + ' = ' + right + ' ' + MINUS + ' ' + c + ' = ' + (right - c) +
+          '. ' + (symbol ? 'Two ' + letter + ' are the same number, so ' : 'Then ') + letter + ' = ' + (right - c) + ' ÷ ' + times + ' = ' + value + '.';
+      }
+      const left = lhs.map(function (token) {
+        return token.v !== undefined ? token.v : (token.s !== undefined ? token.s : String(token.n));
+      }).join(' ');
+      return K.buildSentenceLines({
+        area: 'algebra', year: year, title: symbol ? 'Find the symbol' : 'Find the letter', stage: 'ALGEBRA',
+        prompt: left + ' = ' + right + '. What number does ' + letter + ' stand for in this question?',
+        why: why + ideaFor(letter),
+        lines: [lhs.concat([{ s: '=' }, { n: right }]), [{ v: letter }, { s: '=' }, { ask: value }]],
+        check: { kind: 'findSymbol' },
+        examples: 2
+      });
+    }
+    return null;
+  };
+
+  // Years 4 to 6: two worked lines with different numbers for the same
+  // symbol, then a third to work out.
+  ALGEBRA.symbolLines = function (year) {
+    const letter = standIn(year);
+    const symbol = STAND_INS.indexOf(letter) !== -1;
+    // Three symbols, two-digit numbers and + c fill more than a phone's 15
+    // cells, so a line of symbols has two of them.
+    const times = symbol ? 2 : randInt(2, year === 6 ? 9 : 5);
+    const c = randInt(0, 12);
+    const values = shuffle([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]).slice(0, 3);
+    const line = function (value, asked) {
+      return [{ v: letter }, { s: '=' }, { n: value }, { s: ',' }].concat(lotsTokens(letter, times, c), [{ s: '=' },
+        asked ? { ask: times * value + c } : { n: times * value + c }]);
+    };
+    return K.buildSentenceLines({
+      area: 'algebra', year: year, title: symbol ? 'Symbols' : 'Letters', stage: 'ALGEBRA',
+      prompt: 'The same ' + (symbol ? 'symbol' : 'letter') + ' stands for a different number on each line. The first two lines are worked out. Work out the third.',
+      why: 'On this line ' + letter + ' = ' + values[2] + '. Put ' + values[2] + ' in place of ' + (symbol ? 'each ' : '') + letter + ': ' +
+        putIn(letter, times, c, values[2]) + '.' + ideaFor(letter),
+      lines: [line(values[0], false), line(values[1], false), line(values[2], true)],
+      check: { kind: 'symbolLines', letter: letter },
+      examples: 2
+    });
   };
 
   // Year 6: simple formulae, one- and two-step equations, two unknowns and
@@ -3121,11 +3278,11 @@
 
   const ALGEBRA_KINDS = {
     1: [[3, 'balance'], [3, 'machine'], [2, 'pattern']],
-    2: [[3, 'balance'], [3, 'machine'], [2, 'pattern']],
-    3: [[2, 'balance'], [3, 'machine'], [3, 'sequence']],
-    4: [[2, 'balance'], [2, 'machine'], [2, 'sequence'], [3, 'symbols']],
-    5: [[2, 'balance'], [3, 'sequence'], [3, 'symbols'], [2, 'formula']],
-    6: [[2, 'formula'], [2, 'sequence'], [3, 'solve'], [2, 'twoUnknowns'], [1, 'combinations']],
+    2: [[3, 'balance'], [3, 'machine'], [2, 'pattern'], [2, 'unknown']],
+    3: [[2, 'balance'], [3, 'machine'], [3, 'sequence'], [2, 'unknown']],
+    4: [[1, 'balance'], [2, 'machine'], [2, 'sequence'], [2, 'unknown'], [2, 'symbols'], [2, 'symbolLines']],
+    5: [[1, 'balance'], [2, 'sequence'], [2, 'unknown'], [2, 'symbols'], [2, 'symbolLines'], [2, 'formula']],
+    6: [[2, 'formula'], [2, 'sequence'], [3, 'solve'], [2, 'twoUnknowns'], [1, 'combinations'], [1, 'symbolLines']],
     7: [[2, 'substitute'], [2, 'collect'], [2, 'brackets'], [2, 'solve'], [2, 'nthTerm'], [2, 'graph']]
   };
 

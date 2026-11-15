@@ -33,7 +33,7 @@ Ten areas, opened with `1` to `9` and `0` on the start screen. Each starts at th
 | `7` | Measures | Money, time, length, mass, capacity, perimeter, area, volume, speed |
 | `8` | Shape | 2-D and 3-D shapes, turns, angles, symmetry, coordinates, transformations, Pythagoras, trigonometry |
 | `9` | Data | Tally charts, pictograms, bar and line graphs, timetables, pie charts, averages, probability |
-| `0` | Algebra | Balancing, machines, patterns, sequences, formulae, equations, expressions, graphs |
+| `0` | Algebra | Balancing, machines, patterns, symbols and letters standing for numbers, sequences, formulae, equations, expressions, graphs |
 
 Decimals follow the curriculum: tenths as fractions in Year 3, decimal notation from Year 4, up to 3 places from Year 5.
 
@@ -41,7 +41,7 @@ Decimals follow the curriculum: tenths as fractions in Year 3, decimal notation 
 
 Every area and year has three stages, and the game moves between them by itself.
 
-1. **Watch (worked example).** The first time a year is opened in an area, the game works one example for each kind of question that year uses, shortest first, filling in one box per step with the reason for it. `→` or `Enter` steps forward, `←` back, `N` skips. While learning, `W` replays it and returns to the same box. Tests have no examples.
+1. **Watch (worked example).** The first time a year is opened in an area, the game works one example for each kind of question that year uses (two with different numbers for an idea such as a symbol standing for a number), shortest first, filling in one box per step with the reason for it. `→` or `Enter` steps forward, `←` back, `N` skips. While learning, `W` replays it and returns to the same box. Tests have no examples.
 2. **Learn (guided).** The game takes the child through each question one box at a time, with a prompt for each step.
 3. **Test.** Once enough learning rounds in a row are clean, that year's test starts. Every box is open with no prompts. Arrow keys move between boxes and `Tab` follows the method's order. Typing fills a box and moves on in the direction that row is written; `Backspace` clears; `-` toggles the sign box of the number being typed; `Enter` hands in, asking once more if answer boxes are empty. Only the answer boxes are marked. A wrong answer marks each answer box, shows the proper answer and the full working, sets the count back to 0, and `Enter` goes to the next problem.
 
@@ -54,7 +54,7 @@ Progress is saved in the browser, so the game can be closed at any point and ope
 - Set the child's school year with the left and right arrow keys, then press an area's key.
 - Every box is on the sheet before play starts. The highlighted box with the pencil is the active box. The child's own digits are blue; the question's are black.
 - The cursor stops at every small box in a written method: type the carry, the amount left over in short division, or `1` to exchange a ten in subtraction. Type `0` when there is none; a 0 is not written on the sheet. The stop happens whether or not anything moves, so it gives nothing away.
-- Every answer is typed. Fractions take the top number, then the bottom. Decimal points, units and the colon in a time are already written in the answer. `<`, `=` and `>` compare (`,` and `.` also work). A word answer, such as *acute* or *kite*, is chosen by its number, and yes or no is `1` or `0`. An answer that could be below zero has a sign box: press `-`, or type the first digit.
+- A question that is not a written sum is written on the page above its answer line. Every answer is typed. Fractions take the top number, then the bottom. Decimal points, units and the colon in a time are already written in the answer. `<`, `=` and `>` compare (`,` and `.` also work). A word answer, such as *acute* or *kite*, is chosen by its number, and yes or no is `1` or `0`. An answer that could be below zero has a sign box: press `-`, or type the first digit.
 - A wrong digit shows why and what the box needs. Fix it to finish the problem. A round with a fix does not count as clean, so the count goes back to 0. `Enter` then tries the same problem again and `N` starts a new one.
 - Keyboard: arrows set the school year, `1`-`9` and `0` choose the area, `R` the mixed test (then `N`, `P` and `E` for next, back and hand in), `0-9` type, `-` minus, `<` `=` `>` compare, `W` watch the example, `Esc` pause, `H` help, `S` sound, `T` theme, `C` colour-blind friendly colours. The on-screen keypad is optional.
 

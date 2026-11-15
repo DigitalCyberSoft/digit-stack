@@ -1394,6 +1394,7 @@
       else if (token.s !== undefined) parts.push(token.s);
       else if (token.signBox !== undefined) parts.push(token.signBox === MINUS ? MINUS : '');
       else if (token.t !== undefined) parts.push(token.t);
+      else if (token.v !== undefined) parts.push(token.v);
       else if (token.cmp !== undefined) parts.push(token.cmp);
       else if (token.pick !== undefined) {
         parts.push(token.options.find(function (o) { return o[0] === token.pick; })[1]);
@@ -1504,6 +1505,12 @@
         const span = token.span || textSpan(token.t);
         place('fact', col, token.t, false, { unit: true, span: span });
         col += span;
+      } else if (token.v !== undefined) {
+        // A symbol or letter standing for a number, or a term such as 5a,
+        // written as large as the digits.
+        const span = token.span || 1;
+        place('fact', col, token.v, false, { symbol: true, span: span });
+        col += span;
       } else if (token.cmp !== undefined) {
         const cell = place('fact', col, token.cmp, true, { compare: true });
         order.push({ cell: cell, rowId: 'fact', kind: 'compare', value: token.cmp, info: token });
@@ -1592,7 +1599,8 @@
         subprompt: digitSubprompt(entry, first, spec.year)
       });
     });
-    if (!actions.length) throw new Error('A sentence needs an answer box');
+    // A worked line in a set of lines (buildSentenceLines) is given in full.
+    if (!actions.length && !spec.given) throw new Error('A sentence needs an answer box');
 
     const line = sentenceLine(tokens);
     return {
@@ -1622,8 +1630,64 @@
       signBox: signBox,
       compareBox: compareBox,
       check: spec.check || { kind: 'statement' },
-      operands: spec.operands || null
+      operands: spec.operands || null,
+      // Kinds that teach an idea (a symbol standing for a number) show two
+      // worked examples with different numbers, not one.
+      examples: spec.examples || 1
     };
+  }
+
+  // Several sentences, one under another: worked lines given in full, then
+  // lines with answer boxes, so a question can show two worked examples and
+  // ask for a third. Each line's rows and cells are renamed (l0-fact,
+  // l1-fact, ...) so every id stays unique, and only lines with boxes are
+  // marked.
+  function buildSentenceLines(spec) {
+    const parts = spec.lines.map(function (tokens) {
+      const asks = tokens.some(function (token) {
+        return token.ask !== undefined || token.cmp !== undefined || token.pick !== undefined || token.signBox !== undefined ||
+          (token.frac && (partAsked(token.frac[0]) || partAsked(token.frac[1]))) || (token.sup !== undefined && partAsked(token.sup));
+      });
+      return buildSentence(Object.assign({}, spec, { tokens: tokens, given: !asks, picture: null }));
+    });
+    const width = Math.max.apply(null, parts.map(function (part) { return part.width; }));
+    const rows = [];
+    const actions = [];
+    const markRowIds = [];
+    parts.forEach(function (part, k) {
+      const rename = {};
+      part.rows.forEach(function (row) {
+        const id = 'l' + k + '-' + row.id;
+        rename[row.id] = id;
+        const cells = new Array(width).fill(null);
+        row.cells.forEach(function (cell, col) {
+          if (!cell) return;
+          cells[col] = Object.assign({}, cell, { id: id + '-c' + col });
+        });
+        rows.push(Object.assign({}, row, { id: id, cells: cells, line: k }));
+      });
+      part.markRowIds.forEach(function (rowId) { markRowIds.push(rename[rowId]); });
+      part.actions.forEach(function (action) {
+        const rowId = rename[action.rowId];
+        actions.push(Object.assign({}, action, { rowId: rowId, cellId: rowId + '-c' + action.cellId.split('-c').pop() }));
+      });
+    });
+    const last = parts[parts.length - 1];
+    const options = parts.reduce(function (found, part) { return found || part.options; }, null);
+    return Object.assign({}, last, {
+      width: width,
+      rows: rows,
+      actions: actions,
+      markRowIds: markRowIds,
+      answerRowIds: markRowIds,
+      lines: parts.length,
+      line: parts.map(function (part) { return part.line; }).join('; '),
+      answer: { value: last.answer.value, expression: spec.expression || last.line },
+      picture: spec.picture || null,
+      options: options,
+      signBox: parts.some(function (part) { return part.signBox; }),
+      compareBox: parts.some(function (part) { return part.compareBox; })
+    });
   }
 
   function countingList(step, count) {
@@ -3001,7 +3065,9 @@
   // One example per layout the year uses (column addition, short division and
   // so on), each the one that shows the most kinds of step in the fewest
   // steps, shortest layout first. Among equals, two steps beat one, so a
-  // fact shows a two-digit answer rather than 2 rows of 2.
+  // fact shows a two-digit answer rather than 2 rows of 2. A kind that
+  // teaches an idea gets two different examples, one after the other, so a
+  // symbol is seen standing for two different numbers.
   function tutorialProblems(operation, year) {
     assertYear(year);
     const best = {};
@@ -3009,12 +3075,22 @@
       const problem = generateProblem(operation, year);
       const steps = problem.actions.length;
       const score = teachingFeatures(problem) * 100 + Math.min(steps, 2) * 10 - steps;
-      if (!best[problem.title] || score > best[problem.title].score) {
-        best[problem.title] = { problem: problem, score: score };
-      }
+      const group = best[problem.title] || (best[problem.title] = { want: 1, list: [] });
+      group.want = Math.max(group.want, problem.examples || 1);
+      // Two examples of a kind must differ in their numbers, not only in wording.
+      if (group.list.some(function (entry) {
+        return entry.problem.question === problem.question && entry.problem.line === problem.line;
+      })) continue;
+      group.list.push({ problem: problem, score: score });
+      // Best first; among equals the one found first stays ahead.
+      group.list.sort(function (a, b) { return b.score - a.score; });
+      if (group.list.length > group.want) group.list.length = group.want;
     }
-    return Object.keys(best).map(function (title) { return best[title].problem; })
-      .sort(function (a, b) { return a.actions.length - b.actions.length; });
+    return Object.keys(best).map(function (title) {
+      return best[title].list.map(function (entry) { return entry.problem; })
+        .sort(function (a, b) { return a.actions.length - b.actions.length; });
+    }).sort(function (a, b) { return a[0].actions.length - b[0].actions.length; })
+      .reduce(function (all, group) { return all.concat(group); }, []);
   }
 
   /* Test mode */
@@ -3125,13 +3201,15 @@
       placeName: placeName,
       signed: signed,
       fill: fill,
-      buildSentence: buildSentence
+      buildSentence: buildSentence,
+      buildSentenceLines: buildSentenceLines
     },
     buildDecimalAddition: buildDecimalAddition,
     buildDecimalSubtraction: buildDecimalSubtraction,
     buildDecimalMultiplication: buildDecimalMultiplication,
     buildDecimalDivision: buildDecimalDivision,
     buildSentence: buildSentence,
+    buildSentenceLines: buildSentenceLines,
     generateMultiplication: generateMultiplication,
     generateDivision: generateDivision,
     generateAddition: generateAddition,

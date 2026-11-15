@@ -86,8 +86,8 @@ function answerGroups(p, sol) {
 }
 
 // The finished sentence as a list of parts, with fractions and powers put back together.
-function readSentence(p, sol) {
-  const row = id => p.rows.find(r => r.id === id);
+function readSentence(p, sol, prefix = '') {
+  const row = id => p.rows.find(r => r.id === prefix + id);
   const mid = row('fact'); const top = row('top'); const bottom = row('bottom');
   const val = c => !c ? '' : (c.kind === 'input' ? (sol[c.id] !== undefined ? sol[c.id] : '') : String(c.value));
   const span = (r, a, b) => { let t = ''; for (let k = a; k <= b; k++) t += val(r && r.cells[k]); return t; };
@@ -100,6 +100,14 @@ function readSentence(p, sol) {
     col++;
   }
   return out;
+}
+
+// A question of several lines (two worked, one to do) names its rows l0-fact, l1-fact, ...; a single sentence has one line.
+const linePrefixes = p => p.lines ? Array.from({ length: p.lines }, (_, k) => 'l' + k + '-') : [''];
+
+// One line of a finished sentence as plain text with no spaces: "★=7,★+★+4=18".
+function lineText(p, sol, prefix) {
+  return readSentence(p, sol, prefix).map(part => part.type === 'frac' ? '(' + part.num + ')/(' + part.den + ')' : part.text).join('').replace(/\s+/g, '');
 }
 
 // The finished sentence as one line, numbers joined up: "25 minutes past 4".
@@ -240,7 +248,61 @@ const same = (q, t) => cmpQ(q, num(t)) === 0;
 const want = (ok, msg) => ok ? null : msg;
 const fracAnswer = (ans, q) => q.d === 1 && ans.length === 1 ? same(q, ans[0]) : (ans.length === 2 && Number(ans[0]) === q.n && Number(ans[1]) === q.d);
 
+// "★=7" or "n=7" at the start of a line: the symbol and the number it stands for on that line.
+const SYMBOLS = '★▲●■♦';
+function withValue(stmt, sym, value) {
+  if (SYMBOLS.includes(sym)) return { text: stmt.split(sym).join('(' + value + ')'), env: {} };
+  return { text: stmt, env: { [sym]: num(String(value)) } };
+}
+function sidesEqual(stmt, env) {
+  const sides = stmt.split('=');
+  if (sides.length !== 2) throw new Error('not one = in ' + stmt);
+  return cmpQ(evaluate(sides[0], env), evaluate(sides[1], env)) === 0;
+}
+
 const VERIFY = {
+  // Every line, worked or asked: put the number shown for the symbol in its place; both sides must be equal. The worked lines must
+  // give the symbol different numbers, so it is seen to change.
+  symbolLines: (p, ans, c, sol) => {
+    const values = [];
+    for (const prefix of linePrefixes(p)) {
+      const m = /^([★▲●■♦a-z])=(-?\d+),(.+)$/.exec(lineText(p, sol, prefix).replace(new RegExp(MINUS, 'g'), '-'));
+      if (!m || m[1] !== c.letter) return 'unreadable line ' + lineText(p, sol, prefix);
+      const v = withValue(m[3], m[1], m[2]);
+      if (!sidesEqual(v.text, v.env)) return 'false line ' + lineText(p, sol, prefix);
+      values.push(m[2]);
+    }
+    return new Set(values).size === values.length ? null : 'the symbol has the same number on two lines';
+  },
+  // "★+★+4=8" then "★=2": the number typed for the symbol makes the first line true.
+  findSymbol: (p, ans, c, sol) => {
+    const [first, second] = linePrefixes(p).map(prefix => lineText(p, sol, prefix).replace(new RegExp(MINUS, 'g'), '-'));
+    const m = /^([★▲●■♦a-z])=(-?\d+)$/.exec(second || '');
+    if (!m || m[2] !== ans[0]) return 'unreadable ' + first + ' / ' + second;
+    if (!first.includes(m[1])) return 'the symbol asked for is not in the sentence';
+    const v = withValue(first, m[1], m[2]);
+    return sidesEqual(v.text, v.env) ? null : 'false: ' + first + ' with ' + second;
+  },
+  // "★=7" then "★+★+4=18": the number given on the first line, put in place of the symbol, makes the second line true.
+  symbolValue: (p, ans, c, sol) => {
+    const [first, second] = linePrefixes(p).map(prefix => lineText(p, sol, prefix).replace(new RegExp(MINUS, 'g'), '-'));
+    const m = /^([★▲●■♦a-z])=(-?\d+)$/.exec(first || '');
+    if (!m || m[1] !== c.letter || !second || !second.includes(m[1])) return 'unreadable ' + first + ' / ' + second;
+    const v = withValue(second, m[1], m[2]);
+    return sidesEqual(v.text, v.env) ? null : 'false: ' + second + ' with ' + first;
+  },
+  // "66→22", "76→32", "61→?": exactly one rule of the kind + n (n may be below zero) or × n fits both worked pairs, and the answer is
+  // that rule applied to the third number.
+  machinePairs: (p, ans, c, sol) => {
+    const pairs = linePrefixes(p).map(prefix => lineText(p, sol, prefix).split('→').map(Number));
+    if (pairs.length !== 3 || pairs.some(x => x.length !== 2 || x.some(n => !Number.isInteger(n)))) return 'unreadable pairs';
+    const [[a, b], [d, e], [f, g]] = pairs;
+    const rules = [];
+    if (b - a === e - d) rules.push(x => x + (b - a));
+    if (a && b % a === 0 && b / a >= 2 && e === d * (b / a)) rules.push(x => x * (b / a));
+    if (rules.length !== 1) return rules.length + ' rules fit the worked pairs';
+    return rules[0](f) === g && String(g) === ans[0] ? null : 'rule gives ' + rules[0](f) + ', answer ' + g;
+  },
   statement: (p, ans, c, sol) => statement(p, sol) || (c.simplest ? simplestOK(p, sol) : null),
   value: (p, ans, c) => want(same(evaluate(c.expr), ans[0]), 'value ' + ans[0] + ' vs ' + qText(evaluate(c.expr))),
   estimate: (p, ans, c) => { const unit = Q(c.to); const r = c.terms.map(t => roundHalfUp(Q(t), unit)); const v = c.op === '+' ? add(r[0], r[1]) : sub(r[0], r[1]); return want(same(v, ans[0]), 'estimate'); },
@@ -441,11 +503,14 @@ function replay(p, key) {
   });
   const readRow = id => p.rows.find(r => r.id === id).cells.filter(x => x && x.kind === 'input').map(x => shown.get(x.id)).join('');
   if (p.method === 'sentence') {
-    // Typing order: left to right, and top before bottom in the same column.
-    const pos = p.actions.map(x => { const c = cells.get(x.cellId); return [c.col, { top: 0, fact: 1, bottom: 2 }[c.row.id]]; });
-    if (pos.some((v, k) => k && (v[0] < pos[k - 1][0] || (v[0] === pos[k - 1][0] && v[1] <= pos[k - 1][1])))) {
+    // Typing order: line by line, left to right, and top before bottom in the same column.
+    const pos = p.actions.map(x => { const c = cells.get(x.cellId); return [c.row.line || 0, c.col, { top: 0, fact: 1, bottom: 2 }[c.row.part || c.row.id]]; });
+    if (pos.some(v => v[2] === undefined)) fail(key + ' sentence box in an unknown row', p);
+    if (pos.some((v, k) => k && v[0] < pos[k - 1][0])) fail(key + ' sentence lines not in order', p);
+    const inLine = (v, k) => k && v[0] === pos[k - 1][0];
+    if (pos.some((v, k) => inLine(v, k) && (v[1] < pos[k - 1][1] || (v[1] === pos[k - 1][1] && v[2] <= pos[k - 1][2])))) {
       // A fraction's bottom comes after its top even though it starts further left.
-      const ok = pos.every((v, k) => !k || v[0] >= pos[k - 1][0] || (v[1] === 2 && pos[k - 1][1] === 0));
+      const ok = pos.every((v, k) => !inLine(v, k) || v[1] >= pos[k - 1][1] || (v[2] === 2 && pos[k - 1][2] === 0));
       if (!ok) fail(key + ' sentence boxes not in reading order', p);
     }
   } else if (p.method === 'fact') {
@@ -469,10 +534,10 @@ function verifySentence(p, key) {
   if (p.width > SENTENCE_WIDTH) fail(key + ' sentence wider than ' + SENTENCE_WIDTH + ' cells', p);
   const points = p.rows.flatMap(r => r.cells.filter(c => c && c.point));
   if (points.length && p.year < 4) fail(key + ' decimal point before Year 4', p);
-  readSentence(p, sol).forEach(part => {
+  linePrefixes(p).forEach(prefix => readSentence(p, sol, prefix).forEach(part => {
     if (part.type !== 'cell') return;
     if (part.cell.option && !p.options) fail(key + ' option without a legend', p);
-  });
+  }));
   const ans = answerGroups(p, sol);
   ans.forEach(a => { const m = /\.(\d+)$/.exec(a); if (m && m[1].length > E.MAX_DECIMAL_PLACES[p.year]) fail(key + ' answer has too many decimal places', p); });
   const c = p.check || { kind: 'statement' };
@@ -645,7 +710,12 @@ if (!/"ex-c0":"8"/.test(marks) || !/"ex-c1":"12"/.test(marks) || !/"ex-c2":"12"/
 [[E.buildAddition(789, 642, 3), 1431], [E.buildMultiplication(342, 7, 4), 2394], [E.buildMultiplication(124, 26, 5), 3224]].forEach(([p, v]) => { if (p.answer.value !== v) fail('Appendix 1 example', p); replay(p, 'appendix'); });
 [[E.buildShortDivision(432, 5, 4), '86 R 2'], [E.buildShortDivision(98, 7, 3), '14'], [E.buildDivision(432, 15, 6), '28 R 12'], [E.buildDecimalDivision('432', 15, 1, 6), '28.8']].forEach(([p, v]) => { if (!p.answer.expression.endsWith('= ' + v)) fail('Appendix 1 division', p); replay(p, 'appendix'); });
 
+// Every verifier must have run on generated problems: one that is never reached would pass without checking anything.
+const exercised = new Set(Object.values(stats).flatMap(v => Object.keys(v).filter(f => f.startsWith('check:')).map(f => f.slice(6))));
+Object.keys(VERIFY).forEach(kind => { if (!exercised.has(kind)) fail('verifier ' + kind + ' never ran', null); });
+
 console.log('problems checked:', total);
+console.log('check kinds exercised:', [...exercised].filter(k => VERIFY[k]).length, 'of', Object.keys(VERIFY).length);
 console.log('failures:', failCount ? failCount + ' (first ' + fails.length + ' shown)\n  ' + fails.join('\n  ') : 0);
 for (const [k, v] of Object.entries(stats)) {
   const shownStats = Object.entries(v).filter(([f]) => !f.startsWith('title:') && !f.startsWith('check:'));

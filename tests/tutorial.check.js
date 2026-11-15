@@ -23,17 +23,27 @@ const snapshot = page => page.evaluate(() => Array.from(document.querySelectorAl
   ['filled', 'crossed', 'zeroed', 'auto-filled', 'revealed', 'skipped'].filter(c => el.classList.contains(c)).map(c => '.' + c).join('')));
 
 (async () => {
-  // Engine: one example per layout, shortest first, and a reason for every step.
-  const gaps = [];
+  // Engine: one example per layout, or two different ones for a kind that teaches an idea (a symbol standing for a number), shortest
+  // first, and a reason for every step.
+  const gaps = []; let pairs = 0;
   for (const area of E.AREAS) for (const year of E.YEARS) {
     const examples = E.tutorialProblems(area, year);
-    const layouts = new Set(); for (let i = 0; i < 600; i++) layouts.add(E.generateProblem(area, year).title);
+    const want = {}; for (let i = 0; i < 600; i++) { const p = E.generateProblem(area, year); want[p.title] = Math.max(want[p.title] || 0, p.examples || 1); }
     const titles = examples.map(p => p.title);
-    if (titles.length !== layouts.size || !titles.every(t => layouts.has(t))) gaps.push(area + ' Y' + year + ' layouts ' + titles.join('/') + ' vs ' + [...layouts].join('/'));
-    if (examples.some((p, i) => i && p.actions.length < examples[i - 1].actions.length)) gaps.push(area + ' Y' + year + ' not shortest first');
+    const counts = {}; titles.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+    if (!Object.keys(want).every(t => counts[t] === want[t]) || !titles.every(t => want[t])) gaps.push(area + ' Y' + year + ' examples ' + titles.join('/') + ' vs ' + JSON.stringify(want));
+    // A layout's examples sit together and are different questions.
+    if (titles.some((t, i) => i > 1 && t !== titles[i - 1] && titles.slice(0, i - 1).includes(t))) gaps.push(area + ' Y' + year + ' a layout\'s examples are apart');
+    if (examples.some((p, i) => examples.some((q, j) => j < i && q.title === p.title && q.question === p.question && q.line === p.line))) gaps.push(area + ' Y' + year + ' the same example twice');
+    // Shortest first: layouts by their first example, and examples within a layout.
+    const firsts = examples.filter((p, i) => !i || p.title !== titles[i - 1]);
+    if (firsts.some((p, i) => i && p.actions.length < firsts[i - 1].actions.length)) gaps.push(area + ' Y' + year + ' layouts not shortest first');
+    if (examples.some((p, i) => i && p.title === titles[i - 1] && p.actions.length < examples[i - 1].actions.length)) gaps.push(area + ' Y' + year + ' examples not shortest first');
+    pairs += Object.values(want).filter(n => n === 2).length;
     examples.forEach(p => p.actions.forEach(a => { if (!a.prompt || !a.why) gaps.push(area + ' Y' + year + ' step without a reason'); }));
   }
-  check('every year has one example per layout it uses, shortest first, with a reason for every step', gaps.length === 0, gaps.slice(0, 3).join(' | '));
+  check('every year has one example per layout it uses (two different ones for an idea such as a symbol), shortest first, with a reason for every step',
+    gaps.length === 0 && pairs > 0, gaps.slice(0, 3).join(' | ') + ' pairs ' + pairs);
   const both = (p, choice) => p.actions.some(a => a.choice === choice && a.value > 0) && p.actions.some(a => a.choice === choice && a.value === 0);
   // The written method's example, found by its title: shorter sentence examples (tables, missing numbers) now come first.
   const METHOD = { add: 'Column addition', subtract: 'Column subtraction', multiply: 'Short multiplication', divide: 'Short division' };

@@ -1209,6 +1209,27 @@ kbd {
   font-weight: 700;
 }
 
+/* The question, written on the page above its answer line, so the sheet
+   holds everything the answer needs: what a symbol stands for, the numbers
+   to use, what to round to. */
+.sheet-question {
+  max-width: 62ch;
+  margin: 16px 0 0;
+  color: var(--ink);
+  font-size: 1.08rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.sheet-question[hidden] {
+  display: none;
+}
+
+/* A new line of a question with several lines. */
+.row.line-start {
+  margin-top: calc(var(--cell) * 0.4);
+}
+
 .worksheet-holder {
   display: flex;
   justify-content: center;
@@ -3172,6 +3193,28 @@ kbd {
 
 .cell.colon-cell {
   font-size: calc(var(--cell) * 0.6);
+}
+
+/* A symbol or letter standing for a number: as large and dark as a digit.
+   Letters are in italics, as in printed algebra. */
+.cell.symbol-cell {
+  width: auto;
+  justify-self: stretch;
+  color: var(--ink);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.symbol-shape {
+  width: calc(var(--cell) * 0.46);
+  height: calc(var(--cell) * 0.46);
+  fill: currentColor;
+}
+
+.cell.letter-cell {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-weight: 400;
 }
 
 .cell.has-comma::after {

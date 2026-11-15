@@ -52,7 +52,7 @@
       measures: 'Time to 5 minutes, money and change, scales',
       shape: 'Sides, faces, edges, vertices, symmetry',
       data: 'Pictograms, tallies, block diagrams, tables',
-      algebra: 'Balancing to 100, machines, patterns'
+      algebra: 'Balancing to 100, machines, symbols'
     },
     3: {
       age: '7-8',
@@ -65,7 +65,7 @@
       measures: 'Measures, perimeter, clocks, durations, money',
       shape: 'Right angles, parallel and perpendicular lines',
       data: 'Bar charts, pictograms and tables',
-      algebra: 'Two-step machines, sequences'
+      algebra: 'Machines, sequences, symbols'
     },
     4: {
       age: '8-9',
@@ -196,6 +196,7 @@
     sheetTitle: $('sheetTitle'),
     sheetStatus: $('sheetStatus'),
     worksheet: $('worksheet'),
+    sheetQuestion: $('sheetQuestion'),
     rowMap: $('rowMap'),
     console: $('console'),
     consoleMain: $('consoleMain'),
@@ -1198,7 +1199,27 @@
     if (cell.comma) cellClass += ' has-comma';
     if (cell.mark) cellClass += ' marked-digit';
     if (cell.colon) cellClass += ' colon-cell';
+    if (cell.symbol) cellClass += /[a-z]/.test(String(cell.value)) ? ' symbol-cell letter-cell' : ' symbol-cell';
     return cellClass;
+  }
+
+  // Shapes that stand for numbers in algebra, drawn rather than typed: the
+  // characters differ a lot in size from one font to another.
+  const SYMBOL_SHAPES = {
+    '★': '<polygon points="50,4 62,37 97,37 69,58 79,93 50,72 21,93 31,58 3,37 38,37"/>',
+    '▲': '<polygon points="50,8 94,90 6,90"/>',
+    '●': '<circle cx="50" cy="50" r="42"/>',
+    '■': '<rect x="10" y="10" width="80" height="80"/>',
+    '♦': '<polygon points="50,4 92,50 50,96 8,50"/>'
+  };
+
+  function symbolShape(symbol) {
+    const shape = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    shape.setAttribute('viewBox', '0 0 100 100');
+    shape.setAttribute('class', 'symbol-shape');
+    shape.setAttribute('aria-hidden', 'true');
+    shape.innerHTML = SYMBOL_SHAPES[symbol];
+    return shape;
   }
 
   // The choices for a numbered answer, under the sentence.
@@ -1240,6 +1261,11 @@
   }
 
   function renderWorksheet(problem) {
+    // A sentence or fact has its question on the page too; a written method
+    // shows its numbers in the layout itself.
+    const written = problem.method !== 'sentence' && problem.method !== 'fact';
+    els.sheetQuestion.hidden = written;
+    els.sheetQuestion.textContent = written ? '' : problem.question;
     els.worksheet.innerHTML = '';
     els.worksheet.classList.toggle('is-sentence', problem.method === 'fact' || problem.method === 'sentence');
     els.worksheet.classList.toggle('is-stacked', problem.rows.some(function (row) { return row.part === 'top'; }));
@@ -1250,9 +1276,12 @@
     const fragment = document.createDocumentFragment();
     if (problem.picture) fragment.appendChild(renderPicture(problem.picture));
 
-    problem.rows.forEach(function (row) {
+    problem.rows.forEach(function (row, rowIndex) {
       const rowEl = document.createElement('div');
       rowEl.dataset.rowId = row.id;
+      // The lines of a question with several (two worked, one to do) are
+      // spaced apart.
+      const lineStart = row.line > 0 && problem.rows[rowIndex - 1].line !== row.line;
 
       if (row.kind === 'rule') {
         rowEl.className = 'row rule' +
@@ -1275,7 +1304,8 @@
         (row.kind === 'dividend' ? ' dividend' : '') +
         (row.kind === 'sum' ? ' sum' : '') +
         (row.inBracket ? ' in-bracket' : '') +
-        (row.isExchange ? ' is-exchange' : '');
+        (row.isExchange ? ' is-exchange' : '') +
+        (lineStart ? ' line-start' : '');
       rowEl.style.gridTemplateColumns = template;
 
       if (!problem.noGutter) {
@@ -1306,7 +1336,10 @@
           cellEl.style.gridColumn = 'span ' + cell.span;
           col += cell.span - 1;
         }
-        if (cell.kind === 'given') {
+        if (cell.kind === 'given' && SYMBOL_SHAPES[cell.value]) {
+          cellEl.dataset.symbol = cell.value;
+          cellEl.appendChild(symbolShape(cell.value));
+        } else if (cell.kind === 'given') {
           cellEl.textContent = String(cell.value);
         } else if (cell.kind === 'bringdown') {
           // In a test the child writes the brought-down digit themselves.
