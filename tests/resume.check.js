@@ -31,7 +31,8 @@ const markedBoxes = page => page.evaluate(() => { const s = window.__digitStack.
   return s.problem.rows.filter(r => s.problem.markRowIds.includes(r.id)).flatMap(r => r.cells.filter(c => c && c.kind === 'input').map(c => ({ id: c.id, v: sol.values[c.id], sign: Boolean(c.signBox) }))); });
 async function typeInto(page, id, digits) { for (let i = 0; i < 80 && (await st(page)).selectedCellId !== id; i++) await page.keyboard.press('Tab'); for (const d of digits) await page.keyboard.press(d); }
 async function solveTest(page) {
-  for (const b of await markedBoxes(page)) { if (b.sign) { if (b.v === MINUS && (await st(page)).entries[b.id] !== MINUS) await page.keyboard.press('-'); continue; } await typeInto(page, b.id, [b.v]); }
+  // A box in front of the number that the answer does not reach is left empty, as on paper.
+  for (const b of await markedBoxes(page)) { if (b.sign) { if (b.v === MINUS && (await st(page)).entries[b.id] !== MINUS) await page.keyboard.press('-'); continue; } if (b.v !== undefined) await typeInto(page, b.id, [b.v]); }
   await page.keyboard.press('Enter'); await page.waitForTimeout(60); return st(page);
 }
 // What the sheet shows: every box's text and the classes that carry meaning.
@@ -101,7 +102,7 @@ const statusText = page => page.evaluate(() => document.getElementById('sheetSta
   const exRow = s.problem.rows.find(r => r.id === 'ex');
   const exCell = exRow.cells.filter(Boolean).pop();
   await page.click('[data-cell-id="' + exCell.id + '"]'); await page.keyboard.press('1'); await page.keyboard.press('2');
-  const boxes = (await markedBoxes(page)).filter(b => !b.sign);
+  const boxes = (await markedBoxes(page)).filter(b => !b.sign && b.v !== undefined);
   for (const b of boxes.slice(-2)) await typeInto(page, b.id, [b.v]);
   s = await st(page);
   r1 = await reopen(page);

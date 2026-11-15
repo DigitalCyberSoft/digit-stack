@@ -1352,6 +1352,18 @@ kbd {
   background: transparent;
 }
 
+/* A box in front of a number answered with 0: a number does not start
+   with 0, so nothing is written there. */
+.cell.input.zeroed {
+  border-color: transparent;
+  background: transparent;
+}
+
+/* Long division rows for a first step that turned out not to be needed. */
+.row.is-put-away {
+  display: none;
+}
+
 .cell.input.active {
   z-index: 8;
   border: 3px solid var(--on-highlight);

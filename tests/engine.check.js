@@ -512,6 +512,29 @@ function textChecks(p, key, texts) {
   });
 }
 
+// What the finished sheet shows: a number does not start with 0, so a 0 in a box that may be left blank (cell.lead), with only blanks
+// before it in its number, is not written. A number starts again after a given cell such as R. Written here again, not taken from
+// the engine.
+function visible(row, values) {
+  const out = new Map();
+  let leading = true;
+  (row.cells || []).forEach(c => {
+    if (!c) return;
+    if (c.kind === 'given') { leading = true; return; }
+    const v = values.get(c.id);
+    if (leading && c.lead && String(v) === '0') { out.set(c.id, ''); return; }
+    leading = false;
+    out.set(c.id, v === undefined ? '' : String(v));
+  });
+  return out;
+}
+
+// Words that change with the numbers, so texts can be compared across problems.
+const normText = t => String(t).replace(/\d+/g, '#').replace(/\b(ten thousands|hundred thousands|ones|tens|hundreds|thousands|millions|tenths|hundredths|thousandths)\b/g, 'PLACE');
+// For every box that may be left blank: the texts shown when it holds 0 and when it holds another digit. A text only ever shown for 0
+// would tell the child the answer.
+const leadTexts = new Map();
+
 function replay(p, key) {
   const cells = new Map();
   p.rows.forEach(r => (r.cells || []).forEach(c => { if (c) cells.set(c.id, Object.assign({ row: r }, c)); }));
@@ -573,9 +596,19 @@ function replay(p, key) {
     const n = hits.get(id) || 0;
     if (c.kind === 'given') { if (n) fail(key + ' given cell hit ' + id, p); return; }
     if (c.dynamic) return;
+    // Long division's rows for a first step that is not needed are never typed in.
+    if (c.row.spare) { if (n) fail(key + ' spare cell hit ' + id, p); return; }
     if (n !== 1) fail(key + ' cell ' + id + ' hit ' + n + ' times', p);
   });
-  const readRow = id => p.rows.find(r => r.id === id).cells.filter(x => x && x.kind === 'input').map(x => shown.get(x.id)).join('');
+  p.actions.forEach(a => {
+    const c = cells.get(a.cellId);
+    if (!c || !c.lead || a.kind !== 'digit') return;
+    const t = normText(a.prompt + ' | ' + a.subprompt);
+    const seen = leadTexts.get(t) || { zero: 0, other: 0, example: '' };
+    if (a.value === 0) { seen.zero++; seen.example = seen.example || a.prompt + ' | ' + a.subprompt; } else seen.other++;
+    leadTexts.set(t, seen);
+  });
+  const readRow = id => { const row = p.rows.find(r => r.id === id); const v = visible(row, shown); return row.cells.filter(x => x && x.kind === 'input').map(x => v.get(x.id)).join(''); };
   if (p.method === 'sentence') {
     // Typing order: line by line, left to right, and top before bottom in the same column.
     const pos = p.actions.map(x => { const c = cells.get(x.cellId); return [c.row.line || 0, c.col, { top: 0, fact: 1, bottom: 2 }[c.row.part || c.row.id]]; });
@@ -593,9 +626,17 @@ function replay(p, key) {
     const order = p.actions.filter(x => x.kind === 'digit').map(x => cells.get(x.cellId).col);
     if (order.some((v, i) => i && v <= order[i - 1])) fail(key + ' sentence not left to right', p);
   } else if (p.operation === 'divide') {
-    const q = p.rows.find(r => r.id === 'q').cells.filter(Boolean).filter(x => !x.point).map(x => x.kind === 'given' ? x.value : shown.get(x.id)).join('');
-    const w = String(p.answer.quotient) + (p.answer.remainder ? 'R' + p.answer.remainder : '');
+    const qRow = p.rows.find(r => r.id === 'q');
+    const v = visible(qRow, shown);
+    const q = qRow.cells.filter(Boolean).filter(x => !x.point).map(x => x.kind === 'given' ? x.value : v.get(x.id)).join('');
+    // Whole-number division has an R from Year 4 (remainders), with nothing after it when nothing is left over.
+    const withR = !p.places && p.year >= 4;
+    const w = String(p.answer.quotient) + (withR ? 'R' + (p.answer.remainder || '') : '');
     if (q !== w) fail(key + ' quotient row reads ' + q, p);
+    if (p.method === 'long') {
+      const first = String(p.operands.divisor).length - 1;
+      if (p.rows.some(r => r.spare) !== (p.steps[0].pos > first)) fail(key + ' spare rows do not match the first step', p);
+    }
   } else {
     const rowId = p.answerRowIds[0];
     if (readRow(rowId) !== String(p.answer.value)) fail(key + ' answer row reads ' + readRow(rowId), p);
@@ -909,7 +950,8 @@ function testSheet(p, key) {
   if (!p.question || !Array.isArray(p.markRowIds) || !p.markRowIds.length) return fail(key + ' missing question or markRowIds', p);
   const sol = E.solutionOf(p);
   const marked = p.rows.filter(r => p.markRowIds.includes(r.id)).flatMap(r => r.cells.filter(c => c && c.kind === 'input'));
-  if (marked.some(c => sol.values[c.id] === undefined)) fail(key + ' marked box without a solution value', p);
+  // Only a box that may be left blank (in front of a number) can have no value.
+  if (marked.some(c => sol.values[c.id] === undefined && !c.lead)) fail(key + ' marked box without a solution value', p);
   if (p.method === 'sentence') {
     // Every answer box is marked; a working line's boxes (a word problem's steps) never are.
     const inputs = p.rows.filter(r => !r.working).flatMap(r => r.cells.filter(c => c && c.kind === 'input'));
@@ -927,6 +969,24 @@ function testSheet(p, key) {
   stat(key, 'test method:' + p.method);
 }
 
+// A written method's sheet before anything is typed, and its question with the numbers taken out, must be the same for every problem
+// whose numbers have the same digits and places: then the boxes cannot show how long the answer is, where it starts, whether a
+// column carries or whether anything is left over.
+const shapes = new Map(); let shapeKeys = 0;
+const digitShape = v => String(v).replace(/\d/g, 'd');
+function layoutCheck(p, key) {
+  if (!['column', 'short', 'long'].includes(p.method)) return;
+  const o = p.operands;
+  const numbers = p.operation === 'divide' ? [o.dividendText || o.dividend, o.divisor] : [o.aText || o.a, o.bText || o.b];
+  const k = [p.operation, p.title, p.year, p.places || 0].concat(numbers.map(digitShape)).join('|');
+  // The chips under the sheet (one per column, row or step) are seen too.
+  const shape = normText(p.question) + ' // ' + p.groups.map(g => g.label).join(',') + ' // ' + p.rows.map(r => r.kind === 'rule' ? 'rule ' + r.lineStart + '-' + r.lineEnd
+    : r.id + ' ' + (r.cells || []).map(c => !c ? '.' : c.kind === 'given' ? (c.remainderLabel ? 'R' : c.point ? 'p' : 'g') : c.kind.charAt(0) + (c.lead ? 'L' : '')).join('')).join(' / ');
+  if (!shapes.has(k)) { shapes.set(k, { shape, example: p.answer.expression }); shapeKeys++; return; }
+  const seen = shapes.get(k);
+  if (seen.shape !== shape) fail(key + ' the sheet differs from ' + seen.example + ' with the same digits:\n    ' + seen.shape + '\n    ' + shape, p);
+}
+
 let total = 0;
 for (const area of E.AREAS) {
   for (const y of E.YEARS) {
@@ -935,7 +995,7 @@ for (const area of E.AREAS) {
       const p = E.generateProblem(area, y); total++;
       if (p.year !== y || p.operation !== area) fail(key + ' wrong tags', p);
       if (p.method === 'draw') verifyDrawing(p, key);
-      else { replay(p, key); scope(p, area, y, key); testSheet(p, key); }
+      else { replay(p, key); scope(p, area, y, key); testSheet(p, key); layoutCheck(p, key); }
       if (p.method === 'sentence') verifySentence(p, key);
       inputs += E.roundInputs(p);
       stat(key, 'title:' + p.title);
@@ -967,11 +1027,16 @@ if (!/"ex-c0":"8"/.test(marks) || !/"ex-c1":"12"/.test(marks) || !/"ex-c2":"12"/
 [[E.buildAddition(789, 642, 3), 1431], [E.buildMultiplication(342, 7, 4), 2394], [E.buildMultiplication(124, 26, 5), 3224]].forEach(([p, v]) => { if (p.answer.value !== v) fail('Appendix 1 example', p); replay(p, 'appendix'); });
 [[E.buildShortDivision(432, 5, 4), '86 R 2'], [E.buildShortDivision(98, 7, 3), '14'], [E.buildDivision(432, 15, 6), '28 R 12'], [E.buildDecimalDivision('432', 15, 1, 6), '28.8']].forEach(([p, v]) => { if (!p.answer.expression.endsWith('= ' + v)) fail('Appendix 1 division', p); replay(p, 'appendix'); });
 
+// A text shown at a box that may be left blank must also be shown when that box holds another digit.
+leadTexts.forEach((v, t) => { if (v.zero && !v.other) fail('a text is only shown when the box takes 0: ' + v.example, null); });
+if (shapeKeys < 100) fail('the layout check compared only ' + shapeKeys + ' kinds of question', null);
+
 // Every verifier must have run on generated problems: one that is never reached would pass without checking anything.
 const exercised = new Set(Object.values(stats).flatMap(v => Object.keys(v).filter(f => f.startsWith('check:')).map(f => f.slice(6))));
 Object.keys(VERIFY).concat(Object.keys(DRAW_VERIFY)).forEach(kind => { if (!exercised.has(kind)) fail('verifier ' + kind + ' never ran', null); });
 
 console.log('problems checked:', total);
+console.log('written layouts compared:', shapeKeys, 'kinds of question;', leadTexts.size, 'texts at boxes that may be blank');
 console.log('check kinds exercised:', [...exercised].filter(k => VERIFY[k] || DRAW_VERIFY[k]).length, 'of', Object.keys(VERIFY).length + Object.keys(DRAW_VERIFY).length);
 console.log('failures:', failCount ? failCount + ' (first ' + fails.length + ' shown)\n  ' + fails.join('\n  ') : 0);
 for (const [k, v] of Object.entries(stats)) {

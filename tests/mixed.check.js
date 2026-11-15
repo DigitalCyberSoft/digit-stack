@@ -21,6 +21,9 @@ async function fresh(page, year) {
   await page.goto(URL); await wait(page);
 }
 
+// What a question holds: its typed boxes, or for a drawing its board (the test's seed is random, so any question can be a drawing).
+const held = s => s.problem.method === 'draw' ? { board: s.board } : s.entries;
+
 // The marked boxes of the question on screen, with what each must hold and the key that types it.
 const answerBoxes = page => page.evaluate(() => {
   const s = window.__digitStack.getState(); const sol = window.DigitStackEngine.solutionOf(s.problem).values;
@@ -117,14 +120,15 @@ async function answer(page, wrong) {
   check('the progress bar counts answered questions', s.mixed.answered === 1 && (await page.locator('#streakMeter').getAttribute('aria-valuenow')) === '1');
   const firstAnswer = (await page.evaluate(() => JSON.parse(localStorage.getItem('digitstack.mixed.v1')).answers[0]));
   await page.keyboard.press('p'); await wait(page);
-  check('going back shows the answer typed before', JSON.stringify((await st(page)).entries) === JSON.stringify(firstAnswer) && Object.keys(firstAnswer).length > 0, JSON.stringify(firstAnswer));
+  check('going back shows the answer typed before', JSON.stringify(held(await st(page))) === JSON.stringify(firstAnswer) && Object.keys(firstAnswer).length > 0, JSON.stringify(firstAnswer));
   await page.keyboard.press('n'); await wait(page);
   check('N goes on to the next question', (await st(page)).mixed.index === 1);
   check('the areas\' saved places are not touched by the test', (await stored(page, 'digitstack.play.v1')) === before);
 
   // Closing mid-question: the typed boxes and the clock come back.
   const boxes = await answerBoxes(page);
-  const firstDigit = boxes.find(b => !b.sign && !b.compare && !b.option);
+  // A box in front of a number may have nothing in the worked answer; take the first that has a digit.
+  const firstDigit = boxes.find(b => !b.sign && !b.compare && !b.option && b.v);
   if (firstDigit) { await page.click('[data-cell-id="' + firstDigit.id + '"]'); await page.keyboard.press(firstDigit.key[0]); }
   const typed = (await st(page)).entries;
   await page.reload(); await wait(page, 80);
@@ -132,7 +136,7 @@ async function answer(page, wrong) {
   check('reopening the game carries on with the same question and its typed boxes', s.screen === 'playing' && s.mixed.index === 1 && JSON.stringify(s.entries) === JSON.stringify(typed));
   check('the deadline does not move when the game is closed', s.mixed.deadline === deadline);
   await page.keyboard.press('p'); await wait(page);
-  const backAfterReload = (await st(page)).entries;
+  const backAfterReload = held(await st(page));
   await page.keyboard.press('n'); await wait(page);
   s = await st(page);
   check('after reopening, both questions keep what was typed in them', JSON.stringify(backAfterReload) === JSON.stringify(firstAnswer) && s.mixed.index === 1 && JSON.stringify(s.entries) === JSON.stringify(typed));
@@ -173,7 +177,9 @@ async function answer(page, wrong) {
   s = await st(page);
   const question2 = s.problem.question + ' ' + s.problem.line;
   const reviewLine = await page.locator('#reviewLine').innerText();
-  check('the arrows step through the marked questions, a wrong one showing its answer', s.reviewIndex === 1 && /not quite/.test(reviewLine) && /The answer is/.test(reviewLine) && (await page.locator('.cell.mark-wrong').count()) > 0, reviewLine);
+  // A wrong answer box is marked, or a wrong drawing gets the proper one drawn over it.
+  const shownWrong = (await page.locator('.cell.mark-wrong').count()) + (await page.locator('#worksheet [class*="pic-solution"]').count());
+  check('the arrows step through the marked questions, a wrong one showing its answer', s.reviewIndex === 1 && /not quite/.test(reviewLine) && /The answer is/.test(reviewLine) && shownWrong > 0, reviewLine);
   await page.reload(); await wait(page);
   check('marked results wait on the start screen after closing', (await st(page)).screen === 'setup' && /results/.test(await page.locator('#mixedNote').innerText()));
   await page.keyboard.press('r'); await wait(page, 80);

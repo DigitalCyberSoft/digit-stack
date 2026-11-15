@@ -74,6 +74,8 @@
     leftover: 'Small box first: type what is left over, or 0 if nothing is left over.',
     sign: 'If the answer is below zero, press − first. Otherwise type the first digit.'
   };
+  // The box in front of a row, which only a carry can fill.
+  const FRONT_CHOICE = 'Type the carry, or 0 if nothing carries.';
 
   // Random numbers come from Math.random unless withSeed has put a seeded
   // generator in place, so a mixed test can be rebuilt from its seed.
@@ -219,6 +221,14 @@
   // One column of a carrying method. The cursor stops at the small box above
   // the column every time; the child types the carry, or 0 when nothing
   // carries, then the column's digit. A 0 is not written on the sheet.
+  // What the column before made: "4 + 8 + 1 = 13", or "The last column
+  // made 3" when it held one number.
+  function columnMade(previous) {
+    return previous.work.indexOf('+') === -1
+      ? 'The last column made ' + previous.total
+      : previous.work + ' = ' + previous.total;
+  }
+
   function pushCarryChoice(actions, c) {
     actions.push({
       kind: 'digit',
@@ -232,10 +242,10 @@
       prompt: c.choicePrompt,
       subprompt: CHOICE.carry,
       why: c.carry > 0
-        ? c.previous.work + ' = ' + c.previous.total + ', which is ' + c.carry +
+        ? columnMade(c.previous) + ', which is ' + c.carry +
           (c.carry === 1 ? ' ten' : ' tens') + ' and ' + c.previous.digit +
           (c.previous.digit === 1 ? ' one' : ' ones') + ', so carry ' + c.carry + '.'
-        : c.previous.work + ' = ' + c.previous.total + ', which is less than 10, so nothing carries: type 0.'
+        : columnMade(c.previous) + ', which is less than 10, so nothing carries: type 0.'
     });
     actions.push({
       kind: 'digit',
@@ -244,16 +254,83 @@
       groupId: c.groupId,
       value: c.digit,
       stage: c.stage,
-      prompt: c.carry > 0 ? c.afterPrompt : (c.stage === 'MULTIPLY' ? 'Now multiply.' : 'Now add the column.'),
+      // A column that only a carry reaches says the same either way.
+      prompt: c.onlyCarry ? 'Now write the answer for this column.'
+        : (c.carry > 0 ? c.afterPrompt : (c.stage === 'MULTIPLY' ? 'Now multiply.' : 'Now add the column.')),
       subprompt: c.onlyCarry
-        ? 'Only the carry is in this column. Write it.'
+        ? 'Only the carry can go in this column: write it, or 0 if there is none.'
         : 'Work out ' + c.work + '. Type only the ones digit.',
       why: c.why
     });
   }
 
+  // A box that may hold the start of a number: the carry written in front,
+  // or a digit of a division answer or remainder. Every answer row is as
+  // wide as its number could be, so the layout never shows how long the
+  // answer is; a box that ends up with nothing in it takes 0, which is not
+  // written (a number does not start with 0). Only boxes left of the ones
+  // place can be left blank: 0.75 keeps its 0.
+  function leadCell(rowId, col, value, onesCol) {
+    return inputCell(rowId, col, value, col < onesCol ? { lead: true } : null);
+  }
+
+  // The answer boxes of a number that hold its leading zeros, which are
+  // left blank. A number starts again after a given cell such as R. The
+  // scan stops at a box that cannot be blank, a digit other than 0, or (if
+  // `emptyIsBlank` is false) a box with nothing typed in it yet, so a row
+  // typed from the right is only tidied once its front box is done.
+  function leadingZeros(row, valueOf, emptyIsBlank) {
+    const ids = [];
+    let leading = true;
+    (row.cells || []).forEach(function (cell) {
+      if (!cell) return;
+      if (cell.kind === 'given') {
+        leading = true;
+        return;
+      }
+      if (!leading) return;
+      const value = cell.lead ? String(valueOf(cell.id) || '') : null;
+      if (value === '0' || (value === '' && emptyIsBlank)) ids.push(cell.id);
+      else leading = false;
+    });
+    return ids;
+  }
+
+  // A test's boxes as they are marked. A remainder is a number written after
+  // R, so it is read wherever in its boxes it was typed (2 in the first of
+  // two boxes is R 2); then a number's leading zeros, typed or left empty,
+  // count as blank. `typedOf(cellId)` gives what a box holds.
+  function readTyped(problem, typedOf) {
+    const typed = {};
+    problem.rows.forEach(function (row) {
+      (row.cells || []).forEach(function (cell) {
+        if (cell && cell.kind !== 'given') typed[cell.id] = String(typedOf(cell.id) || '');
+      });
+      const rest = (row.cells || []).filter(function (cell) { return cell && cell.remainder; });
+      if (rest.length) {
+        const digits = rest.map(function (cell) { return typed[cell.id]; }).join('');
+        if (/^\d*$/.test(digits)) {
+          const number = digits.replace(/^0+/, '');
+          if (number.length <= rest.length) {
+            rest.forEach(function (cell, k) {
+              const at = k - (rest.length - number.length);
+              typed[cell.id] = at >= 0 ? number.charAt(at) : '';
+            });
+          }
+        }
+      }
+      leadingZeros(row, function (id) { return typed[id]; }, true).forEach(function (id) {
+        typed[id] = '';
+      });
+    });
+    return typed;
+  }
+
   // `places` is the number of decimal places in `a` (Year 6: 3.45 x 7 is
   // laid out as 345 x 7 and then gets its point); `b` is always whole.
+  // m digits times n digits has at most m + n digits, so every row has that
+  // many columns: each row of the working ends with a box for a carry in
+  // front, and the 0s that hold the places on the right are typed.
   function buildMultiplication(a, b, year, places) {
     places = places || 0;
     const aText = decimalText(a, places);
@@ -262,7 +339,8 @@
     const m = aDigits.length;
     const n = bDigits.length;
     const product = a * b;
-    const width = String(product).length;
+    const width = m + n;
+    const onesCol = width - 1 - places;
     const rows = [];
     const actions = [];
     const groups = [];
@@ -274,33 +352,51 @@
 
     for (let j = 0; j < n; j++) {
       const bDigit = bDigits[n - 1 - j];
-      const partialDigits = toDigits(a * bDigit);
       const end = width - 1 - j;
-      const start = end - partialDigits.length + 1;
-      if (start < 0) throw new Error('Multiplication layout overflow');
+      const front = end - m;
+      const partialDigits = toDigits(a * bDigit);
+      if (partialDigits.length > m + 1) throw new Error('Multiplication layout overflow');
+      while (partialDigits.length < m + 1) partialDigits.unshift(0);
 
       const rowId = 'p' + j;
       const carryRowId = 'pc' + j;
       const cells = new Array(width).fill(null);
       const carryCells = new Array(width).fill(null);
+      const groupId = 'row-' + (j + 1);
+      groups.push(makeMultiplyGroup(j + 1));
+      const multiplier = bDigit * Math.pow(10, j);
 
-      // Shift zeroes hold the place for the second (and later) rows.
+      // The second (and later) rows multiply by tens (or hundreds), so a 0
+      // holds each place on the right. The child writes it.
       for (let z = 0; z < j; z++) {
         const col = width - 1 - z;
-        cells[col] = givenCell(rowId, col, 0, { shiftZero: true });
+        const place = placeName(z - places);
+        cells[col] = inputCell(rowId, col, 0, { shiftZero: true });
+        actions.push({
+          kind: 'digit',
+          cellId: rowId + '-c' + col,
+          rowId: rowId,
+          groupId: groupId,
+          value: 0,
+          stage: 'MULTIPLY',
+          prompt: z === 0
+            ? 'Now multiply ' + aText + ' by the ' + bDigit + ', which is worth ' + multiplier + '. Start on the right.'
+            : 'Keep going on the right.',
+          subprompt: 'What goes in the ' + place + ' column?',
+          why: 'Multiplying by ' + multiplier + ' is multiplying by ' + bDigit + ' and then by ' +
+            Math.pow(10, j) + ', which moves every digit ' + (j === 1 ? 'one place' : j + ' places') +
+            ' to the left. Nothing is left in the ' + place + ', so write 0 to hold the place.'
+        });
       }
-      for (let d = 0; d < partialDigits.length; d++) {
-        const col = start + d;
-        cells[col] = inputCell(rowId, col, partialDigits[d]);
+      for (let d = 0; d <= m; d++) {
+        const col = front + d;
+        cells[col] = d === 0 ? leadCell(rowId, col, partialDigits[d], onesCol) : inputCell(rowId, col, partialDigits[d]);
       }
       // A small box above every column a carry could land in.
       for (let i = 1; i < m; i++) {
         const col = end - i;
         carryCells[col] = carryCell(carryRowId, col, 0, { targetRowId: rowId });
       }
-
-      const groupId = 'row-' + (j + 1);
-      groups.push(makeMultiplyGroup(j + 1));
 
       let carry = 0;
       let previous = null;
@@ -324,8 +420,7 @@
             stage: 'MULTIPLY',
             prompt: j === 0
               ? 'Multiply ' + aText + ' by ' + bDigit + '. Start on the right.'
-              : 'Now multiply ' + aText + ' by ' + (bDigit * Math.pow(10, j)) + '. ' +
-                (j === 1 ? 'The 0 holds the ones place.' : 'The 0s hold the places on the right.'),
+              : 'Now multiply by the ' + bDigit + ', starting with ' + plain + '.',
             subprompt: 'Work out ' + plain + '. Type only the ones digit.',
             why: why
           });
@@ -348,18 +443,22 @@
           });
         }
 
-        if (i === m - 1 && nextCarry > 0) {
+        // The front box comes up every time, so the row does not show
+        // whether anything carries out of the last column.
+        if (i === m - 1) {
           actions.push({
             kind: 'digit',
-            cellId: rowId + '-c' + (col - 1),
+            cellId: rowId + '-c' + front,
             rowId: rowId,
             groupId: groupId,
             value: nextCarry,
             stage: 'MULTIPLY',
-            isLeadingCarry: true,
-            prompt: 'Nothing is left to multiply. Write the carry in front.',
-            subprompt: 'Type the tens digit of ' + work + '.',
-            why: work + ' = ' + total + '. Write the ' + nextCarry + ' in front of the ' + digit + '.'
+            isLeadingCarry: nextCarry > 0,
+            prompt: 'Nothing is left to multiply. Is there a carry to write in front?',
+            subprompt: FRONT_CHOICE,
+            why: nextCarry > 0
+              ? work + ' = ' + total + '. Write the ' + nextCarry + ' in front of the ' + digit + '.'
+              : work + ' = ' + total + ', which is less than 10, so nothing carries: type 0.'
           });
         }
         previous = { work: work, total: total, digit: digit };
@@ -378,8 +477,10 @@
         label: 'row ' + (j + 1)
       });
 
+      // A front box left blank adds nothing to its column.
       partialGrids.push(cells.map(function (cell) {
-        return cell ? cell.value : null;
+        if (!cell || (cell.lead && cell.value === 0)) return null;
+        return cell.value;
       }));
     }
 
@@ -407,7 +508,7 @@
         const work = all.join(' + ');
         const why = (all.length > 1 ? work + ' = ' + total + '. ' : '') +
           'Write ' + digit + (nextCarry ? ', carry ' + nextCarry : '') + '.';
-        sumCells[col] = inputCell('sum', col, digit);
+        sumCells[col] = col === 0 ? leadCell('sum', col, digit, onesCol) : inputCell('sum', col, digit);
 
         if (col === width - 1) {
           actions.push({
@@ -477,11 +578,13 @@
   }
 
   // Column addition, Appendix 1 layout, carries above the next column like
-  // multiplication.
+  // multiplication. The answer row has a box in front of the longer number
+  // for a carry, every time.
   function buildAddition(a, b, year, places) {
     places = places || 0;
     const total = a + b;
-    const width = String(total).length;
+    const width = Math.max(String(a).length, String(b).length) + 1;
+    if (String(total).length > width) throw new Error('Addition layout overflow');
     const aDigits = rightAligned('a', a, width);
     const bDigits = rightAligned('b', b, width);
     const rows = [];
@@ -515,7 +618,7 @@
       const work = all.join(' + ');
       const why = (all.length > 1 ? work + ' = ' + columnTotal + '. ' : '') +
         'Write ' + digit + (nextCarry ? ', carry ' + nextCarry : '') + '.';
-      sumCells[col] = inputCell('sum', col, digit);
+      sumCells[col] = col === 0 ? leadCell('sum', col, digit, width - 1 - places) : inputCell('sum', col, digit);
 
       if (!terms.length) {
         actions.push({
@@ -525,10 +628,12 @@
           groupId: groupId,
           value: carry,
           stage: 'ADD',
-          isLeadingCarry: true,
-          prompt: 'Nothing is left to add. Write the carry in front.',
-          subprompt: 'Type the tens digit of ' + previous.total + '.',
-          why: previous.work + ' = ' + previous.total + ', so the ' + carry + ' goes in front.'
+          isLeadingCarry: carry > 0,
+          prompt: 'Nothing is left to add. Is there a carry to write in front?',
+          subprompt: FRONT_CHOICE,
+          why: carry > 0
+            ? columnMade(previous) + ', so the ' + carry + ' goes in front.'
+            : columnMade(previous) + ', which is less than 10, so nothing carries: type 0.'
         });
       } else if (col === width - 1) {
         actions.push({
@@ -600,8 +705,10 @@
     const bottomCells = rightAligned('b', b, width);
     const top = topCells.map(function (cell) { return cell.value; });
     const bottom = bottomCells.map(function (cell) { return cell ? cell.value : 0; });
+    // A box under every column: the answer can be shorter than the top
+    // number, and the boxes in front of it are then left blank.
     const answerDigits = toDigits(difference);
-    const answerStart = width - answerDigits.length;
+    while (answerDigits.length < width) answerDigits.unshift(0);
     const rows = [];
     const actions = [];
     const groups = [];
@@ -611,8 +718,8 @@
       exchangeCells[col] = carryCell('ex', col, null, { optional: true, dynamic: true });
     }
     const answerCells = new Array(width).fill(null);
-    for (let k = 0; k < answerDigits.length; k++) {
-      answerCells[answerStart + k] = inputCell('diff', answerStart + k, answerDigits[k]);
+    for (let col = 0; col < width; col++) {
+      answerCells[col] = leadCell('diff', col, answerDigits[col], width - 1 - places);
     }
 
     rows.push({ id: 'ex', kind: 'carry', cells: exchangeCells, targetRowId: 'a', isExchange: true });
@@ -622,7 +729,7 @@
     rows.push({ id: 'diff', kind: 'sum', cells: answerCells, groupId: 'col-0', label: 'answer' });
 
     const current = top.slice();
-    for (let col = width - 1; col >= answerStart; col--) {
+    for (let col = width - 1; col >= 0; col--) {
       const placeIndex = width - 1 - col;
       const groupId = 'col-' + placeIndex;
       groups.push(makeColumnGroup(placeIndex, places));
@@ -735,11 +842,13 @@
   }
 
   // One step per answer digit. The first step reads as many leading dividend
-  // digits as it takes for the divisor to fit.
-  function divisionSteps(dividendDigits, divisor) {
+  // digits as it takes for the divisor to fit; `fromStart` (short division)
+  // makes a step of every digit instead, so a divisor bigger than the first
+  // digit fits 0 times and that digit is carried to the next.
+  function divisionSteps(dividendDigits, divisor, fromStart) {
     const n = dividendDigits.length;
     let startIndex = 0;
-    while (startIndex < n) {
+    while (!fromStart && startIndex < n) {
       const prefix = Number(dividendDigits.slice(0, startIndex + 1).join(''));
       if (prefix >= divisor) break;
       startIndex++;
@@ -770,22 +879,53 @@
     return { startIndex: startIndex, steps: steps };
   }
 
-  // Shared by both division layouts: answer digits above the bracket, then an
-  // R and the remainder when something is left over.
-  function buildQuotientRow(steps, n, width, remainderDigits) {
-    const cells = new Array(width).fill(null);
-    for (let i = 0; i < steps.length; i++) {
-      cells[steps[i].pos] = inputCell('q', steps[i].pos, steps[i].quotientDigit, {
-        step: steps[i].index
-      });
-    }
-    if (remainderDigits.length) {
+  // Shared by both division layouts: a box over every digit of the number
+  // being divided, so the layout does not show where the answer starts; a
+  // box in front that the divisor does not fit takes 0 and is left blank,
+  // as Appendix 1 writes nothing over the 4 of 432 / 5. From Year 4 every
+  // whole-number division has an R and one box for each digit a remainder
+  // could have, so the layout does not show whether anything is left over.
+  function buildQuotientRow(steps, n, places, remainder, remainderBoxes) {
+    const cells = new Array(n + (remainderBoxes ? remainderBoxes + 1 : 0)).fill(null);
+    for (let pos = 0; pos < n; pos++) cells[pos] = leadCell('q', pos, 0, n - 1 - places);
+    steps.forEach(function (step) {
+      cells[step.pos].value = step.quotientDigit;
+      cells[step.pos].step = step.index;
+    });
+    if (remainderBoxes) {
       cells[n] = givenCell('q', n, 'R', { remainderLabel: true });
-      for (let k = 0; k < remainderDigits.length; k++) {
-        cells[n + 1 + k] = inputCell('q', n + 1 + k, remainderDigits[k], { remainder: true });
+      const digits = paddedDigits(remainder, remainderBoxes);
+      for (let k = 0; k < remainderBoxes; k++) {
+        cells[n + 1 + k] = inputCell('q', n + 1 + k, digits[k], { remainder: true, lead: true });
       }
     }
     return { id: 'q', kind: 'quotient', cells: cells };
+  }
+
+  function paddedDigits(value, count) {
+    const digits = toDigits(value);
+    while (digits.length < count) digits.unshift(0);
+    return digits;
+  }
+
+  // Whole-number division has an R box from Year 4, when remainders start
+  // (Year 3 divisions come out exactly); a decimal division keeps going
+  // after the point instead.
+  function remainderBoxesFor(divisor, year, places, remainder) {
+    if (places) return 0;
+    return year >= 4 || remainder > 0 ? String(divisor).length : 0;
+  }
+
+  // Long division: the boxes over the digits in front of the first step,
+  // where the divisor fits 0 times.
+  function frontDivideActions(dividendDigits, divisor, startIndex, n, places) {
+    const actions = [];
+    for (let pos = 0; pos < startIndex; pos++) {
+      const partial = Number(dividendDigits.slice(0, pos + 1).join(''));
+      actions.push(divideAction({ index: 0, pos: pos, partial: partial, quotientDigit: 0, product: 0 },
+        divisor, n, 'step-1', null, places));
+    }
+    return actions;
   }
 
   function divideAction(step, divisor, n, groupId, lead, places) {
@@ -812,31 +952,42 @@
     };
   }
 
-  function remainderActions(remainderDigits, n, groupId, lastStep, summary) {
+  // The remainder's boxes from the right, ones first. `summary` says where
+  // the remainder came from; a box the remainder does not reach takes 0.
+  function remainderActions(remainder, boxes, n, groupId, lastStep, summary, expression) {
     const actions = [];
-    for (let k = remainderDigits.length - 1; k >= 0; k--) {
-      const isFirst = k === remainderDigits.length - 1;
+    const digits = paddedDigits(remainder, boxes);
+    const length = remainder > 0 ? String(remainder).length : 0;
+    for (let k = boxes - 1; k >= 0; k--) {
+      const isFirst = k === boxes - 1;
+      const place = placeName(boxes - 1 - k);
+      let subprompt;
+      if (boxes === 1) subprompt = 'Type what is left over at the end, or 0 if nothing is left over.';
+      else if (isFirst) subprompt = 'Type the ones digit of what is left over, or 0 if nothing is left over.';
+      else subprompt = 'Type the ' + place + ' digit of what is left over, or 0 if there is none.';
       actions.push({
         kind: 'digit',
         cellId: 'q-c' + (n + 1 + k),
         rowId: 'q',
         groupId: groupId,
         stepIndex: lastStep.index,
-        value: remainderDigits[k],
+        value: digits[k],
         stage: 'REMAINDER',
-        prompt: isFirst ? 'Write the remainder after R.' : 'Keep going.',
-        subprompt: remainderDigits.length === 1
-          ? 'It is the amount left over at the end.'
-          : 'Type the ' + placeName(remainderDigits.length - 1 - k) + ' digit of what is left over.',
-        why: summary
+        prompt: isFirst ? 'Write the remainder after R.' : 'Keep going with the remainder.',
+        subprompt: subprompt,
+        why: remainder === 0
+          ? summary + ' Nothing is left over: type 0.'
+          : (boxes - 1 - k >= length
+            ? 'The remainder is ' + remainder + ', which has no ' + place + ' digit: type 0.'
+            : summary + ' That is the remainder, so ' + expression + '.')
       });
     }
     return actions;
   }
 
-  function divisionQuestion(dividend, divisor, remainder) {
+  function divisionQuestion(dividend, divisor, remainderBoxes) {
     return 'Work out ' + dividend + ' ÷ ' + divisor + '.' +
-      (remainder ? ' Write the remainder after R.' : '');
+      (remainderBoxes ? ' Write any remainder after R.' : '');
   }
 
   // `places` (Year 6 on) is how many digits of the dividend sit after a
@@ -852,13 +1003,13 @@
     const steps = plan.steps;
     const quotient = Number(steps.map(function (step) { return step.quotientDigit; }).join(''));
     const finalRemainder = steps[steps.length - 1].difference;
-    const remainderDigits = finalRemainder > 0 ? toDigits(finalRemainder) : [];
-    const width = n + (remainderDigits.length ? remainderDigits.length + 1 : 0);
+    const remainderBoxes = remainderBoxesFor(divisor, year, places, finalRemainder);
+    const width = n + (remainderBoxes ? remainderBoxes + 1 : 0);
     const rows = [];
     const actions = [];
     const groups = [];
 
-    rows.push(buildQuotientRow(steps, n, width, remainderDigits));
+    rows.push(buildQuotientRow(steps, n, places, finalRemainder, remainderBoxes));
     rows.push({
       id: 'bracket',
       kind: 'rule',
@@ -881,28 +1032,58 @@
       isDividend: true
     });
 
+    // The first step is under the divisor's last digit (15 into 43) or one
+    // further on (15 into 123), so the working has rows for both. When the
+    // divisor does not fit the first, its rows stay empty: the game puts
+    // them away once the child has typed that 0 (`spareAfter`), and a test
+    // shows them all, so the number of rows does not give it away.
+    const first = String(divisor).length - 1;
+    const rowIndex = function (pos) { return pos - first; };
+    // Steps are counted from there too ("step 1 of 3" either way), so the
+    // count does not show where the answer starts.
+    const stepGroup = function (pos) { return 'step-' + (pos - first + 1); };
+    for (let pos = first; pos < n; pos++) groups.push(makeStepGroup(pos - first + 1));
+    if (steps[0].pos > first) {
+      const spareProduct = new Array(width).fill(null);
+      const spareDifference = new Array(width).fill(null);
+      for (let col = 0; col <= first; col++) {
+        spareProduct[col] = leadCell('p0', col, 0, first);
+        spareDifference[col] = leadCell('d0', col, 0, first);
+      }
+      spareDifference[first + 1] = bringdownCell('d0', first + 1, dividendDigits[first + 1]);
+      const spare = { spare: true, spareAfter: 'q-c' + first, groupId: 'step-1' };
+      rows.push(Object.assign({ id: 'p0', kind: 'product', cells: spareProduct, gutter: MINUS, step: 0 }, spare));
+      rows.push(Object.assign({ id: 'rule-p0', kind: 'rule', thin: true, lineStart: 0, lineEnd: first }, spare));
+      rows.push(Object.assign({ id: 'd0', kind: 'difference', cells: spareDifference, step: 0 }, spare));
+    }
+
     for (let s = 0; s < steps.length; s++) {
       const step = steps[s];
-      const groupId = 'step-' + (step.index + 1);
-      groups.push(makeStepGroup(step.index + 1));
+      const groupId = stepGroup(step.pos);
       const lead = s === 0 && plan.startIndex > 0
         ? dividendDigits.slice(0, plan.startIndex).join('')
         : null;
 
+      if (s === 0) {
+        frontDivideActions(dividendDigits, divisor, plan.startIndex, n, places).forEach(function (action) {
+          actions.push(action);
+        });
+      }
       actions.push(divideAction(step, divisor, n, groupId, lead, places));
 
-      const productRowId = 'p' + step.index;
-      const productDigits = toDigits(step.product);
+      // Each row of the working is as wide as its number could be (the
+      // divisor times a digit has at most one digit more than the divisor;
+      // what is left has no more digits than the divisor), so its boxes do
+      // not show the answer to the step above. Boxes in front take 0.
+      const productRowId = 'p' + rowIndex(step.pos);
+      const productWidth = Math.min(String(divisor).length + 1, step.pos + 1);
+      const productDigits = paddedDigits(step.product, productWidth);
       const productEnd = step.pos;
-      const productStart = productEnd - productDigits.length + 1;
-      if (productStart < 0) throw new Error('Division product layout overflow');
+      const productStart = productEnd - productWidth + 1;
+      if (productDigits.length > productWidth) throw new Error('Division product layout overflow');
       const productCells = new Array(width).fill(null);
-      for (let k = 0; k < productDigits.length; k++) {
-        productCells[productStart + k] = inputCell(
-          productRowId,
-          productStart + k,
-          productDigits[k]
-        );
+      for (let k = 0; k < productWidth; k++) {
+        productCells[productStart + k] = leadCell(productRowId, productStart + k, productDigits[k], productEnd);
       }
       rows.push({
         id: productRowId,
@@ -913,7 +1094,7 @@
         groupId: groupId
       });
       rows.push({
-        id: 'rule-p' + step.index,
+        id: 'rule-p' + rowIndex(step.pos),
         kind: 'rule',
         thin: true,
         lineStart: productStart,
@@ -921,9 +1102,11 @@
       });
 
       const multiplyWork = step.quotientDigit + ' × ' + divisor;
-      for (let k = productDigits.length - 1; k >= 0; k--) {
+      const productLength = String(step.product).length;
+      for (let k = productWidth - 1; k >= 0; k--) {
         const col = productStart + k;
-        const isFirst = k === productDigits.length - 1;
+        const isFirst = k === productWidth - 1;
+        const place = placeName(productWidth - 1 - k);
         actions.push({
           kind: 'digit',
           cellId: productRowId + '-c' + col,
@@ -935,27 +1118,27 @@
           prompt: isFirst
             ? 'Multiply ' + multiplyWork + '. Write it under ' + step.partial + '.'
             : 'Keep going with ' + multiplyWork + '.',
-          subprompt: productDigits.length === 1
+          subprompt: productWidth === 1
             ? 'Type the answer to ' + multiplyWork + '.'
-            : 'Type the ' + placeName(productDigits.length - 1 - k) + ' digit of ' +
-              multiplyWork + '.' + (isFirst ? ' Start on the right.' : ''),
-          why: multiplyWork + ' = ' + step.product + '.'
+            : 'Type the ' + place + ' digit of ' + multiplyWork +
+              (isFirst ? '. Start on the right.' : ', or 0 if there is none.'),
+          why: productWidth - 1 - k >= productLength
+            ? multiplyWork + ' = ' + step.product + ', which has no ' + place + ' digit: type 0.'
+            : multiplyWork + ' = ' + step.product + '.'
         });
       }
 
       // Long division types each difference straight in; exchanges are
       // practised in Subtract.
-      const differenceRowId = 'd' + step.index;
-      const differenceDigits = toDigits(step.difference);
+      const differenceRowId = 'd' + rowIndex(step.pos);
+      const differenceWidth = Math.min(String(divisor).length, step.pos + 1);
+      const differenceDigits = paddedDigits(step.difference, differenceWidth);
       const differenceEnd = step.pos;
-      const differenceStart = differenceEnd - differenceDigits.length + 1;
+      const differenceStart = differenceEnd - differenceWidth + 1;
+      if (differenceDigits.length > differenceWidth) throw new Error('Division difference layout overflow');
       const differenceCells = new Array(width).fill(null);
-      for (let k = 0; k < differenceDigits.length; k++) {
-        differenceCells[differenceStart + k] = inputCell(
-          differenceRowId,
-          differenceStart + k,
-          differenceDigits[k]
-        );
+      for (let k = 0; k < differenceWidth; k++) {
+        differenceCells[differenceStart + k] = leadCell(differenceRowId, differenceStart + k, differenceDigits[k], differenceEnd);
       }
       let bringdownId = null;
       if (step.bringdown !== null) {
@@ -976,18 +1159,20 @@
         isFinal: step.index === steps.length - 1
       });
 
-      for (let k = differenceDigits.length - 1; k >= 0; k--) {
+      const differenceLength = String(step.difference).length;
+      for (let k = differenceWidth - 1; k >= 0; k--) {
         const col = differenceStart + k;
-        const isFirst = k === differenceDigits.length - 1;
+        const isFirst = k === differenceWidth - 1;
+        const place = placeName(differenceWidth - 1 - k);
         let subprompt;
-        if (differenceDigits.length === 1) {
+        if (differenceWidth === 1) {
           subprompt = step.needsExchange ? 'You will need to exchange.' : 'Type the answer.';
         } else if (isFirst) {
           subprompt = step.needsExchange
             ? 'Start on the right. You will need to exchange.'
             : 'Start on the right.';
         } else {
-          subprompt = 'Type the ' + placeName(differenceDigits.length - 1 - k) + ' digit.';
+          subprompt = 'Type the ' + place + ' digit, or 0 if there is none.';
         }
         actions.push({
           kind: 'digit',
@@ -1002,7 +1187,8 @@
             : 'Keep subtracting.',
           subprompt: subprompt,
           why:
-            step.partial + ' ' + MINUS + ' ' + step.product + ' = ' + step.difference + '.' +
+            step.partial + ' ' + MINUS + ' ' + step.product + ' = ' + step.difference +
+            (differenceWidth - 1 - k >= differenceLength && !isFirst ? ', which has no ' + place + ' digit: type 0.' : '.') +
             (step.needsExchange ? ' This subtraction needs an exchange.' : '')
         });
       }
@@ -1027,12 +1213,13 @@
     const expression = dividend + ' ÷ ' + divisor + ' = ' + quotient +
       (finalRemainder ? ' R ' + finalRemainder : '');
     remainderActions(
-      remainderDigits,
+      finalRemainder,
+      remainderBoxes,
       n,
-      'step-' + (lastStep.index + 1),
+      stepGroup(lastStep.pos),
       lastStep,
-      'The last subtraction left ' + finalRemainder + '. That is the remainder, so ' +
-        expression + '.'
+      'The last subtraction left ' + finalRemainder + '.',
+      expression
     ).forEach(function (action) { actions.push(action); });
 
     return {
@@ -1040,7 +1227,7 @@
       method: 'long',
       year: year,
       title: 'Long division',
-      question: divisionQuestion(dividend, divisor, finalRemainder),
+      question: divisionQuestion(dividend, divisor, remainderBoxes),
       markRowIds: ['q'],
       groupWord: 'Step',
       operands: { dividend: dividend, divisor: divisor },
@@ -1048,7 +1235,7 @@
       rows: rows,
       actions: actions,
       groups: groups,
-      answerRowIds: ['q', 'd' + lastStep.index],
+      answerRowIds: ['q', 'd' + rowIndex(lastStep.pos)],
       answer: {
         value: quotient,
         quotient: quotient,
@@ -1069,18 +1256,18 @@
     const n = dividendDigits.length;
     if (dividend < divisor) throw new Error('Dividend must be at least the divisor');
 
-    const plan = divisionSteps(dividendDigits, divisor);
+    const plan = divisionSteps(dividendDigits, divisor, true);
     const steps = plan.steps;
     const quotient = Number(steps.map(function (step) { return step.quotientDigit; }).join(''));
     const lastStep = steps[steps.length - 1];
     const finalRemainder = lastStep.difference;
-    const remainderDigits = finalRemainder > 0 ? toDigits(finalRemainder) : [];
-    const width = n + (remainderDigits.length ? remainderDigits.length + 1 : 0);
+    const remainderBoxes = remainderBoxesFor(divisor, year, places, finalRemainder);
+    const width = n + (remainderBoxes ? remainderBoxes + 1 : 0);
     const rows = [];
     const actions = [];
     const groups = [];
 
-    rows.push(buildQuotientRow(steps, n, width, remainderDigits));
+    rows.push(buildQuotientRow(steps, n, places, finalRemainder, remainderBoxes));
     rows.push({
       id: 'bracket',
       kind: 'rule',
@@ -1154,13 +1341,14 @@
     const expression = dividend + ' ÷ ' + divisor + ' = ' + quotient +
       (finalRemainder ? ' R ' + finalRemainder : '');
     remainderActions(
-      remainderDigits,
+      finalRemainder,
+      remainderBoxes,
       n,
       'step-' + (lastStep.index + 1),
       lastStep,
       divisor + ' × ' + lastStep.quotientDigit + ' = ' + lastStep.product + ', and ' +
-        lastStep.partial + ' ' + MINUS + ' ' + lastStep.product + ' = ' + finalRemainder +
-        '. That is the remainder, so ' + expression + '.'
+        lastStep.partial + ' ' + MINUS + ' ' + lastStep.product + ' = ' + finalRemainder + '.',
+      expression
     ).forEach(function (action) { actions.push(action); });
 
     return {
@@ -1168,7 +1356,7 @@
       method: 'short',
       year: year,
       title: 'Short division',
-      question: divisionQuestion(dividend, divisor, finalRemainder),
+      question: divisionQuestion(dividend, divisor, remainderBoxes),
       markRowIds: ['q'],
       groupWord: 'Step',
       operands: { dividend: dividend, divisor: divisor },
@@ -2946,8 +3134,11 @@
     3: [[6, 'written'], [3, 'facts'], [1, 'problem']],
     4: [[7, 'written'], [2, 'facts'], [1, 'zero']],
     5: [[7, 'written'], [2, 'story'], [1, 'mental']],
-    6: [[6, 'written'], [2, 'decimal'], [2, 'fraction']],
-    7: [[6, 'written'], [2, 'decimal'], [2, 'negative']]
+    // Long division is 5 rounds in 9: with every box of the method counted,
+    // 6 in 10 put Year 6 at 15.0 presses a round, on the edge between 5
+    // and 3 clean rounds.
+    6: [[5, 'written'], [2, 'decimal'], [2, 'fraction']],
+    7: [[5, 'written'], [2, 'decimal'], [2, 'negative']]
   };
 
   const SUM_KINDS = {
@@ -3059,10 +3250,9 @@
       if (action.crossCellId) seen.crossOut = true;
       if (action.isLeadingCarry) seen.carryInFront = true;
     });
-    const hasRemainder = problem.rows.some(function (row) {
-      return (row.cells || []).some(function (cell) { return cell && cell.remainderLabel; });
-    });
-    if (hasRemainder) seen.remainder = true;
+    // Every division from Year 4 has an R box; an example should show one
+    // with something in it.
+    if (problem.answer && problem.answer.remainder > 0) seen.remainder = true;
     return Object.keys(seen).length;
   }
 
@@ -3120,6 +3310,12 @@
         if (fill.crossCellId) crossed.push(fill.crossCellId);
       });
     });
+    // A number's leading zeros are not written.
+    problem.rows.forEach(function (row) {
+      leadingZeros(row, function (id) { return values[id]; }, true).forEach(function (id) {
+        delete values[id];
+      });
+    });
     return { values: values, crossed: crossed };
   }
 
@@ -3151,13 +3347,14 @@
   // presses per round are in the comments. The engine check re-measures and
   // must agree, so change this table only together with the generators.
   const CLEAN_ROUNDS = {
-    // 1.2, 1.3, 2.3, 4.5, 7.1, 12.6, 11.9
-    divide: { 1: 10, 2: 10, 3: 10, 4: 10, 5: 5, 6: 5, 7: 5 },
-    // 1.9, 1.7, 3.7, 6.3, 17.3, 22.0, 28.6
+    // 1.2, 1.3, 2.9, 5.3, 8.5, 14.3, 13.7 (every box of a written method,
+    // the ones in front of a number and the R boxes included)
+    divide: { 1: 10, 2: 10, 3: 10, 4: 5, 5: 5, 6: 5, 7: 5 },
+    // 1.9, 1.7, 3.8, 6.8, 18.7, 23.9, 31.4
     multiply: { 1: 10, 2: 10, 3: 10, 4: 5, 5: 3, 6: 3, 7: 3 },
-    // 1.7, 3.3, 5.2, 6.4, 6.8, 7.7, 8.8
+    // 1.7, 3.7, 5.7, 6.9, 7.2, 8.1, 8.9
     add: { 1: 10, 2: 10, 3: 5, 4: 5, 5: 5, 6: 5, 7: 5 },
-    // 1.4, 4.2, 6.4, 8.1, 8.6, 9.5, 11.1
+    // 1.4, 4.3, 6.6, 8.2, 8.7, 9.9, 11.2
     subtract: { 1: 10, 2: 10, 3: 5, 4: 5, 5: 5, 6: 5, 7: 5 },
     // The six topic areas are all short sentences: 1.0 to 3.1 presses.
     number: { 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10, 7: 10 },
@@ -3202,6 +3399,9 @@
     AREAS: AREAS,
     MINUS: MINUS,
     CHOICE: CHOICE,
+    FRONT_CHOICE: FRONT_CHOICE,
+    leadingZeros: leadingZeros,
+    readTyped: readTyped,
     COUNTING_STEPS: COUNTING_STEPS,
     FACT_TABLES: FACT_TABLES,
     ALL_TABLES: ALL_TABLES,

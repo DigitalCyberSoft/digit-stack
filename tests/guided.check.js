@@ -15,6 +15,25 @@ async function act(page, a) {
   else await page.waitForTimeout(560);
   await page.waitForTimeout(8);
 }
+// Opens a problem built here as the round in progress in learning. `build` is an engine builder and its arguments.
+async function openLearning(page, area, year, build) {
+  await page.goto(URL);
+  await page.evaluate(([area, year, build]) => {
+    const E = window.DigitStackEngine; const p = E[build[0]].apply(null, build.slice(1));
+    localStorage.clear();
+    const prog = { schoolYear: year, passed: {}, learned: {}, watched: {} };
+    E.AREAS.forEach(a => { prog.passed[a] = []; prog.learned[a] = []; prog.watched[a] = [1, 2, 3, 4, 5, 6, 7]; });
+    localStorage.setItem('digitstack.progress.v1', JSON.stringify(prog));
+    localStorage.setItem('digitstack.play.v1', JSON.stringify({ version: 2, operation: area, areas: { [area]: { year, mode: 'guided', cleanStreak: 0, round: { problem: p, actionIndex: 0, roundClean: true, fixes: 0 } } } }));
+  }, [area, year, build]);
+  await page.goto(URL); await page.waitForTimeout(60);
+}
+const boxLook = (page, id) => page.evaluate(id => { const el = document.querySelector('[data-cell-id="' + id + '"]'); return el.textContent + (el.classList.contains('zeroed') ? '.zeroed' : ''); }, id);
+// Plays the round until the box `id` has been typed.
+async function playThrough(page, id) {
+  for (let i = 0; i < 200; i++) { const s = await st(page); if (s.screen !== 'playing') return; const done = s.action.cellId === id; await act(page, s.action); if (done) return; }
+}
+
 async function solveGuided(page, onAction) {
   for (let i = 0; i < 900; i++) { const s = await st(page); if (s.screen !== 'playing') return s; if (onAction && await onAction(s)) continue; await act(page, s.action); }
   throw new Error('timeout');
@@ -24,6 +43,8 @@ async function solveTest(page) {
     return s.problem.rows.filter(r => s.problem.markRowIds.includes(r.id)).flatMap(r => r.cells.filter(c => c && c.kind === 'input').map(c => ({ id: c.id, v: sol.values[c.id], sign: Boolean(c.signBox) }))); });
   for (const b of marked) {
     if (b.sign) { if (b.v === MINUS) await page.keyboard.press('-'); continue; }
+    // A box in front of the number that the answer does not reach is left empty, as on paper.
+    if (b.v === undefined) continue;
     for (let i = 0; i < 80 && (await st(page)).selectedCellId !== b.id; i++) await page.keyboard.press('Tab');
     await page.keyboard.press(b.v);
   }
@@ -156,6 +177,33 @@ async function find(page, year, key, want, then, limit = 200) {
 
   const body = await page.locator('body').innerText();
   check('no "Space", "borrow" or decimal text on screen', !/\bSpace\b/.test(body) && !/borrow/i.test(body) && !/\d+\.\d+/.test(body));
+  // A 0 in front of a number is not written, and a row typed from the right is only tidied once its front box is done.
+  await openLearning(page, 'subtract', 4, ['buildSubtraction', 5021, 4987, 4]);
+  await playThrough(page, 'diff-c1');
+  const hundreds = await boxLook(page, 'diff-c1');
+  await playThrough(page, 'diff-c0');
+  const both = [await boxLook(page, 'diff-c1'), await boxLook(page, 'diff-c0')];
+  check('5021 − 4987: the hundreds 0 shows until the thousands are done, then both 0s in front are left blank', hundreds === '0' && both.join() === '.zeroed,.zeroed', hundreds + ' then ' + both.join());
+  // The box in front of 389 + 442 asks the same question as 789 + 642's.
+  const frontTexts = [];
+  for (const [a, b] of [[389, 442], [789, 642]]) {
+    await openLearning(page, 'add', 3, ['buildAddition', a, b, 3]);
+    let st1 = await st(page);
+    for (let i = 0; i < 40 && st1.action.cellId !== 'sum-c0'; i++) { await act(page, st1.action); st1 = await st(page); }
+    frontTexts.push(await page.evaluate(() => document.getElementById('prompt').textContent + ' | ' + document.getElementById('subprompt').textContent));
+    await act(page, st1.action);
+    frontTexts.push(await boxLook(page, 'sum-c0'));
+  }
+  check('the box in front asks the same whether or not anything carries', frontTexts[0] === frontTexts[2] && /carry to write in front/.test(frontTexts[0]) && frontTexts[1] === '.zeroed' && frontTexts[3] === '1', frontTexts.join(' / '));
+  // Long division of 1234 by 15: rows for a first step under the 2 are drawn, and put away once 0 is typed there.
+  await openLearning(page, 'divide', 6, ['buildDivision', 1234, 15, 6]);
+  const shownAtStart = await page.evaluate(() => ['p0', 'd0'].map(id => getComputedStyle(document.querySelector('[data-row-id="' + id + '"]')).display !== 'none'));
+  await playThrough(page, 'q-c1');
+  const afterZero = await page.evaluate(() => ['p0', 'd0'].map(id => getComputedStyle(document.querySelector('[data-row-id="' + id + '"]')).display !== 'none'));
+  check('long division draws rows for a first step under the 2 and puts them away once 15 does not fit into 12', shownAtStart.every(Boolean) && afterZero.every(x => !x), JSON.stringify([shownAtStart, afterZero]));
+  const finished = await solveGuided(page);
+  check('1234 ÷ 15 then solves as 82 R 4', finished.screen === 'won' && (await page.evaluate(() => document.querySelector('[data-cell-id="q-c6"]').textContent)) === '4', finished.screen);
+
   check('no console or page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await browser.close(); server.close();
   console.log(out.join('\n')); console.log(out.filter(x => x.startsWith('FAIL')).length + ' failed of ' + out.length); if (out.some(x => x.startsWith('FAIL'))) process.exitCode = 1;

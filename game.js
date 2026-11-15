@@ -138,7 +138,9 @@
 
   // Saved rounds hold whole problems. Bump this when the engine's problem
   // layout changes, so rounds saved by older code are dropped, not misdrawn.
-  // 2: sentences, decimals and the six topic areas.
+  // 2: sentences, decimals and the six topic areas. (Full-width answer rows
+  // did not need a bump: a round saved before them still plays and marks
+  // with its own boxes.)
   const PLAY_VERSION = 2;
 
   // Mixed test settings, chosen with the arrow keys.
@@ -1766,6 +1768,8 @@
       message += ' Press minus for an answer below zero, or type the first digit.';
     } else if (action.choice) {
       message += ' Type the small digit, or 0 if there is none.';
+    } else if (action.kind === 'digit' && state.cellEls.get(action.cellId) && state.cellEls.get(action.cellId).cell.lead) {
+      message += ' Type a digit, or 0 if there is none.';
     } else if (action.kind === 'digit') {
       message += ' Type a digit.';
     }
@@ -1839,6 +1843,40 @@
       const filled = state.cellEls.get(fill.cellId);
       if (filled) filled.el.classList.add('auto-filled');
       if (fill.crossCellId) crossOut(fill.crossCellId);
+    });
+    tidyNumber(action.rowId);
+    putAwaySpareRows(action.cellId);
+  }
+
+  // What a box shows as typed: a 0 left blank still counts as a 0.
+  function shownText(cellId) {
+    const entry = state.cellEls.get(cellId);
+    if (!entry) return '';
+    return entry.el.classList.contains('zeroed') ? '0' : entry.el.textContent;
+  }
+
+  // A number does not start with 0: once a row's front box is done, its
+  // leading 0s are left blank, as on paper. A row typed from the right is
+  // tidied only when its front box is reached, so a 0 never shows early
+  // whether more 0s are coming.
+  function tidyNumber(rowId) {
+    const row = state.problem && state.problem.rows.find(function (r) { return r.id === rowId; });
+    if (!row) return;
+    Engine.leadingZeros(row, shownText, false).forEach(function (id) {
+      const entry = state.cellEls.get(id);
+      entry.el.textContent = '';
+      entry.el.classList.add('zeroed');
+    });
+  }
+
+  // Long division has rows for a first step under the divisor's last digit.
+  // Once the child has typed 0 there (it does not fit), those rows are not
+  // needed and are put away.
+  function putAwaySpareRows(cellId) {
+    state.problem.rows.forEach(function (row) {
+      if (row.spareAfter !== cellId) return;
+      const rowEl = state.rowEls.get(row.id);
+      if (rowEl) rowEl.classList.add('is-put-away');
     });
   }
 
@@ -2408,8 +2446,10 @@
       return;
     }
     const marked = markedCellIds();
+    // A box in front of a number can be left empty, so it is not counted.
     const empty = marked.filter(function (id) {
-      return !state.entries.get(id) && !state.cellEls.get(id).cell.signBox;
+      const cell = state.cellEls.get(id).cell;
+      return !state.entries.get(id) && !cell.signBox && !cell.lead;
     });
     if (empty.length && !state.handInWarned) {
       state.handInWarned = true;
@@ -2419,24 +2459,37 @@
       els.liveRegion.textContent = els.fixNote.textContent;
       return;
     }
+    const typed = typedAnswers(state.problem, function (id) { return state.entries.get(id); });
     const correct = marked.every(function (id) {
-      return (state.entries.get(id) || '') === (state.solution.values[id] || '');
+      return typed[id] === (state.solution.values[id] || '');
     });
     markTest(marked, correct);
     state.roundClean = correct;
     completeRound();
   }
 
+  // A test's boxes as they are marked: a number's leading 0s typed or left
+  // empty are the same, and a remainder counts wherever it was typed after R.
+  function typedAnswers(problem, typedOf) {
+    return Engine.readTyped(problem, typedOf);
+  }
+
   // Answer boxes are marked right or wrong. After a wrong answer every other
   // box shows the proper working, with exchanged digits crossed out.
   function markTest(marked, correct) {
     clearActiveMarks();
+    const read = typedAnswers(state.problem, function (id) { return state.entries.get(id); });
     marked.forEach(function (id) {
       const entry = state.cellEls.get(id);
       const typed = state.entries.get(id) || '';
       const proper = state.solution.values[id] || '';
-      if (typed === proper) {
-        entry.el.classList.add('mark-right');
+      if (read[id] === proper) {
+        // A remainder typed in another of its boxes, or a 0 in front, is
+        // shown where it belongs.
+        entry.el.textContent = proper;
+        entry.el.classList.toggle('filled', Boolean(proper));
+        if (!proper && typed) entry.el.classList.add('zeroed');
+        if (proper) entry.el.classList.add('mark-right');
         return;
       }
       entry.el.textContent = proper;
@@ -3204,7 +3257,8 @@
       const values = Engine.solutionOf(problem).values;
       const marked = answerBoxIds(problem);
       const answered = marked.some(function (id) { return entries[id]; });
-      const correct = answered && marked.every(function (id) { return (entries[id] || '') === (values[id] || ''); });
+      const typed = typedAnswers(problem, function (id) { return entries[id]; });
+      const correct = answered && marked.every(function (id) { return typed[id] === (values[id] || ''); });
       results.push({ area: m.areas[i], correct: correct, answered: answered });
     }
     return results;

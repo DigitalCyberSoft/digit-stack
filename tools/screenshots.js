@@ -135,9 +135,14 @@ async function shot(page, name, target) {
     await open(desk, Object.assign({ step: 'last' }, o)); await finish(desk); made.push(await shot(desk, name, '#sheet'));
   }
 
-  // A worked example, three steps in, on a year's first visit.
+  // A worked example of column addition, three steps in, on a year's first visit. The examples before it are as short as each
+  // other, so their order can change: step on until the column addition is reached.
   await open(desk, { area: 'add', year: 3, unwatched: true });
-  for (let k = 0; k < 3; k++) { await desk.keyboard.press('ArrowRight'); await desk.waitForTimeout(150); }
+  for (let k = 0; k < 60; k++) {
+    const at = await desk.evaluate(() => { const t = window.__digitStack.getState().tutorial; return t ? t.examples[t.index].title + ':' + t.step : ''; });
+    if (at === 'Column addition:3') break;
+    await desk.keyboard.press('ArrowRight'); await desk.waitForTimeout(120);
+  }
   await desk.waitForTimeout(400); made.push(await shot(desk, 'tutorial-step'));
 
   // Display settings: dark, and colour-blind friendly colours on a marked test.

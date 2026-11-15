@@ -11,6 +11,8 @@ const st = page => page.evaluate(() => window.__digitStack.getState());
 const sheet = page => page.evaluate(() => { const s = window.__digitStack.getState(); const sol = window.DigitStackEngine.solutionOf(s.problem);
   const marked = s.problem.rows.filter(r => s.problem.markRowIds.includes(r.id)).flatMap(r => r.cells.filter(c => c && c.kind === 'input').map(c => ({ id: c.id, value: sol.values[c.id], sign: Boolean(c.signBox) })));
   return { marked, sol }; });
+// A problem's identity: its question text can be shared ("What number goes in the box?" is 1 in 5 Year 3 subtraction problems).
+const ident = p => JSON.stringify([p.question, p.line || null, p.operands || null, p.target || null]);
 async function goTo(page, id) {
   for (let i = 0; i < 80; i++) { if ((await st(page)).selectedCellId === id) return true; await page.keyboard.press('Tab'); }
   return false;
@@ -21,6 +23,8 @@ async function answer(page, wrongFirst) {
   let first = true;
   for (const box of marked) {
     if (box.sign) { if (box.value === MINUS) await page.keyboard.press('-'); continue; }
+    // A box in front of the number that the answer does not reach is left empty, as on paper.
+    if (box.value === undefined) continue;
     if (!(await goTo(page, box.id))) return false;
     const digit = wrongFirst && first ? String((Number(box.value) + 1) % 10) : box.value;
     await page.keyboard.press(digit); first = false;
@@ -29,6 +33,23 @@ async function answer(page, wrongFirst) {
   return true;
 }
 async function fresh(page, learnedYear) { await page.goto(URL); await page.evaluate(y => { localStorage.clear(); const all = window.DigitStackEngine.AREAS; const p = { schoolYear: y || 1, passed: {}, learned: {}, watched: {} }; all.forEach(a => { p.passed[a] = []; p.learned[a] = y ? [y] : []; p.watched[a] = [1, 2, 3, 4, 5, 6, 7]; }); localStorage.setItem('digitstack.progress.v1', JSON.stringify(p)); }, learnedYear || 0); await page.goto(URL); await page.waitForTimeout(40); }
+// Opens a problem built here as the round in progress: in a test, or in learning. `build` is an engine builder and its arguments.
+async function openRound(page, area, year, mode, build) {
+  await page.goto(URL);
+  await page.evaluate(([area, year, mode, build]) => {
+    const E = window.DigitStackEngine; const p = E[build[0]].apply(null, build.slice(1));
+    localStorage.clear();
+    const prog = { schoolYear: year, passed: {}, learned: {}, watched: {} };
+    E.AREAS.forEach(a => { prog.passed[a] = []; prog.learned[a] = mode === 'test' ? [year] : []; prog.watched[a] = [1, 2, 3, 4, 5, 6, 7]; });
+    localStorage.setItem('digitstack.progress.v1', JSON.stringify(prog));
+    const round = mode === 'test' ? { problem: p, entries: {}, selectedCellId: null } : { problem: p, actionIndex: 0, roundClean: true, fixes: 0 };
+    localStorage.setItem('digitstack.play.v1', JSON.stringify({ version: 2, operation: area, areas: { [area]: { year, mode, cleanStreak: 0, round } } }));
+  }, [area, year, mode, build]);
+  await page.goto(URL); await page.waitForTimeout(60);
+}
+async function typeAt(page, id, digits) { await page.click('[data-cell-id="' + id + '"]'); for (const d of digits) await page.keyboard.press(d); }
+const cellText = (page, id) => page.locator('[data-cell-id="' + id + '"]').innerText();
+
 // A year the child has already learned opens in its test.
 async function startTest(page, year, key) {
   await fresh(page, year);
@@ -112,10 +133,10 @@ async function startTest(page, year, key) {
   await page.screenshot({ path: SHOTS + '/tm-wrong.png' });
 
   // Enter walks through the missed problem: the same problem, one box per step with the game's reason, then the next problem.
-  const missed = (await st(page)).problem.question;
+  const missed = ident((await st(page)).problem);
   await page.keyboard.press('Enter'); await page.waitForTimeout(80);
   s = await st(page);
-  check('Enter walks through the missed problem', s.screen === 'tutorial' && s.tutorial.kind === 'walkthrough' && s.problem.question === missed && s.tutorial.step === 0,
+  check('Enter walks through the missed problem', s.screen === 'tutorial' && s.tutorial.kind === 'walkthrough' && ident(s.problem) === missed && s.tutorial.step === 0,
     JSON.stringify({ screen: s.screen, kind: s.tutorial && s.tutorial.kind }));
   const walkSteps = s.problem.actions.length; const reasons = [];
   for (let k = 1; k <= walkSteps; k++) {
@@ -131,16 +152,16 @@ async function startTest(page, year, key) {
   check('the walkthrough ends on the answer', /The answer|=/.test(await page.locator('#prompt').innerText()) && /next problem/i.test(await page.locator('#subprompt').innerText()));
   await page.keyboard.press('Enter'); await page.waitForTimeout(80);
   s = await st(page);
-  check('then Enter goes to the next round with the count at 0', s.screen === 'playing' && s.cleanStreak === 0 && s.mode === 'test' && s.problem.question !== missed, s.screen);
+  check('then Enter goes to the next round with the count at 0', s.screen === 'playing' && s.cleanStreak === 0 && s.mode === 'test' && ident(s.problem) !== missed, s.screen);
 
   // N skips the walkthrough and goes straight on.
   await answer(page, true); await page.keyboard.press('Enter'); await page.waitForTimeout(40);
   if ((await st(page)).handInWarned) { await page.keyboard.press('Enter'); await page.waitForTimeout(60); }
-  const missedAgain = (await st(page)).problem.question;
+  const missedAgain = ident((await st(page)).problem);
   const failedAgain = (await st(page)).screen === 'testFailed';
   await page.keyboard.press('n'); await page.waitForTimeout(80);
   s = await st(page);
-  check('N after a missed test problem goes straight to the next one', failedAgain && s.screen === 'playing' && s.mode === 'test' && s.problem.question !== missedAgain);
+  check('N after a missed test problem goes straight to the next one', failedAgain && s.screen === 'playing' && s.mode === 'test' && ident(s.problem) !== missedAgain, s.screen + ' failed first: ' + failedAgain);
 
   // Drawing in a test: the board takes the keys, Enter hands in, a wrong drawing shows the proper one, and Enter then walks through it.
   const drawPlan = () => page.evaluate(() => { const s = window.__digitStack.getState(); const D = window.DigitStackEngine.drawing;
@@ -170,7 +191,10 @@ async function startTest(page, year, key) {
   const shown = await page.evaluate(() => { const s = window.__digitStack.getState(); return JSON.stringify(s.board) === JSON.stringify(window.DigitStackEngine.drawing.solved(s.problem)); });
   check('the walkthrough ends with the proper drawing on the board', shown);
   await page.keyboard.press('Enter'); await page.waitForTimeout(80);
-  check('then Enter goes on to the next problem', (await st(page)).screen === 'playing' && (await st(page)).problem.question !== missedDrawing);
+  const afterWalk = await st(page);
+  // The game may set the same question again (about 1 time in 240 here), so a repeat counts when its board starts empty.
+  const freshBoard = await page.evaluate(() => { const s = window.__digitStack.getState(); return s.problem.method === 'draw' && JSON.stringify(s.board) === JSON.stringify(window.DigitStackEngine.drawing.start(s.problem)); });
+  check('then Enter goes on to the next problem', afterWalk.screen === 'playing' && afterWalk.mode === 'test' && (afterWalk.problem.question !== missedDrawing || freshBoard), afterWalk.screen + ' / ' + afterWalk.problem.question + ' / ' + missedDrawing);
 
   // Sign box toggle.
   await startTest(page, 5, '3');
@@ -199,6 +223,45 @@ async function startTest(page, year, key) {
   over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check('phone test sheet has no overflow and shows Hand in', over <= 0 && await page.locator('#handInBtn').isVisible(), over);
   await page.screenshot({ path: SHOTS + '/tm-phone-long-division.png' });
+
+  // Boxes in front of a number. The answer row of 389 + 442 has a box for a carry in front; 831 leaves it empty.
+  await openRound(page, 'add', 3, 'test', ['buildAddition', 389, 442, 3]);
+  s = await st(page);
+  check('column addition has a box in front even when nothing carries', s.problem.rows.find(r => r.id === 'sum').cells.filter(Boolean).length === 4);
+  await typeAt(page, 'sum-c3', ['1']); await typeAt(page, 'sum-c2', ['3']); await typeAt(page, 'sum-c1', ['8']);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(60); s = await st(page);
+  check('the box in front left empty is right, with no "empty box" warning', s.screen === 'won' && s.cleanStreak === 1, s.screen);
+  await openRound(page, 'add', 3, 'test', ['buildAddition', 389, 442, 3]);
+  await typeAt(page, 'sum-c3', ['1']); await typeAt(page, 'sum-c2', ['3']); await typeAt(page, 'sum-c1', ['8']); await typeAt(page, 'sum-c0', ['0']);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(60); s = await st(page);
+  const front = await page.evaluate(() => { const el = document.querySelector('[data-cell-id="sum-c0"]'); return { text: el.textContent, zeroed: el.classList.contains('zeroed') }; });
+  check('a 0 typed in front is right and is not written on the marked sheet', s.screen === 'won' && front.text === '' && front.zeroed, JSON.stringify(front) + ' ' + s.screen);
+  await openRound(page, 'add', 3, 'test', ['buildAddition', 389, 442, 3]);
+  await typeAt(page, 'sum-c3', ['1']); await typeAt(page, 'sum-c2', ['3']); await typeAt(page, 'sum-c1', ['8']); await typeAt(page, 'sum-c0', ['1']);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(60); s = await st(page);
+  check('a digit written in front of 831 is marked wrong', s.screen === 'testFailed', s.screen);
+  await openRound(page, 'add', 3, 'test', ['buildAddition', 789, 642, 3]);
+  await typeAt(page, 'sum-c3', ['1']); await typeAt(page, 'sum-c2', ['3']); await typeAt(page, 'sum-c1', ['4']);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(60); s = await st(page);
+  check('789 + 642 without the 1 in front is not taken as right', s.screen === 'testFailed', s.screen);
+
+  // Division: an R box from Year 4 even with nothing left over, and a remainder read wherever it is typed after R.
+  await openRound(page, 'divide', 4, 'test', ['buildShortDivision', 864, 4, 4]);
+  s = await st(page);
+  check('a Year 4 division with nothing left over still has an R and its box', s.problem.rows.find(r => r.id === 'q').cells.some(c => c && c.remainderLabel) && /remainder after R/.test(s.problem.question));
+  await typeAt(page, 'q-c0', ['2', '1', '6']);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(60); s = await st(page);
+  check('216 with nothing after R is right for 864 ÷ 4', s.screen === 'won', s.screen);
+  await openRound(page, 'divide', 6, 'test', ['buildDivision', 437, 15, 6]);
+  await typeAt(page, 'q-c1', ['2', '9']); await typeAt(page, 'q-c4', ['2']);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(60); s = await st(page);
+  check('a remainder of 2 typed in the first of its two boxes is right', s.screen === 'won' && await cellText(page, 'q-c5') === '2', s.screen);
+  await openRound(page, 'divide', 6, 'test', ['buildDivision', 437, 15, 6]);
+  await typeAt(page, 'q-c0', ['2', '9']); await typeAt(page, 'q-c4', ['2']);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(60); s = await st(page);
+  check('29 started over the 4 leaves the ones box empty, and the hand-in asks first', s.screen === 'playing' && s.handInWarned && /1 answer box is empty/.test(await page.locator('#fixNote').innerText()), s.screen);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(60); s = await st(page);
+  check('the answer started over the 4 (15 does not fit into 4) is marked wrong', s.screen === 'testFailed', s.screen);
 
   check('no console or page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await browser.close(); server.close();
