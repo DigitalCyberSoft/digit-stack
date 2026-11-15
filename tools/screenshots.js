@@ -167,6 +167,15 @@ async function shot(page, name, target) {
     await open(desk, o); await finish(desk); made.push(await shot(desk, name, '#sheet'));
   }
 
+  // Drawing: a reflection part way through (the first corner plotted, the pencil on its way to the second), and an angle being turned.
+  const drawSome = async (page, fraction) => {
+    const keys = await page.evaluate(() => { const s = window.__digitStack.getState(); return window.DigitStackEngine.drawing.plan(s.problem, s.board, s.actionIndex); });
+    for (const k of keys.slice(0, Math.floor(keys.length * fraction))) await page.keyboard.press(k === ' ' ? 'Space' : k);
+    await page.waitForTimeout(300);
+  };
+  await open(desk, { area: 'shape', year: 5, title: 'Drawing reflections', seed: 3, step: 1 }); await drawSome(desk, 0.5); made.push(await shot(desk, 'draw-reflect'));
+  await open(desk, { area: 'shape', year: 5, title: 'Drawing angles', seed: 5 }); await drawSome(desk, 0.8); made.push(await shot(desk, 'draw-angle', '#sheet'));
+
   // The mixed test: settings, a question part way through, and marked results.
   await open(desk, { year: 4 });
   await desk.keyboard.press('r'); await desk.waitForTimeout(250);

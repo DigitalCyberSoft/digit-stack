@@ -265,6 +265,20 @@
                 <button class="key-zero" type="button" data-digit="0" tabindex="-1">0</button>
               </div>
 
+              <div class="board-pad" id="boardPad" aria-label="Drawing keys">
+                <button type="button" data-board-key="Shift+ArrowLeft" tabindex="-1" aria-label="Big step left (Shift and left arrow)">&#171;</button>
+                <button type="button" data-board-key="ArrowUp" tabindex="-1" aria-label="Up">&#8593;</button>
+                <button type="button" data-board-key="Shift+ArrowRight" tabindex="-1" aria-label="Big step right (Shift and right arrow)">&#187;</button>
+                <button type="button" data-board-key="ArrowLeft" tabindex="-1" aria-label="Left">&#8592;</button>
+                <button class="board-mark" type="button" data-board-key=" " tabindex="-1" aria-label="Mark (Space)">Mark</button>
+                <button type="button" data-board-key="ArrowRight" tabindex="-1" aria-label="Right">&#8594;</button>
+                <button type="button" data-board-key="Shift+ArrowDown" tabindex="-1" aria-label="Big step down (Shift and down arrow)">&#8650;</button>
+                <button type="button" data-board-key="ArrowDown" tabindex="-1" aria-label="Down">&#8595;</button>
+                <button type="button" data-board-key="Shift+ArrowUp" tabindex="-1" aria-label="Big step up (Shift and up arrow)">&#8648;</button>
+                <button class="board-wide" type="button" data-board-key="Backspace" tabindex="-1" aria-label="Undo (Backspace)">Undo</button>
+                <button class="board-wide board-done guided-only" type="button" data-board-key="Enter" tabindex="-1" aria-label="Done (Enter)">Done</button>
+              </div>
+
               <div class="tutor-dock tutorial-only" id="tutorDock">
                 <button class="tutor-btn primary" id="tutorNext" type="button">Next <kbd>&#8594;</kbd></button>
                 <button class="tutor-btn" id="tutorBack" type="button"><kbd>&#8592;</kbd> Back</button>
@@ -272,7 +286,11 @@
               </div>
 
               <div class="console-foot" id="consoleFoot">
-                <span class="not-tutorial"><kbd>0-9</kbd> type</span>
+                <span class="not-tutorial not-draw"><kbd>0-9</kbd> type</span>
+                <span class="draw-only"><kbd>&#8592;&#8593;&#8594;&#8595;</kbd> move or turn</span>
+                <span class="draw-only"><kbd>Shift</kbd> bigger steps</span>
+                <span class="draw-only space-hint"><kbd>Space</kbd> mark</span>
+                <span class="draw-only guided-only"><kbd>Enter</kbd> done</span>
                 <span class="tutorial-only"><kbd>&#8594;</kbd> next step</span>
                 <span class="tutorial-only"><kbd>&#8592;</kbd> back</span>
                 <span class="test-only"><kbd>&#8592;&#8593;&#8594;&#8595;</kbd> move</span>
@@ -323,6 +341,10 @@
           <p>Each year starts with a worked example: the game fills in each box and says why (<kbd>&#8594;</kbd> next step, <kbd>&#8592;</kbd> back, <kbd>N</kbd> skip; <kbd>W</kbd> watches it again while learning). Then guided learning, one box at a time. Once enough rounds in a row are clean, that year's test starts by itself: every box is open, you move with the arrow keys (<kbd>Tab</kbd> follows the method), type to fill, <kbd>Backspace</kbd> to clear, and press <kbd>Enter</kbd> to hand in. Only the answer is marked; small boxes are for your working. A wrong answer shows the proper answer and working; then <kbd>Enter</kbd> shows how to solve it, step by step (<kbd>N</kbd> skips to the next problem).</p>
         </div>
         <div class="help-block">
+          <h3>Drawing</h3>
+          <p>Some questions are drawn: clock hands, shading, a mark on a number line, a line on a ruler, corners on a grid, bars and pictograms, angles on a protractor, pie charts. The arrow keys move or turn (with <kbd>Shift</kbd>, a bigger step), <kbd>Space</kbd> shades a part or puts a corner down, <kbd>Backspace</kbd> takes the last corner away, and <kbd>Enter</kbd> says the drawing is done. While learning each step is checked as you go; a grid corner is checked as you put it down.</p>
+        </div>
+        <div class="help-block">
           <h3>Year checks</h3>
           <p>Set the school year from 1 to 7 with the arrow keys. Every area starts there, and each year is pitched for a strong pupil in that year. Learning and the test each need clean rounds in a row: 10 when rounds are short, 5 for medium ones, 3 for long multiplication and long division. Passing the test moves only that area up a year, so one area can run ahead of the others. A round with a fix sends the count back to zero. Passed checks, the clean count and the round in progress are saved on this device, so the game can be closed and picks up where it stopped.</p>
         </div>
@@ -337,6 +359,8 @@
         <span><kbd>1</kbd>-<kbd>4</kbd> Divide, multiply, add, subtract</span>
         <span><kbd>5</kbd>-<kbd>0</kbd> Number, fractions, measures, shape, data, algebra</span>
         <span><kbd>W</kbd> Word problems</span>
+        <span><kbd>Space</kbd> Shade or put a corner down (drawing)</span>
+        <span><kbd>Shift</kbd>+<kbd>&#8592;&#8593;&#8594;&#8595;</kbd> Bigger step (drawing)</span>
         <span><kbd>R</kbd> Mixed test</span>
         <span><kbd>N</kbd> <kbd>P</kbd> Next or back in a mixed test</span>
         <span><kbd>E</kbd> Hand in a mixed test</span>
@@ -412,6 +436,7 @@
   <div class="sr-only" id="liveRegion" aria-live="polite"></div>
 
   <script src="engine.js"></script>
+  <script src="drawing.js"></script>
   <script src="topics.js"></script>
   <script src="words.js"></script>
   <script src="pictures.js"></script>

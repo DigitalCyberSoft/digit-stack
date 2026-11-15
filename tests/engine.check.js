@@ -724,6 +724,163 @@ function statementText(text) {
   return cmpQ(evaluate(left), evaluate(right)) === 0 ? null : 'false';
 }
 
+/* Drawing questions. The drawing each question asks for is worked out again here from the question's own words (or the shape it shows),
+   then the board is played by keyboard: from the start, the engine's planned keys must draw each step so that learning accepts it, and the
+   finished drawing must be marked right while the empty board is not. */
+
+// "half past 3", "quarter to 7", "25 past 4", "18 minutes to 9", "3 o'clock" or "7:43", as minutes after 12:00.
+function clockMinutes(text) {
+  let m = /^(\d+):(\d\d)$/.exec(text); if (m) return (Number(m[1]) % 12) * 60 + Number(m[2]);
+  m = /^(\d+) o'clock$/.exec(text); if (m) return (Number(m[1]) % 12) * 60;
+  m = /^half past (\d+)$/.exec(text); if (m) return (Number(m[1]) % 12) * 60 + 30;
+  m = /^quarter past (\d+)$/.exec(text); if (m) return (Number(m[1]) % 12) * 60 + 15;
+  m = /^quarter to (\d+)$/.exec(text); if (m) return ((Number(m[1]) + 11) % 12) * 60 + 45;
+  m = /^(\d+)(?: minutes?)? past (\d+)$/.exec(text); if (m) return (Number(m[2]) % 12) * 60 + Number(m[1]);
+  m = /^(\d+)(?: minutes?)? to (\d+)$/.exec(text); if (m) return ((Number(m[2]) + 11) % 12) * 60 + 60 - Number(m[1]);
+  throw new Error('unreadable time ' + text);
+}
+
+// Folding a net with vectors: each square's face is the direction its outward normal points once folded.
+function vectorFold(cells) {
+  const key = (r, c) => r + ',' + c; const set = new Set(cells.map(x => key(x[0], x[1])));
+  const frames = new Map(); frames.set(key(cells[0][0], cells[0][1]), { n: [0, 0, -1], u: [1, 0, 0], v: [0, -1, 0] });
+  const neg = a => a.map(x => -x || 0); const queue = [cells[0]];
+  while (queue.length) {
+    const [r, c] = queue.shift(); const f = frames.get(key(r, c));
+    // Across the edge to the east the next square tips up about that edge: its normal is the old u, its u the old -n.
+    for (const [dr, dc, next] of [[0, 1, f2 => ({ n: f2.u, u: neg(f2.n), v: f2.v })], [0, -1, f2 => ({ n: neg(f2.u), u: f2.n, v: f2.v })],
+      [1, 0, f2 => ({ n: f2.v, u: f2.u, v: neg(f2.n) })], [-1, 0, f2 => ({ n: neg(f2.v), u: f2.u, v: f2.n })]]) {
+      const k = key(r + dr, c + dc); if (!set.has(k) || frames.has(k)) continue; frames.set(k, next(f)); queue.push([r + dr, c + dc]);
+    }
+  }
+  const normals = [...frames.values()].map(f => f.n.join(','));
+  return frames.size === 6 && new Set(normals).size === 6;
+}
+
+function readFraction(text) {
+  if (/%$/.test(text)) return [Number(text.slice(0, -1)), 100];
+  if (/^\d+\.\d+$/.test(text)) { const d = Math.pow(10, text.split('.')[1].length); return [Math.round(Number(text) * d), d]; }
+  const m = /^(\d+)\/(\d+)$/.exec(text); if (m) return [Number(m[1]), Number(m[2])];
+  throw new Error('unreadable fraction ' + text);
+}
+
+const DRAW_VERIFY = {
+  'draw-clock': (p, c) => {
+    if (!p.question.includes(c.text)) return 'the time is not in the question';
+    const want = clockMinutes(c.text);
+    return p.target.minutes === want && want % p.board.step === 0 ? null : 'target ' + p.target.minutes + ', the words say ' + want;
+  },
+  'draw-ruler': (p, c) => {
+    let mm; const a = /^(\d+) cm(?: (\d) mm)?$/.exec(c.text); const b = /^(\d+)\.(\d) cm$/.exec(c.text);
+    if (a) mm = Number(a[1]) * 10 + Number(a[2] || 0); else if (b) mm = Number(b[1]) * 10 + Number(b[2]); else return 'unreadable length ' + c.text;
+    // The board's small step is 0.1 cm, from 0.
+    return p.board.minScaled === 0 && p.board.minorScaled === 1 && p.board.places === 1 && p.target.at === mm ? null : 'target ' + p.target.at + ' mm, want ' + mm;
+  },
+  'draw-line': (p, c) => {
+    const b = p.board; const value = Number(c.value.replace(MINUS, '-'));
+    const at = (b.minScaled + p.target.at * b.minorScaled) / Math.pow(10, b.places);
+    if (!p.question.includes(c.value)) return 'the number is not in the question';
+    return Math.abs(at - value) < 1e-9 && p.target.at > 0 && p.target.at < b.n ? null : 'target is ' + at + ', want ' + value;
+  },
+  'draw-shade': (p, c) => {
+    const [n, d] = readFraction(c.ask); const need = c.total * n / d;
+    if (!Number.isInteger(need)) return 'the fraction is not a whole number of parts';
+    if (p.board.parts.length !== c.total || !p.question.includes(c.ask)) return 'parts or question do not match';
+    return p.target.on.length === need && p.board.need === need ? null : 'shades ' + p.target.on.length + ', want ' + need;
+  },
+  'draw-symmetry': (p, c) => {
+    const size = c.size; const mirror = id => { const r = Math.floor(id / size); const col = id % size; return c.vertical ? r * size + size - 1 - col : (size - 1 - r) * size + col; };
+    const want = [...new Set(p.board.given.concat(p.board.given.map(mirror)))].sort((a, b) => a - b);
+    return JSON.stringify(want) === JSON.stringify(p.target.on.slice().sort((a, b) => a - b)) ? null : 'target is not the given squares and their mirror images';
+  },
+  'draw-net': (p) => {
+    const cells = id => { const part = p.board.parts.find(x => x.id === id); return [part.r, part.c]; };
+    if (p.board.given.length !== 5 || !p.board.given.every(id => p.target.on.includes(id))) return 'the net does not build on the five given squares';
+    return vectorFold(p.target.on.map(cells)) ? null : 'the target does not fold into a cube';
+  },
+  'draw-rectangle': (p, c) => {
+    const pts = p.target.points; const xs = pts.map(q => q[0]); const ys = pts.map(q => q[1]);
+    const w = Math.max(...xs) - Math.min(...xs); const h = Math.max(...ys) - Math.min(...ys);
+    const corners = new Set(pts.map(q => q.join(',')));
+    const box = [[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)], [Math.min(...xs), Math.max(...ys)]];
+    return corners.size === 4 && box.every(q => corners.has(q.join(','))) && ((w === c.w && h === c.h) || (w === c.h && h === c.w)) ? null : 'target is not a ' + c.w + ' by ' + c.h + ' rectangle';
+  },
+  'draw-transform': (p, c) => {
+    const shape = p.board.given[0].points; let image;
+    if (c.how === 'Translation') {
+      const words = /(\d+) (right|left)/.exec(p.question); const up = /(\d+) (up|down)/.exec(p.question);
+      const dx = words ? Number(words[1]) * (words[2] === 'right' ? 1 : -1) : 0; const dy = up ? Number(up[1]) * (up[2] === 'up' ? 1 : -1) : 0;
+      image = shape.map(([x, y]) => [x + dx, y + dy]);
+    } else if (c.how === 'Reflection') {
+      const axis = /the (x|y)-axis/.exec(p.question); const line = /\((x|y) = (\d+)\)/.exec(p.question);
+      if (axis) image = shape.map(([x, y]) => axis[1] === 'y' ? [-x, y] : [x, -y]);
+      else if (line) { const k = Number(line[2]); image = shape.map(([x, y]) => line[1] === 'x' ? [2 * k - x, y] : [x, 2 * k - y]); }
+      else return 'no mirror line in the question';
+    } else {
+      const turn = /180°/.test(p.question) ? 180 : (/anticlockwise/.test(p.question) ? 90 : 270);
+      // Rotation about the origin by a matrix: anticlockwise by 90° maps (x, y) to (-y, x).
+      const rot = { 90: [[0, -1], [1, 0]], 180: [[-1, 0], [0, -1]], 270: [[0, 1], [-1, 0]] }[turn];
+      image = shape.map(([x, y]) => [rot[0][0] * x + rot[0][1] * y || 0, rot[1][0] * x + rot[1][1] * y || 0]);
+    }
+    return JSON.stringify(image) === JSON.stringify(p.target.points) ? null : 'image ' + JSON.stringify(p.target.points) + ', want ' + JSON.stringify(image);
+  },
+  'draw-vertex': (p) => {
+    // An axis-aligned rectangle uses each x twice and each y twice, so the missing corner takes the x and the y seen once.
+    const pts = p.board.given[0].points; const once = vals => vals.find(v => vals.filter(w => w === v).length === 1);
+    const want = [once(pts.map(q => q[0])), once(pts.map(q => q[1]))];
+    return JSON.stringify(p.target.points) === JSON.stringify([want]) ? null : 'D should be ' + want;
+  },
+  'draw-chart': (p, c) => {
+    const values = c.table.split(', ').map(part => Number(part.split(' ').pop()));
+    if (!p.question.includes(c.table)) return 'the table is not in the question';
+    if (JSON.stringify(values) !== JSON.stringify(p.target.values)) return 'target ' + p.target.values + ', table ' + values;
+    if (values.some(v => Math.abs(v / p.board.minor - Math.round(v / p.board.minor)) > 1e-9 || v > p.board.max)) return 'a value is off the scale';
+    return p.board.given.every((g, k) => g === null || g === values[k]) ? null : 'a drawn bar does not match the table';
+  },
+  'draw-pie': (p, c) => {
+    const want = c.counts.slice(0, 3).map(n => 360 * n / c.total);
+    if (c.counts.reduce((a, b) => a + b, 0) !== c.total || !want.every(Number.isInteger)) return 'counts do not make whole angles';
+    return JSON.stringify(want) === JSON.stringify(p.target.angles) ? null : 'angles ' + p.target.angles + ', want ' + want;
+  },
+  'draw-angle': (p, c) => p.target.angles[0] === c.degrees && p.question.includes(c.degrees + '°') && c.degrees > 0 && c.degrees < 180 ? null : 'angle does not match',
+  'draw-triangle': (p, c) => {
+    const m = /angle A = (\d+)° and angle B = (\d+)°/.exec(p.question);
+    if (!m) return 'angles not in the question';
+    const a = Number(m[1]); const b = Number(m[2]);
+    return a + b < 180 && JSON.stringify(p.target.angles) === JSON.stringify([a, b]) ? null : 'target ' + p.target.angles;
+  },
+  'draw-points': (p, c) => {
+    const want = c.xs.map(x => [x, c.m * x + c.c]);
+    const eq = /y = (−?\d*)x(?: ([+−]) (\d+))?/.exec(p.question);
+    if (!eq) return 'no equation in the question';
+    const m = eq[1] === '' ? 1 : (eq[1] === MINUS ? -1 : Number(eq[1].replace(MINUS, '-'))); const cc = eq[2] ? (eq[2] === '+' ? 1 : -1) * Number(eq[3]) : 0;
+    if (m !== c.m || cc !== c.c) return 'equation text ' + eq[0] + ' does not match';
+    return JSON.stringify(want) === JSON.stringify(p.target.points) ? null : 'points ' + JSON.stringify(p.target.points);
+  }
+};
+
+function verifyDrawing(p, key) {
+  const D = E.drawing; const c = p.check || {};
+  const verify = DRAW_VERIFY[c.kind];
+  if (!verify) return fail(key + ' no drawing verifier for ' + c.kind, p);
+  let result;
+  try { result = verify(p, c); } catch (err) { result = 'verifier error: ' + err.message; }
+  if (result) fail(key + ' ' + p.title + ' [' + c.kind + '] ' + result + ' :: ' + p.question, p);
+  stat(key, 'check:' + c.kind);
+  if (!p.question || p.actions.length !== p.steps.length || p.actions.some(a => !a.prompt || !a.why)) fail(key + ' drawing without a question or a reason for each step', p);
+  // Played by keyboard, in learning (one step at a time) and in a test (Tab moves between angles).
+  for (const guided of [true, false]) {
+    let s = D.start(p);
+    if (D.mark(p, s)) fail(key + ' the empty board is already marked right', p);
+    for (let k = 0; k < p.steps.length; k++) {
+      for (const k2 of D.plan(p, s, k)) { const r = D.press(p, s, k2, guided ? { step: k, guided: true } : {}); if (!r) { fail(key + ' planned key ' + k2 + ' does nothing', p); break; } s = r.state; }
+      if (guided && D.check(p, s, k)) fail(key + ' learning step ' + k + ' drawn by its plan is not accepted: ' + D.check(p, s, k), p);
+      if (!guided && p.board.tool === 'angle' && k < p.steps.length - 1) s = D.press(p, s, 'Tab', {}).state;
+    }
+    if (!D.mark(p, s) || !D.valid(p, s)) fail(key + ' the finished drawing is not marked right', p);
+  }
+}
+
 // Test mode: the worked sheet must put the right answer in exactly the marked boxes.
 function testSheet(p, key) {
   if (!p.question || !Array.isArray(p.markRowIds) || !p.markRowIds.length) return fail(key + ' missing question or markRowIds', p);
@@ -754,7 +911,8 @@ for (const area of E.AREAS) {
     for (let i = 0; i < N; i++) {
       const p = E.generateProblem(area, y); total++;
       if (p.year !== y || p.operation !== area) fail(key + ' wrong tags', p);
-      replay(p, key); scope(p, area, y, key); testSheet(p, key);
+      if (p.method === 'draw') verifyDrawing(p, key);
+      else { replay(p, key); scope(p, area, y, key); testSheet(p, key); }
       if (p.method === 'sentence') verifySentence(p, key);
       inputs += E.roundInputs(p);
       stat(key, 'title:' + p.title);
@@ -788,10 +946,10 @@ if (!/"ex-c0":"8"/.test(marks) || !/"ex-c1":"12"/.test(marks) || !/"ex-c2":"12"/
 
 // Every verifier must have run on generated problems: one that is never reached would pass without checking anything.
 const exercised = new Set(Object.values(stats).flatMap(v => Object.keys(v).filter(f => f.startsWith('check:')).map(f => f.slice(6))));
-Object.keys(VERIFY).forEach(kind => { if (!exercised.has(kind)) fail('verifier ' + kind + ' never ran', null); });
+Object.keys(VERIFY).concat(Object.keys(DRAW_VERIFY)).forEach(kind => { if (!exercised.has(kind)) fail('verifier ' + kind + ' never ran', null); });
 
 console.log('problems checked:', total);
-console.log('check kinds exercised:', [...exercised].filter(k => VERIFY[k]).length, 'of', Object.keys(VERIFY).length);
+console.log('check kinds exercised:', [...exercised].filter(k => VERIFY[k] || DRAW_VERIFY[k]).length, 'of', Object.keys(VERIFY).length + Object.keys(DRAW_VERIFY).length);
 console.log('failures:', failCount ? failCount + ' (first ' + fails.length + ' shown)\n  ' + fails.join('\n  ') : 0);
 for (const [k, v] of Object.entries(stats)) {
   const shownStats = Object.entries(v).filter(([f]) => !f.startsWith('title:') && !f.startsWith('check:'));

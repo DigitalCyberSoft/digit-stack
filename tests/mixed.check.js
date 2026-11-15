@@ -32,8 +32,28 @@ const answerBoxes = page => page.evaluate(() => {
   }));
 });
 
+// Draws the right drawing by keyboard (Tab between a test's angles), or one key away from it when `wrong` is set.
+async function drawAnswer(page, wrong) {
+  const keys = await page.evaluate(() => { const s = window.__digitStack.getState(); const D = window.DigitStackEngine.drawing;
+    let b = s.board; const out = [];
+    s.problem.steps.forEach((step, k) => { D.plan(s.problem, b, k).forEach(key => { b = D.press(s.problem, b, key, {}).state; out.push(key); });
+      if (s.problem.board.tool === 'angle' && k < s.problem.steps.length - 1) { b = D.press(s.problem, b, 'Tab', {}).state; out.push('Tab'); } });
+    return out; });
+  for (const k of keys) await page.keyboard.press(k === ' ' ? 'Space' : k);
+  if (wrong) {
+    const tool = (await st(page)).problem.board.tool;
+    // One change that keeps something drawn: a moved hand or mark, a cleared square, a corner moved over.
+    if (tool === 'grid') { await page.keyboard.press('Backspace'); await page.keyboard.press('ArrowRight'); await page.keyboard.press('Space'); }
+    else if (tool === 'shade') await page.keyboard.press('Space');
+    else if (tool === 'line') await page.keyboard.press('ArrowRight');
+    else await page.keyboard.press('ArrowUp');
+  }
+  await page.keyboard.press('Enter'); await wait(page, 60);
+}
+
 // Types the right answer, or a wrong one in the first box when `wrong` is set, then hands in.
 async function answer(page, wrong) {
+  if ((await st(page)).problem.method === 'draw') return drawAnswer(page, wrong);
   const boxes = await answerBoxes(page);
   let first = true;
   for (const b of boxes) {

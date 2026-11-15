@@ -31,6 +31,7 @@
     module.exports = api;
     // The other six areas are in topics.js and word problems in words.js. A
     // page loads them as the next scripts; under Node they are installed here.
+    require('./drawing.js').install(api);
     require('./topics.js').install(api);
     require('./words.js').install(api);
   }
@@ -3080,9 +3081,11 @@
       const score = teachingFeatures(problem) * 100 + Math.min(steps, 2) * 10 - steps;
       const group = best[problem.title] || (best[problem.title] = { want: 1, list: [] });
       group.want = Math.max(group.want, problem.examples || 1);
-      // Two examples of a kind must differ in their numbers, not only in wording.
+      // Two examples of a kind must differ in their numbers (or, for a
+      // drawing, in what is drawn), not only in wording.
+      const content = function (p) { return p.method === 'draw' ? JSON.stringify(p.target) : p.line; };
       if (group.list.some(function (entry) {
-        return entry.problem.question === problem.question && entry.problem.line === problem.line;
+        return entry.problem.question === problem.question && content(entry.problem) === content(problem);
       })) continue;
       group.list.push({ problem: problem, score: score });
       // Best first; among equals the one found first stays ahead.
@@ -3126,6 +3129,8 @@
   // each <, > or =, and the minus key. A positive sign box is answered by
   // the first digit, so it adds none.
   function roundInputs(problem) {
+    // A drawing counts each thing drawn: a hand, a point, a bar, an angle.
+    if (problem.method === 'draw') return problem.inputs;
     return problem.actions.filter(function (action) {
       if (action.kind === 'digit' || action.kind === 'compare') return true;
       return action.kind === 'sign' && action.value === MINUS;

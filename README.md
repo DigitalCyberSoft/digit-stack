@@ -56,6 +56,7 @@ Progress is saved in the browser, so the game can be closed at any point and ope
 - Every box is on the sheet before play starts. The highlighted box with the pencil is the active box. The child's own digits are blue; the question's are black.
 - The cursor stops at every small box in a written method: type the carry, the amount left over in short division, or `1` to exchange a ten in subtraction. Type `0` when there is none; a 0 is not written on the sheet. The stop happens whether or not anything moves, so it gives nothing away.
 - A question that is not a written sum is written on the page above its answer line. Every answer is typed. Fractions take the top number, then the bottom. Decimal points, units and the colon in a time are already written in the answer. `<`, `=` and `>` compare (`,` and `.` also work). A word answer, such as *acute* or *kite*, is chosen by its number, and yes or no is `1` or `0`. An answer that could be below zero has a sign box: press `-`, or type the first digit.
+- Some questions are drawn on a board: clock hands, shading, a mark on a number line or a line on a ruler, corners on a grid (shapes, symmetric figures, translations, reflections, rotations, plotted points), bars, pictograms, tally charts and line graphs, protractor angles, triangles from two angles, nets of a cube and pie charts. Arrows move or turn (`Shift` for a bigger step), `Space` shades or puts a corner down, `Backspace` takes the last corner away, `Enter` says it is done. Learning checks each step (a grid corner as it is put down); a test marks the whole drawing and shows the proper one after a miss. Touch screens get the same keys as buttons.
 - A wrong digit shows why and what the box needs. Fix it to finish the problem. A round with a fix does not count as clean, so the count goes back to 0. `Enter` then tries the same problem again and `N` starts a new one.
 - Keyboard: arrows set the school year, `1`-`9`, `0` and `W` choose the area, `R` the mixed test (then `N`, `P` and `E` for next, back and hand in), `0-9` type, `-` minus, `<` `=` `>` compare, `W` watch the example, `Esc` pause, `H` help, `S` sound, `T` theme, `C` colour-blind friendly colours. The on-screen keypad is optional.
 
@@ -85,10 +86,10 @@ npx playwright install chromium   # or set CHROME_PATH to an installed Chrome
 npm test
 ```
 
-- `tests/engine.check.js` makes 2,000 problems per area and year (154,000 in all) and checks the arithmetic, layouts, the order of steps, small-box decisions, wording, decimal places by year, the year-check table, and Appendix 1's examples. Every sentence's answer is also worked out a second way: finished sentences are evaluated with exact fractions, picture questions are worked out from the picture's own data (the clock's hands, the chart's bars, a shape's corners), and word problems from a plain description of their sum, with every working line checked and every number the sum uses found in the story.
+- `tests/engine.check.js` makes 2,000 problems per area and year (154,000 in all) and checks the arithmetic, layouts, the order of steps, small-box decisions, wording, decimal places by year, the year-check table, and Appendix 1's examples. Every sentence's answer is also worked out a second way: finished sentences are evaluated with exact fractions, picture questions are worked out from the picture's own data (the clock's hands, the chart's bars, a shape's corners), word problems from a plain description of their sum, with every working line checked and every number the sum uses found in the story, and drawings from the question's own words, with each board then played by keyboard to the finished drawing.
 - `tests/guided.check.js` plays learning in a browser by keyboard: small-box decisions, fixes, year checks, and the move from learning to test to the next year.
 - `tests/test-stage.check.js` hands in right and wrong answers in the test stage.
-- `tests/solve-all.check.js` plays full rounds by keyboard in all eleven areas, Year 1 to Year 7, including decimal division, comparisons, choices and sign boxes.
+- `tests/solve-all.check.js` plays full rounds by keyboard in all eleven areas, Year 1 to Year 7, including decimal division, comparisons, choices, sign boxes and every kind of drawing board.
 - `tests/resume.check.js` closes and reopens the game mid-round, between rounds, at the learning gate and after a passed check, and checks bad saved data and blocked storage.
 - `tests/tutorial.check.js` checks the worked examples: one per kind of question, a reason for every step, stepping forward and back, skipping, replaying, and moving up a year.
 - `tests/mixed.check.js` plays the mixed test: settings, going back and forth and changing answers, the question strip, the hand-in check, no marking until the end, closing and reopening, quitting and carrying on, a time limit running out, handing in early, grades and the review.
@@ -106,7 +107,8 @@ Each script exits non-zero when a check fails. Screenshots go to `tests/shots/`.
 - `engine.js`: arithmetic, written-method layouts, decimals, the sentence builder, the four calculation areas, the year-check table, and the seeded random numbers.
 - `topics.js`: the number, fractions, measures, shape, data and algebra areas.
 - `words.js`: word problems.
-- `pictures.js`: draws each question's picture (clocks, coins, scales, shapes, angles, grids, charts) as SVG.
+- `drawing.js`: drawing questions: each board's state, what every key does to it, the checks and the questions themselves.
+- `pictures.js`: draws each question's picture (clocks, coins, scales, shapes, angles, grids, charts) and each drawing board as SVG.
 - `game.js`: learning and test play, the mixed test, year checks, keyboard controls, rendering, saving, and sound.
 - `assets/`: locally hosted fonts and their OFL license files.
 - `tests/`: engine and browser checks (see Tests).

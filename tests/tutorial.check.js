@@ -34,7 +34,8 @@ const snapshot = page => page.evaluate(() => Array.from(document.querySelectorAl
     if (!Object.keys(want).every(t => counts[t] === want[t]) || !titles.every(t => want[t])) gaps.push(area + ' Y' + year + ' examples ' + titles.join('/') + ' vs ' + JSON.stringify(want));
     // A layout's examples sit together and are different questions.
     if (titles.some((t, i) => i > 1 && t !== titles[i - 1] && titles.slice(0, i - 1).includes(t))) gaps.push(area + ' Y' + year + ' a layout\'s examples are apart');
-    if (examples.some((p, i) => examples.some((q, j) => j < i && q.title === p.title && q.question === p.question && q.line === p.line))) gaps.push(area + ' Y' + year + ' the same example twice');
+    const content = p => p.method === 'draw' ? JSON.stringify(p.target) : p.line;
+    if (examples.some((p, i) => examples.some((q, j) => j < i && q.title === p.title && q.question === p.question && content(q) === content(p)))) gaps.push(area + ' Y' + year + ' the same example twice');
     // Shortest first: layouts by their first example, and examples within a layout.
     const firsts = examples.filter((p, i) => !i || p.title !== titles[i - 1]);
     if (firsts.some((p, i) => i && p.actions.length < firsts[i - 1].actions.length)) gaps.push(area + ' Y' + year + ' layouts not shortest first');

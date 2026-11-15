@@ -28,7 +28,7 @@ async function answer(page, wrongFirst) {
   }
   return true;
 }
-async function fresh(page, learnedYear) { await page.goto(URL); await page.evaluate(y => { localStorage.clear(); const all = ['divide', 'multiply', 'add', 'subtract']; const p = { schoolYear: y || 1, passed: {}, learned: {}, watched: {} }; all.forEach(a => { p.passed[a] = []; p.learned[a] = y ? [y] : []; p.watched[a] = [1, 2, 3, 4, 5, 6, 7]; }); localStorage.setItem('digitstack.progress.v1', JSON.stringify(p)); }, learnedYear || 0); await page.goto(URL); await page.waitForTimeout(40); }
+async function fresh(page, learnedYear) { await page.goto(URL); await page.evaluate(y => { localStorage.clear(); const all = window.DigitStackEngine.AREAS; const p = { schoolYear: y || 1, passed: {}, learned: {}, watched: {} }; all.forEach(a => { p.passed[a] = []; p.learned[a] = y ? [y] : []; p.watched[a] = [1, 2, 3, 4, 5, 6, 7]; }); localStorage.setItem('digitstack.progress.v1', JSON.stringify(p)); }, learnedYear || 0); await page.goto(URL); await page.waitForTimeout(40); }
 // A year the child has already learned opens in its test.
 async function startTest(page, year, key) {
   await fresh(page, year);
@@ -141,6 +141,36 @@ async function startTest(page, year, key) {
   await page.keyboard.press('n'); await page.waitForTimeout(80);
   s = await st(page);
   check('N after a missed test problem goes straight to the next one', failedAgain && s.screen === 'playing' && s.mode === 'test' && s.problem.question !== missedAgain);
+
+  // Drawing in a test: the board takes the keys, Enter hands in, a wrong drawing shows the proper one, and Enter then walks through it.
+  const drawPlan = () => page.evaluate(() => { const s = window.__digitStack.getState(); const D = window.DigitStackEngine.drawing;
+    let b = s.board; const keys = [];
+    s.problem.steps.forEach((step, k) => { const ks = D.plan(s.problem, b, k); ks.forEach(key => { b = D.press(s.problem, b, key, {}).state; }); keys.push(...ks);
+      if (s.problem.board.tool === 'angle' && k < s.problem.steps.length - 1) { b = D.press(s.problem, b, 'Tab', {}).state; keys.push('Tab'); } });
+    return keys; });
+  const findTest = async (year, key, title) => { for (let i = 0; i < 120; i++) { await startTest(page, year, key); if ((await st(page)).problem.title === title) return true; } return false; };
+  check('a drawing comes up in a test', await findTest(2, '7', 'Drawing the time'));
+  await page.keyboard.press('Enter'); await page.waitForTimeout(40);
+  s = await st(page);
+  check('handing in an empty drawing asks first', s.screen === 'playing' && s.handInWarned && /Nothing is drawn yet/.test(await page.locator('#fixNote').innerText()));
+  for (const k of await drawPlan()) await page.keyboard.press(k === ' ' ? 'Space' : k);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(60);
+  s = await st(page);
+  check('a right drawing in a test counts as a clean round', s.screen === 'won' && s.cleanStreak === 1, s.screen);
+  check('angles come up in a test', await findTest(5, '8', 'Drawing angles'));
+  for (const k of await drawPlan()) await page.keyboard.press(k === ' ' ? 'Space' : k);
+  await page.keyboard.press('ArrowUp'); await page.keyboard.press('Enter'); await page.waitForTimeout(60);
+  s = await st(page);
+  check('a drawing 1° out is marked wrong, with the proper arm shown', s.screen === 'testFailed' && (await page.locator('#worksheet .pic-solution-line').count()) === 1 && /Not quite/.test(await page.locator('#endKicker').innerText()));
+  const missedDrawing = s.problem.question;
+  await page.keyboard.press('Enter'); await page.waitForTimeout(80);
+  s = await st(page);
+  check('Enter walks through the missed drawing', s.screen === 'tutorial' && s.tutorial.kind === 'walkthrough' && s.problem.question === missedDrawing);
+  for (let i = 0; i < 10 && (await st(page)).tutorial.step <= s.problem.steps.length; i++) { await page.keyboard.press('ArrowRight'); await page.waitForTimeout(15); }
+  const shown = await page.evaluate(() => { const s = window.__digitStack.getState(); return JSON.stringify(s.board) === JSON.stringify(window.DigitStackEngine.drawing.solved(s.problem)); });
+  check('the walkthrough ends with the proper drawing on the board', shown);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(80);
+  check('then Enter goes on to the next problem', (await st(page)).screen === 'playing' && (await st(page)).problem.question !== missedDrawing);
 
   // Sign box toggle.
   await startTest(page, 5, '3');

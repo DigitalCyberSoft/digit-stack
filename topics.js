@@ -23,6 +23,8 @@
 
   const K = Engine.kit;
   const MINUS = Engine.MINUS;
+  // Questions answered by drawing (drawing.js), added to each area below.
+  const DRAW = Engine.drawing.kinds;
   const randInt = K.randInt;
   const pick = K.pick;
   const shuffle = K.shuffle;
@@ -743,6 +745,9 @@
     7: [[3, 'order'], [2, 'primeFactors'], [1, 'hcf'], [2, 'power'], [2, 'standardForm'], [2, 'roundDp'], [1, 'compare'], [1, 'placeValue']]
   };
 
+  NUMBER.drawLine = DRAW.numberLine;
+  [1, 2, 3, 4, 5, 6, 7].forEach(function (year) { NUMBER_KINDS[year].push([2, 'drawLine']); });
+
   Engine.addArea('number', chooser(NUMBER, NUMBER_KINDS, 'number'));
 
   /* Fractions: fractions, decimals and percentages, then ratio and
@@ -1433,6 +1438,9 @@
     7: [[3, 'fractionOps'], [1, 'decimalToFraction'], [1, 'percentOf'], [2, 'percentChange'], [1, 'percentOfWhole'], [3, 'ratio7']]
   };
 
+  FRACTIONS.drawShade = DRAW.shade;
+  [1, 2, 3, 4, 5, 6].forEach(function (year) { FRACTION_KINDS[year].push([year <= 3 ? 3 : 2, 'drawShade']); });
+
   Engine.addArea('fractions', chooser(FRACTIONS, FRACTION_KINDS, 'fractions'));
 
   /* Measures: money, time, length, mass, capacity, perimeter, area and
@@ -1980,6 +1988,11 @@
     7: [[2, 'trapezium'], [3, 'circle'], [1, 'prism'], [2, 'areaUnits'], [2, 'speed'], [1, 'unitPrice'], [1, 'convert']]
   };
 
+  MEASURES.drawClock = DRAW.clock;
+  MEASURES.drawRuler = DRAW.ruler;
+  [1, 2, 3].forEach(function (year) { MEASURE_KINDS[year].push([3, 'drawClock']); });
+  [2, 3, 4, 5].forEach(function (year) { MEASURE_KINDS[year].push([2, 'drawRuler']); });
+
   Engine.addArea('measures', chooser(MEASURES, MEASURE_KINDS, 'measures'));
 
   /* Shape: 2-D and 3-D shapes, turns, angles, lines, symmetry, coordinates
@@ -2495,6 +2508,21 @@
     7: [[3, 'parallel'], [2, 'polygonAngle'], [3, 'pythagoras'], [2, 'trig'], [2, 'rotate'], [1, 'enlarge']]
   };
 
+  SHAPE.drawRectangle = DRAW.drawRectangle;
+  SHAPE.drawSymmetry = DRAW.symmetry;
+  SHAPE.drawVertex = DRAW.missingVertex;
+  SHAPE.drawTranslate = DRAW.translate;
+  SHAPE.drawReflect = DRAW.reflect;
+  SHAPE.drawRotate = DRAW.rotate;
+  SHAPE.drawAngle = DRAW.angle;
+  SHAPE.drawTriangle = DRAW.triangle;
+  SHAPE.drawNet = DRAW.net;
+  SHAPE_KINDS[3].push([3, 'drawRectangle']);
+  SHAPE_KINDS[4].push([2, 'drawSymmetry'], [1, 'drawVertex'], [2, 'drawTranslate']);
+  SHAPE_KINDS[5].push([2, 'drawAngle'], [2, 'drawReflect'], [1, 'drawTranslate']);
+  SHAPE_KINDS[6].push([2, 'drawTriangle'], [1, 'drawAngle'], [1, 'drawReflect'], [1, 'drawTranslate'], [2, 'drawNet']);
+  SHAPE_KINDS[7].push([2, 'drawRotate'], [1, 'drawAngle']);
+
   Engine.addArea('shape', chooser(SHAPE, SHAPE_KINDS, 'shape'));
 
   /* Data: tally charts, pictograms, block diagrams, bar charts, tables, time
@@ -2809,6 +2837,12 @@
     6: [[3, 'pie'], [3, 'mean'], [2, 'lineGraph']],
     7: [[3, 'averages'], [3, 'probability'], [2, 'scatter'], [1, 'pie']]
   };
+
+  DATA.drawChart = DRAW.chart;
+  DATA.drawPie = DRAW.pie;
+  [1, 2, 3, 4, 5, 6, 7].forEach(function (year) { DATA_KINDS[year].push([3, 'drawChart']); });
+  DATA_KINDS[6].push([2, 'drawPie']);
+  DATA_KINDS[7].push([1, 'drawPie']);
 
   Engine.addArea('data', chooser(DATA, DATA_KINDS, 'data'));
 
@@ -3285,6 +3319,9 @@
     6: [[2, 'formula'], [2, 'sequence'], [3, 'solve'], [2, 'twoUnknowns'], [1, 'combinations'], [1, 'symbolLines']],
     7: [[2, 'substitute'], [2, 'collect'], [2, 'brackets'], [2, 'solve'], [2, 'nthTerm'], [2, 'graph']]
   };
+
+  ALGEBRA.plotLine = DRAW.plotLine;
+  ALGEBRA_KINDS[7].push([2, 'plotLine']);
 
   Engine.addArea('algebra', chooser(ALGEBRA, ALGEBRA_KINDS, 'algebra'));
 });

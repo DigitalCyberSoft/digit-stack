@@ -152,6 +152,8 @@
 
   const TEST_HELP = 'Arrows move between boxes; Tab follows the method. Type to fill a box, ' +
     'Backspace clears it. Small boxes are for working and are not marked. Press Enter to hand in.';
+  const DRAW_HELP = 'Arrows move or turn; Shift with an arrow takes a bigger step. Space marks, places or shades; ' +
+    'Backspace takes the last one away. Press Enter to hand in.';
   const MIXED_HELP = 'Arrows move between boxes. Type to fill a box, Backspace clears it. N or Enter goes to the next question, ' +
     'P back. E hands in the test.';
 
@@ -205,6 +207,7 @@
     sheetStatus: $('sheetStatus'),
     worksheet: $('worksheet'),
     sheetQuestion: $('sheetQuestion'),
+    boardPad: $('boardPad'),
     rowMap: $('rowMap'),
     console: $('console'),
     consoleMain: $('consoleMain'),
@@ -276,6 +279,8 @@
     mixedTimer: null,
     // Each question's answer boxes, worked out once per test.
     mixedMarked: null,
+    // A drawing question's board: plain data that every key changes.
+    boardState: null,
     reviewIndex: 0
   };
 
@@ -504,7 +509,8 @@
       problem: state.problem,
       actionIndex: state.actionIndex,
       roundClean: state.roundClean,
-      fixes: state.fixes
+      fixes: state.fixes,
+      board: isDraw(state.problem) ? state.boardState : undefined
     };
   }
 
@@ -828,6 +834,8 @@
 
   function loadProblem(problem, saved) {
     clearTimer();
+    if (isDraw(problem)) setBoard(Engine.drawing.start(problem));
+    else state.boardState = null;
     state.problem = problem;
     state.actions = problem.actions;
     state.actionIndex = 0;
@@ -847,6 +855,9 @@
     // The dock only holds the Hand in button, so only a test shows it.
     els.console.classList.toggle('no-carry', state.mode !== 'test');
     showSpecialKeys(problem);
+    els.console.classList.toggle('is-draw', isDraw(problem));
+    // Space and Backspace only where they do something: placing corners and shading.
+    els.console.dataset.tool = isDraw(problem) ? problem.board.tool : '';
     els.console.classList.toggle('is-test', state.mode === 'test');
     els.handInBtn.disabled = state.mode !== 'test';
     els.handInLabel.textContent = 'Hand in';
@@ -885,6 +896,19 @@
   // Redraws what a saved round had filled in, in the order it was typed and
   // without sounds or animation. A fix made before closing still counts.
   function restoreSteps(saved) {
+    if (isDraw(state.problem)) {
+      // The board as it was, or else every step before this one drawn.
+      const board = saved.board;
+      setBoard(board && Engine.drawing.valid(state.problem, board) ? board : Engine.drawing.solved(state.problem, saved.actionIndex));
+      state.actionIndex = saved.actionIndex;
+      state.roundClean = saved.roundClean;
+      state.fixes = saved.fixes;
+      if (!state.roundClean) {
+        els.sheetStatus.textContent = 'fixed, keep going';
+        els.sheetStatus.classList.add('is-fail');
+      }
+      return;
+    }
     for (let index = 0; index < saved.actionIndex; index += 1) {
       const action = state.actions[index];
       const entry = state.cellEls.get(action.cellId);
@@ -928,6 +952,12 @@
   }
 
   function restoreEntries(saved) {
+    if (isDraw(state.problem)) {
+      const board = saved.entries && saved.entries.board;
+      if (board && Engine.drawing.valid(state.problem, board)) setBoard(board);
+      renderBoard();
+      return;
+    }
     Object.keys(saved.entries).forEach(function (cellId) {
       const text = saved.entries[cellId];
       const entry = state.cellEls.get(cellId);
@@ -1052,6 +1082,8 @@
       state.operation = tutorial.areas[tutorial.index];
       document.body.dataset.area = state.operation;
     }
+    const drawn = Math.min(tutorial.step, count);
+    if (isDraw(problem)) setBoard(drawn ? Engine.drawing.solved(problem, drawn) : Engine.drawing.start(problem));
     renderWorksheet(problem);
     if (mixed) {
       const stage = document.createElement('span');
@@ -1066,10 +1098,15 @@
       updateLadder();
       updateStreak();
     }
-    const written = Math.min(tutorial.step, count);
-    restoreSteps({ actionIndex: Math.max(0, written - 1), roundClean: true, fixes: 0 });
+    const written = drawn;
     const action = written >= 1 ? problem.actions[written - 1] : null;
-    if (action) showTutorialAction(action);
+    if (isDraw(problem)) {
+      renderBoard({ step: written >= 1 && written <= count ? written - 1 : null });
+      if (action) playSound('tick');
+    } else {
+      restoreSteps({ actionIndex: Math.max(0, written - 1), roundClean: true, fixes: 0 });
+      if (action) showTutorialAction(action);
+    }
 
     let example;
     if (tutorial.kind === 'walkthrough') example = 'How to solve it';
@@ -1349,12 +1386,32 @@
   }
 
   function renderWorksheet(problem) {
-    // A sentence or fact has its question on the page too; a written method
-    // shows its numbers in the layout itself.
-    const written = problem.method !== 'sentence' && problem.method !== 'fact';
+    // A sentence, a fact or a drawing has its question on the page too; a
+    // written method shows its numbers in the layout itself.
+    const written = ['sentence', 'fact', 'draw'].indexOf(problem.method) === -1;
     els.sheetQuestion.hidden = written;
     els.sheetQuestion.textContent = written ? '' : problem.question;
     els.worksheet.innerHTML = '';
+    els.worksheet.classList.toggle('is-board', isDraw(problem));
+    if (isDraw(problem)) {
+      els.worksheet.classList.remove('is-sentence', 'is-stacked');
+      state.cellEls.clear();
+      state.rowEls.clear();
+      state.groupChips.clear();
+      renderBoard();
+      els.sheetTitle.textContent = problem.title;
+      els.rowMap.innerHTML = '';
+      els.rowMap.setAttribute('aria-label', 'Progress through the drawing');
+      problem.groups.forEach(function (group) {
+        const chip = document.createElement('span');
+        chip.className = 'row-chip';
+        chip.dataset.groupId = group.id;
+        chip.textContent = group.label;
+        state.groupChips.set(group.id, chip);
+        els.rowMap.appendChild(chip);
+      });
+      return;
+    }
     els.worksheet.classList.toggle('is-sentence', problem.method === 'fact' || problem.method === 'sentence');
     els.worksheet.classList.toggle('is-stacked', problem.rows.some(function (row) { return row.part === 'top'; }));
     state.cellEls.clear();
@@ -1463,6 +1520,129 @@
     });
   }
 
+  /* Drawing questions: the board is drawn from its state; keys change the
+     state; Enter says a step (or, in a test, the drawing) is done. */
+
+  function isDraw(problem) {
+    return Boolean(problem && problem.method === 'draw');
+  }
+
+  function setBoard(next) {
+    state.boardState = next;
+    state.entries = new Map([['board', next]]);
+  }
+
+  // The part being drawn is highlighted while it can be changed.
+  function boardView() {
+    if (state.screen !== 'playing' || state.lockInput) return { step: null };
+    return { step: state.mode === 'test' ? 0 : state.actionIndex };
+  }
+
+  function renderBoard(view) {
+    els.worksheet.innerHTML = '';
+    els.worksheet.appendChild(window.DigitStackPictures.board(state.problem, state.boardState, view || boardView()));
+  }
+
+  function pressBoard(name) {
+    if (state.screen !== 'playing' || state.lockInput || !isDraw(state.problem)) return;
+    ensureAudio();
+    const guided = state.mode !== 'test';
+    if (!guided) resetHandInWarning();
+    const result = Engine.drawing.press(state.problem, state.boardState, name, guided ? { step: state.actionIndex, guided: true } : {});
+    if (!result) return;
+    // In learning, corners already checked stay where they are.
+    if (guided && result.event === 'remove') return;
+    setBoard(result.state);
+    if (result.event === 'toggle' || result.event === 'place') playSound('tick');
+    renderBoard();
+    savePlay();
+    if (guided && result.event === 'place' && Engine.drawing.checkOn(state.problem) === 'place') checkDrawStep('place');
+  }
+
+  // Learning: the step is checked when it is done (Enter), or as a corner is
+  // placed on a grid.
+  function checkDrawStep(trigger) {
+    if (state.screen !== 'playing' || state.mode === 'test' || state.lockInput || !isDraw(state.problem)) return;
+    ensureAudio();
+    if (trigger === 'enter' && Engine.drawing.checkOn(state.problem) === 'place') {
+      els.liveRegion.textContent = 'Move the pencil to the point and press Space to put the corner there.';
+      els.fixNote.textContent = 'Each corner is checked as you put it down: move the pencil and press Space.';
+      els.fixNote.hidden = false;
+      return;
+    }
+    const why = Engine.drawing.check(state.problem, state.boardState, state.actionIndex);
+    if (why !== null) {
+      drawMiss(why, trigger);
+      return;
+    }
+    hideFixNote();
+    playSound('carry');
+    state.actionIndex += 1;
+    if (state.actionIndex >= state.actions.length) {
+      state.lockInput = true;
+      renderBoard({ step: null });
+      finishProblem();
+      return;
+    }
+    savePlay();
+    activateAction();
+  }
+
+  function drawMiss(why, trigger) {
+    const firstMiss = state.roundClean;
+    state.roundClean = false;
+    state.fixes += 1;
+    state.cleanStreak = 0;
+    state.pendingYear = null;
+    // A wrong corner is taken off again, to be put down afresh.
+    if (trigger === 'place') {
+      setBoard(Object.assign({}, state.boardState, { points: state.boardState.points.slice(0, -1) }));
+      renderBoard();
+    }
+    savePlay();
+    els.fixNote.textContent = 'Not quite. ' + why;
+    els.fixNote.hidden = false;
+    updateStreak();
+    els.sheetStatus.textContent = 'Fix the drawing';
+    els.sheetStatus.classList.remove('is-win');
+    els.sheetStatus.classList.add('is-fail');
+    els.sheet.classList.remove('is-shaking');
+    void els.sheet.offsetWidth;
+    els.sheet.classList.add('is-shaking');
+    window.setTimeout(function () { els.sheet.classList.remove('is-shaking'); }, 500);
+    playSound('miss');
+    els.liveRegion.textContent = 'Not quite. ' + why + (firstMiss ? ' This round no longer counts as clean, so the clean count is back to 0.' : '');
+  }
+
+  // Keys for a drawing; true when the key was used.
+  function drawKey(event) {
+    const key = event.key;
+    if (key === 'Enter') {
+      event.preventDefault();
+      if (!event.repeat) {
+        if (state.mode === 'test') handIn();
+        else checkDrawStep('enter');
+      }
+      return true;
+    }
+    let name = null;
+    if (/^Arrow/.test(key)) name = (event.shiftKey ? 'Shift+' : '') + key;
+    else if (key === ' ' || key === 'Spacebar') name = ' ';
+    else if (key === 'Backspace' || key === 'Delete' || key === 'PageUp' || key === 'PageDown') name = key;
+    else if (key === 'Tab') name = state.mode === 'test' && !event.shiftKey ? 'Tab' : null;
+    else if (/^[0-9]$/.test(key) || key === '-' || key === MINUS) {
+      // Nothing is typed on a drawing.
+      event.preventDefault();
+      return true;
+    }
+    if (key === 'Tab') event.preventDefault();
+    if (!name) return key === 'Tab';
+    event.preventDefault();
+    if (name === ' ' && event.repeat) return true;
+    pressBoard(name);
+    return true;
+  }
+
   function clearActiveMarks() {
     els.worksheet.querySelectorAll('.cell.active, .cell.bringdown-active').forEach(function (el) {
       el.classList.remove('active', 'bringdown-active');
@@ -1493,6 +1673,14 @@
     }
 
     clearActiveMarks();
+    if (isDraw(state.problem)) {
+      state.lockInput = false;
+      setKeypadEnabled(true);
+      renderBoard();
+      updateActionUI(action);
+      announceAction(action);
+      return;
+    }
     const entry = state.cellEls.get(action.cellId);
     if (!entry) throw new Error('Missing cell for action ' + action.cellId);
     const rowEl = state.rowEls.get(action.rowId);
@@ -1525,7 +1713,9 @@
     els.prompt.textContent = action.prompt;
     els.subprompt.textContent = action.subprompt;
     let label;
-    if (!state.problem.groupWord) {
+    if (isDraw(state.problem)) {
+      label = 'Draw it' + (state.problem.steps.length > 1 ? ', step ' + (state.actionIndex + 1) + ' of ' + state.problem.steps.length : '');
+    } else if (!state.problem.groupWord) {
       label = 'Type the answer';
     } else {
       const groupIndex = Math.max(0, state.problem.groups.findIndex(function (group) {
@@ -2022,6 +2212,20 @@
   }
 
   function startTest(problem) {
+    if (isDraw(problem)) {
+      state.handInWarned = false;
+      state.solution = null;
+      state.fillOrder = [];
+      state.selectedCellId = null;
+      els.stageChip.textContent = 'Test';
+      els.stepLine.textContent = 'Draw it, then hand in';
+      els.prompt.textContent = problem.question;
+      els.subprompt.textContent = DRAW_HELP;
+      els.sheetStatus.textContent = 'test';
+      renderBoard();
+      els.liveRegion.textContent = 'Test. ' + problem.question + ' ' + DRAW_HELP;
+      return;
+    }
     state.entries = new Map();
     state.handInWarned = false;
     state.solution = Engine.solutionOf(problem);
@@ -2179,6 +2383,21 @@
     if (state.mixed && state.mixed.running) {
       if (state.handInWarned) finishMixed(false);
       else mixedNext();
+      return;
+    }
+    if (isDraw(state.problem)) {
+      if (!Engine.drawing.touched(state.problem, state.boardState) && !state.handInWarned) {
+        state.handInWarned = true;
+        els.fixNote.textContent = 'Nothing is drawn yet. Press Enter again to hand in, or keep going.';
+        els.fixNote.hidden = false;
+        els.liveRegion.textContent = els.fixNote.textContent;
+        return;
+      }
+      const right = Engine.drawing.mark(state.problem, state.boardState);
+      state.lockInput = true;
+      renderBoard({ step: null, result: right ? 'right' : 'wrong', solution: right ? null : Engine.drawing.solved(state.problem) });
+      state.roundClean = right;
+      completeRound();
       return;
     }
     const marked = markedCellIds();
@@ -2876,9 +3095,12 @@
     if (!state.mixedMarked || state.mixedMarked.seed !== m.seed) state.mixedMarked = { seed: m.seed, ids: {} };
     let ids = state.mixedMarked.ids[index];
     if (!ids) {
-      ids = answerBoxIds(mixedQuestion(m, index));
+      const problem = mixedQuestion(m, index);
+      ids = isDraw(problem) ? { draw: problem } : answerBoxIds(problem);
       state.mixedMarked.ids[index] = ids;
     }
+    // A drawing is answered once something is drawn on it.
+    if (ids.draw) return Boolean(entries.board) && Engine.drawing.valid(ids.draw, entries.board) && Engine.drawing.touched(ids.draw, entries.board);
     return ids.some(function (id) { return entries[id]; });
   }
 
@@ -2955,8 +3177,13 @@
     const results = [];
     for (let i = 0; i < m.count; i++) {
       const problem = mixedQuestion(m, i);
-      const values = Engine.solutionOf(problem).values;
       const entries = m.answers[i] || {};
+      if (isDraw(problem)) {
+        const board = entries.board && Engine.drawing.valid(problem, entries.board) ? entries.board : null;
+        results.push({ area: m.areas[i], correct: Boolean(board) && Engine.drawing.mark(problem, board), answered: Boolean(board) && Engine.drawing.touched(problem, board) });
+        continue;
+      }
+      const values = Engine.solutionOf(problem).values;
       const marked = answerBoxIds(problem);
       const answered = marked.some(function (id) { return entries[id]; });
       const correct = answered && marked.every(function (id) { return (entries[id] || '') === (values[id] || ''); });
@@ -3041,17 +3268,22 @@
     state.problem = problem;
     state.actions = problem.actions;
     state.mode = 'test';
+    const entries = m.answers[index] || {};
+    if (isDraw(problem)) setBoard(entries.board && Engine.drawing.valid(problem, entries.board) ? entries.board : Engine.drawing.start(problem));
     renderWorksheet(problem);
     showSpecialKeys(null);
     document.body.dataset.area = state.operation;
-    state.solution = Engine.solutionOf(problem);
-    state.entries = new Map();
-    const entries = m.answers[index] || {};
-    Object.keys(entries).forEach(function (cellId) {
-      const entry = state.cellEls.get(cellId);
-      if (entry && isFillable(entry.cell) && entryFits(entry.cell, entries[cellId])) setEntry(cellId, entries[cellId]);
-    });
-    markTest(markedCellIds(), result.correct);
+    if (isDraw(problem)) {
+      renderBoard({ step: null, result: result.correct ? 'right' : 'wrong', solution: result.correct ? null : Engine.drawing.solved(problem) });
+    } else {
+      state.solution = Engine.solutionOf(problem);
+      state.entries = new Map();
+      Object.keys(entries).forEach(function (cellId) {
+        const entry = state.cellEls.get(cellId);
+        if (entry && isFillable(entry.cell) && entryFits(entry.cell, entries[cellId])) setEntry(cellId, entries[cellId]);
+      });
+      markTest(markedCellIds(), result.correct);
+    }
     // A question never answered is said once, not on every box.
     if (!result.answered) els.worksheet.querySelectorAll('[data-was]').forEach(function (el) { delete el.dataset.was; });
     if (result.correct) {
@@ -3198,6 +3430,7 @@
 
     if (state.screen === 'playing' && state.mode === 'test') {
       const mixed = Boolean(state.mixed && state.mixed.running);
+      if (isDraw(state.problem) && drawKey(event)) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         openPause();
@@ -3275,6 +3508,7 @@
         openPause();
         return;
       }
+      if (isDraw(state.problem) && drawKey(event)) return;
       if (/^[0-9]$/.test(event.key)) {
         event.preventDefault();
         if (!event.repeat) submitDigit(Number(event.key));
@@ -3428,6 +3662,19 @@
       key.blur();
     });
 
+    els.boardPad.addEventListener('click', function (event) {
+      const key = event.target.closest('button');
+      if (!key || key.disabled) return;
+      ensureAudio();
+      if (key.dataset.boardKey === 'Enter') {
+        if (state.mode === 'test') handIn();
+        else checkDrawStep('enter');
+      } else {
+        pressBoard(key.dataset.boardKey);
+      }
+      key.blur();
+    });
+
     els.helpClose.addEventListener('click', closeHelp);
     els.helpGotIt.addEventListener('click', closeHelp);
     els.resumeBtn.addEventListener('click', closePause);
@@ -3491,7 +3738,8 @@
         mode: state.mode,
         pendingTest: state.pendingTest,
         selectedCellId: state.selectedCellId,
-        entries: Object.fromEntries(state.entries),
+        entries: isDraw(state.problem) ? {} : Object.fromEntries(state.entries),
+        board: state.boardState,
         handInWarned: state.handInWarned,
         fillOrder: state.fillOrder.slice(),
         saving: state.saving,

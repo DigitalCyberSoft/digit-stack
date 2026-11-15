@@ -737,6 +737,374 @@
     return s;
   };
 
+  /* Drawing boards: the board's state drawn as a picture. `view.step` is
+     the part being drawn, highlighted; `view.solution` is the proper
+     drawing, shown in the working colour after a miss; `view.result` is
+     right or wrong once a test is marked. */
+
+  const B = {};
+
+  function scaled(value, places) {
+    const negative = value < 0;
+    const digits = String(Math.abs(value)).padStart(places + 1, '0');
+    const t = places ? digits.slice(0, digits.length - places) + '.' + digits.slice(digits.length - places) : digits;
+    return (negative ? MINUS : '') + t;
+  }
+
+  function clockHands(s, minutes, cls) {
+    const m = minutes % 60;
+    const h = Math.floor(minutes / 60);
+    const hourEnd = polar(110, 110, 48, 90 - (h + m / 60) * 30);
+    const minuteEnd = polar(110, 110, 80, 90 - m * 6);
+    add(s, line(110, 110, hourEnd[0], hourEnd[1], 'pic-hand pic-hour ' + cls), line(110, 110, minuteEnd[0], minuteEnd[1], 'pic-hand pic-minute ' + cls));
+  }
+
+  B.clock = function (p, st, view) {
+    const s = svg(220, 220, 'A clock to set');
+    add(s, el('circle', { cx: 110, cy: 110, r: 100, class: 'pic-face' + (view.step !== null ? ' pic-face-active' : '') }));
+    for (let k = 0; k < 60; k++) {
+      const outer = polar(110, 110, 96, 90 - k * 6);
+      const inner = polar(110, 110, k % 5 === 0 ? 84 : 90, 90 - k * 6);
+      add(s, line(inner[0], inner[1], outer[0], outer[1], k % 5 === 0 ? 'pic-line' : 'pic-thin'));
+    }
+    for (let k = 0; k < 12; k++) {
+      const at = polar(110, 110, 70, 90 - k * 30);
+      add(s, text(at[0], at[1] + 1, p.board.roman ? ROMAN[k] : (k === 0 ? 12 : k), 'pic-clock-number', 'middle', p.board.roman ? 15 : 19));
+    }
+    if (view.solution) clockHands(s, view.solution.minutes, 'pic-solution-hand');
+    clockHands(s, st.minutes, 'pic-pen-hand');
+    add(s, el('circle', { cx: 110, cy: 110, r: 6, class: 'pic-dot' }));
+    return s;
+  };
+
+  B.shade = function (p, st, view) {
+    const b = p.board;
+    const solution = view.solution ? view.solution.on : null;
+    const cls = function (part) {
+      const given = b.given.indexOf(part.id) !== -1;
+      const on = st.on.indexOf(part.id) !== -1;
+      let c = given ? 'pic-given-part' : (on ? 'pic-pen-part' : 'pic-part');
+      if (solution && !given && solution.indexOf(part.id) !== -1 !== on) c += ' pic-solution-part';
+      if (view.step !== null && part.id === st.at) c += ' pic-focus';
+      return c;
+    };
+    if (b.layout === 'circle') {
+      const s = svg(240, 240, 'A circle in equal parts');
+      const n = b.parts.length;
+      b.parts.forEach(function (part, k) {
+        add(s, sector(120, 120, 100, 90 - (k + 1) * 360 / n, 90 - k * 360 / n, cls(part)));
+      });
+      // The selected part is drawn again on top so its outline shows in full.
+      const at = b.parts.find(function (x) { return x.id === st.at; });
+      if (view.step !== null && at) add(s, sector(120, 120, 100, 90 - (at.id + 1) * 360 / n, 90 - at.id * 360 / n, cls(at)));
+      return s;
+    }
+    const size = b.layout === 'bar' ? Math.min(60, 300 / b.cols) : 44;
+    const w = b.cols * size;
+    const h = b.layout === 'bar' ? 70 : b.rows * size;
+    const s = svg(w + 20, h + 20, b.layout === 'counters' ? 'Counters' : 'A shape in equal parts');
+    const order = b.parts.slice().sort(function (x, y) { return (x.id === st.at) - (y.id === st.at); });
+    order.forEach(function (part) {
+      const x = 10 + part.c * size;
+      const y = 10 + part.r * size;
+      if (b.layout === 'counters') add(s, el('circle', { cx: x + size / 2, cy: y + size / 2, r: size * 0.38, class: cls(part) }));
+      else add(s, el('rect', { x: x, y: y, width: size, height: b.layout === 'bar' ? h : size, class: cls(part) }));
+    });
+    if (b.mirror === 'vertical') add(s, line(10 + w / 2, 2, 10 + w / 2, h + 18, 'pic-mirror'));
+    if (b.mirror === 'horizontal') add(s, line(2, 10 + h / 2, w + 18, 10 + h / 2, 'pic-mirror'));
+    return s;
+  };
+
+  B.line = function (p, st, view) {
+    const b = p.board;
+    const label = function (i) { return scaled(b.minScaled + i * b.minorScaled, b.places); };
+    if (b.kind === 'thermometer') {
+      const s = svg(200, 380, 'A thermometer');
+      const top = 30;
+      const bottom = 330;
+      const y = function (i) { return bottom - i * (bottom - top) / b.n; };
+      add(s, el('rect', { x: 86, y: top - 12, width: 28, height: bottom - top + 24, rx: 14, class: 'pic-tube' }), el('circle', { cx: 100, cy: bottom + 26, r: 22, class: 'pic-bulb' }));
+      add(s, el('rect', { x: 93, y: y(st.at), width: 14, height: bottom + 10 - y(st.at), class: 'pic-mercury' }));
+      for (let i = 0; i <= b.n; i++) {
+        const major = i % b.majorEvery === 0;
+        add(s, line(114, y(i), major ? 132 : 124, y(i), major ? 'pic-line' : 'pic-thin'));
+        if (major) add(s, text(138, y(i), label(i), 'pic-small', 'start', 12));
+      }
+      if (view.solution) add(s, line(70, y(view.solution.at), 130, y(view.solution.at), 'pic-solution-mark'));
+      if (view.step !== null) add(s, el('path', { d: 'M 82 ' + y(st.at) + ' l -14 -8 v 16 z', class: 'pic-cursor-mark' }));
+      return s;
+    }
+    const width = 620;
+    const pad = 30;
+    const x = function (i) { return pad + i * (width - 2 * pad) / b.n; };
+    if (b.kind === 'ruler') {
+      const s = svg(width, 150, 'A ruler');
+      add(s, el('rect', { x: pad - 14, y: 70, width: width - 2 * pad + 28, height: 60, rx: 4, class: 'pic-ruler' }));
+      for (let i = 0; i <= b.n; i++) {
+        const major = i % b.majorEvery === 0;
+        const half = i % (b.majorEvery / 2) === 0;
+        add(s, line(x(i), 70, x(i), 70 + (major ? 22 : (half ? 15 : 9)), major ? 'pic-line' : 'pic-thin'));
+        if (major) add(s, text(x(i), 106, String(i / b.majorEvery), 'pic-small', 'middle', 12));
+      }
+      add(s, text(width - pad, 122, 'cm', 'pic-small', 'end', 11));
+      if (view.solution) add(s, line(x(0), 40, x(view.solution.at), 40, 'pic-solution-line'));
+      if (st.at > 0) add(s, line(x(0), 56, x(st.at), 56, 'pic-pen-line'));
+      if (view.step !== null) add(s, el('circle', { cx: x(st.at), cy: 56, r: 7, class: 'pic-cursor' }));
+      return s;
+    }
+    const s = svg(width, 110, 'A number line');
+    add(s, line(pad - 12, 60, width - pad + 12, 60, 'pic-axis'));
+    for (let i = 0; i <= b.n; i++) {
+      const major = i % b.majorEvery === 0;
+      add(s, line(x(i), major ? 48 : 54, x(i), major ? 72 : 66, major ? 'pic-line' : 'pic-thin'));
+      if (major) add(s, text(x(i), 90, label(i), 'pic-small', 'middle', 13));
+    }
+    if (view.solution) add(s, el('path', { d: 'M ' + x(view.solution.at) + ' 44 l -9 -16 h 18 z', class: 'pic-solution-mark' }));
+    add(s, el('path', { d: 'M ' + x(st.at) + ' 44 l -9 -16 h 18 z', class: view.step !== null ? 'pic-cursor-mark' : 'pic-pen-mark' }));
+    return s;
+  };
+
+  B.grid = function (p, st, view) {
+    const b = p.board;
+    const cols = b.xmax - b.xmin;
+    const rows = b.ymax - b.ymin;
+    const size = Math.min(30, 330 / Math.max(cols, rows));
+    const pad = 28;
+    const s = svg(cols * size + 2 * pad, rows * size + 2 * pad, 'A grid to draw on');
+    const X = function (x) { return pad + (x - b.xmin) * size; };
+    const Y = function (y) { return pad + (b.ymax - y) * size; };
+    for (let k = b.xmin; k <= b.xmax; k++) add(s, line(X(k), Y(b.ymin), X(k), Y(b.ymax), b.axes && k === 0 ? 'pic-axis' : 'pic-gridline'));
+    for (let k = b.ymin; k <= b.ymax; k++) add(s, line(X(b.xmin), Y(k), X(b.xmax), Y(k), b.axes && k === 0 ? 'pic-axis' : 'pic-gridline'));
+    if (b.axes) {
+      for (let k = b.xmin; k <= b.xmax; k++) if (k !== 0 || b.xmin === 0) add(s, text(X(k), Y(Math.max(b.ymin, 0)) + 14, k < 0 ? MINUS + Math.abs(k) : k, 'pic-small', 'middle', 10));
+      for (let k = b.ymin; k <= b.ymax; k++) if (k !== 0) add(s, text(X(Math.max(b.xmin, 0)) - 8, Y(k), k < 0 ? MINUS + Math.abs(k) : k, 'pic-small', 'end', 10));
+      add(s, text(X(b.xmax) + 12, Y(Math.max(b.ymin, 0)), 'x', 'pic-small', 'middle', 12), text(X(Math.max(b.xmin, 0)), Y(b.ymax) - 12, 'y', 'pic-small', 'middle', 12));
+    }
+    if (b.mirror) {
+      if (b.mirror.axis === 'x') add(s, line(X(b.mirror.at), Y(b.ymin), X(b.mirror.at), Y(b.ymax), 'pic-mirror'));
+      else add(s, line(X(b.xmin), Y(b.mirror.at), X(b.xmax), Y(b.mirror.at), 'pic-mirror'));
+    }
+    if (b.axisMirror === 'y') add(s, line(X(0), Y(b.ymin), X(0), Y(b.ymax), 'pic-mirror'));
+    if (b.axisMirror === 'x') add(s, line(X(b.xmin), Y(0), X(b.xmax), Y(0), 'pic-mirror'));
+    if (b.centre) add(s, el('circle', { cx: X(b.centre[0]), cy: Y(b.centre[1]), r: 6, class: 'pic-centre' }));
+    const path = function (points, closed) {
+      return points.map(function (pt, k) { return (k ? 'L ' : 'M ') + X(pt[0]) + ' ' + Y(pt[1]); }).join(' ') + (closed ? ' Z' : '');
+    };
+    (b.given || []).forEach(function (shape) {
+      if (!shape.open) add(s, el('path', { d: path(shape.points, true), class: 'pic-shape pic-filled' }));
+      shape.points.forEach(function (pt, k) {
+        add(s, el('circle', { cx: X(pt[0]), cy: Y(pt[1]), r: 4.5, class: 'pic-dot' }));
+        if (shape.labels) add(s, text(X(pt[0]) - 9, Y(pt[1]) - 10, shape.labels[k], '', 'middle', 13));
+      });
+    });
+    const closed = b.mode !== 'points' && b.mode !== 'vertex';
+    if (view.solution) {
+      const sol = view.solution.points;
+      if (sol.length > 1) add(s, el('path', { d: path(sol, closed && sol.length === b.need), class: 'pic-solution-line pic-open' }));
+      sol.forEach(function (pt) { add(s, el('circle', { cx: X(pt[0]), cy: Y(pt[1]), r: 6, class: 'pic-solution-point' })); });
+    }
+    if (b.line && st.points.length > 1) add(s, el('path', { d: path(st.points, false), class: 'pic-pen-line pic-open' }));
+    else if (st.points.length > 1) add(s, el('path', { d: path(st.points, closed && st.points.length === b.need), class: 'pic-pen-line pic-open' }));
+    st.points.forEach(function (pt, k) {
+      add(s, el('circle', { cx: X(pt[0]), cy: Y(pt[1]), r: 5.5, class: 'pic-pen-point' }));
+      if (b.mode === 'image') add(s, text(X(pt[0]) + 11, Y(pt[1]) - 10, String.fromCharCode(65 + k) + '′', 'pic-label', 'middle', 13));
+      if (b.mode === 'vertex') add(s, text(X(pt[0]) + 11, Y(pt[1]) - 10, 'D', 'pic-label', 'middle', 13));
+    });
+    if (view.step !== null) {
+      add(s, el('circle', { cx: X(st.cursor[0]), cy: Y(st.cursor[1]), r: 11, class: 'pic-cursor' }),
+        line(X(st.cursor[0]) - 16, Y(st.cursor[1]), X(st.cursor[0]) + 16, Y(st.cursor[1]), 'pic-cursor-cross'),
+        line(X(st.cursor[0]), Y(st.cursor[1]) - 16, X(st.cursor[0]), Y(st.cursor[1]) + 16, 'pic-cursor-cross'));
+    }
+    return s;
+  };
+
+  B.bars = function (p, st, view) {
+    const b = p.board;
+    const sol = view.solution ? view.solution.values : null;
+    const focus = view.step !== null ? st.at : -1;
+    if (b.style === 'tally' || b.style === 'pictogram') {
+      const rowH = 38;
+      const s = svg(400, b.categories.length * rowH + (b.style === 'pictogram' ? 44 : 16), b.style === 'tally' ? 'A tally chart to complete' : 'A pictogram to complete');
+      b.categories.forEach(function (label, k) {
+        const y = 8 + k * rowH;
+        add(s, el('rect', { x: 6, y: y, width: 388, height: rowH, class: 'pic-cellbox' + (k === focus ? ' pic-focus-row' : '') }), line(108, y, 108, y + rowH, 'pic-thin'),
+          text(16, y + rowH / 2, label, '', 'start', 14));
+        const value = st.values[k];
+        const given = b.given[k] !== null;
+        if (b.style === 'tally') {
+          const g = el('g', { class: given ? '' : 'pic-pen-tally' });
+          tallyMarks(g, 122, y + 9, value);
+          add(s, g);
+        } else {
+          const symbols = value / b.key;
+          const whole = Math.floor(symbols);
+          for (let c = 0; c < whole; c++) add(s, el('circle', { cx: 126 + c * 30, cy: y + rowH / 2, r: 12, class: given ? 'pic-shaded' : 'pic-pen-part' }));
+          if (symbols > whole) {
+            const cx = 126 + whole * 30;
+            add(s, el('path', { d: 'M ' + cx + ' ' + (y + rowH / 2 - 12) + ' A 12 12 0 0 0 ' + cx + ' ' + (y + rowH / 2 + 12) + ' Z', class: given ? 'pic-shaded' : 'pic-pen-part' }));
+          }
+        }
+        if (sol && sol[k] !== value) add(s, text(386, y + rowH / 2, String(sol[k]), 'pic-solution-text', 'end', 14));
+      });
+      if (b.style === 'pictogram') {
+        const ky = 26 + b.categories.length * rowH;
+        add(s, el('circle', { cx: 126, cy: ky, r: 10, class: 'pic-shaded' }), text(144, ky, '= ' + b.key, '', 'start', 14));
+      }
+      return s;
+    }
+    const s = svg(400, 290, b.style === 'line' ? 'A line graph to complete' : 'A bar chart to complete');
+    const left = 50;
+    const top = 16;
+    const width = 330;
+    const height = 220;
+    const Y = function (v) { return top + height - v / b.max * height; };
+    for (let v = 0; v <= b.max + 1e-9; v += b.minor) {
+      const rounded = Math.round(v * 1000) / 1000;
+      add(s, line(left, Y(rounded), left + width, Y(rounded), rounded === 0 ? 'pic-axis' : 'pic-gridline'));
+      if (Math.abs(rounded / b.labelEvery - Math.round(rounded / b.labelEvery)) < 1e-9) add(s, text(left - 6, Y(rounded), String(rounded), 'pic-small', 'end', 11));
+    }
+    add(s, line(left, top - 6, left, top + height, 'pic-axis'));
+    const slot = width / b.categories.length;
+    const centre = function (k) { return left + k * slot + slot / 2; };
+    if (b.style === 'line') {
+      const pts = st.values.map(function (v, k) { return [centre(k), Y(v)]; });
+      if (sol) add(s, el('path', { d: sol.map(function (v, k) { return (k ? 'L ' : 'M ') + centre(k) + ' ' + Y(v); }).join(' '), class: 'pic-solution-line pic-open' }));
+      add(s, el('path', { d: pts.map(function (pt, k) { return (k ? 'L ' : 'M ') + pt[0] + ' ' + pt[1]; }).join(' '), class: 'pic-graph' }));
+      pts.forEach(function (pt, k) {
+        add(s, el('circle', { cx: pt[0], cy: pt[1], r: k === focus ? 8 : 5, class: k === focus ? 'pic-cursor' : (b.given[k] !== null ? 'pic-dot' : 'pic-pen-point') }));
+      });
+    } else {
+      b.categories.forEach(function (label, k) {
+        const x = left + k * slot + slot * 0.2;
+        const w = slot * 0.6;
+        const v = st.values[k];
+        if (sol && sol[k] !== v) add(s, el('rect', { x: x, y: Y(sol[k]), width: w, height: Y(0) - Y(sol[k]), class: 'pic-solution-bar' }));
+        if (v > 0) add(s, el('rect', { x: x, y: Y(v), width: w, height: Y(0) - Y(v), class: b.given[k] !== null ? 'pic-shaded' : 'pic-pen-part' }));
+        if (k === focus) add(s, el('rect', { x: x - 4, y: Y(v) - 4, width: w + 8, height: Y(0) - Y(v) + 4, class: 'pic-focus-outline' }));
+      });
+    }
+    b.categories.forEach(function (label, k) { add(s, text(centre(k), top + height + 18, label, 'pic-small', 'middle', 12)); });
+    return s;
+  };
+
+  // A protractor with its two scales, centred on (cx, cy): the outer scale
+  // reads 0 on the right, the inner one 0 on the left.
+  function protractor(s, cx, cy, r) {
+    // A small protractor is labelled every 20°, so its numbers stay apart.
+    const every = r < 150 ? 20 : 10;
+    add(s, el('path', { d: 'M ' + (cx - r) + ' ' + cy + ' A ' + r + ' ' + r + ' 0 0 1 ' + (cx + r) + ' ' + cy + ' Z', class: 'pic-protractor' }));
+    for (let d = 0; d <= 180; d += 1) {
+      const a = polar(cx, cy, r, d);
+      const b = polar(cx, cy, r - (d % 10 === 0 ? 16 : (d % 5 === 0 ? 10 : 6)), d);
+      add(s, line(a[0], a[1], b[0], b[1], d % 10 === 0 ? 'pic-line' : 'pic-thin'));
+      if (d % every === 0) {
+        const outer = polar(cx, cy, r - 26, d);
+        const inner = polar(cx, cy, r - 44, d);
+        add(s, text(outer[0], outer[1], d, 'pic-small', 'middle', every === 20 ? 12 : 13), text(inner[0], inner[1], 180 - d, 'pic-scale-inner', 'middle', every === 20 ? 10 : 11));
+      }
+    }
+    add(s, el('circle', { cx: cx, cy: cy, r: 3.5, class: 'pic-dot' }));
+  }
+
+  B.angle = function (p, st, view) {
+    const b = p.board;
+    const sol = view.solution ? view.solution.angles : null;
+    if (b.mode === 'pie') {
+      const s = svg(320, 320, 'A pie chart to draw');
+      const cx = 160;
+      const cy = 160;
+      const r = 112;
+      let from = 0;
+      st.angles.forEach(function (a, k) {
+        if (a > 0) add(s, sector(cx, cy, r, 90 - from - a, 90 - from, 'pic-pie pic-pie-' + k));
+        if (a > 24) {
+          const mid = polar(cx, cy, r * 0.62, 90 - from - a / 2);
+          add(s, text(mid[0], mid[1], b.labels[k], 'pic-small', 'middle', 11));
+        }
+        from += a;
+      });
+      add(s, el('circle', { cx: cx, cy: cy, r: r, class: 'pic-shape' }));
+      for (let d = 0; d < 360; d += 5) {
+        const a = polar(cx, cy, r + (d % 30 === 0 ? 14 : 7), 90 - d);
+        const c = polar(cx, cy, r, 90 - d);
+        add(s, line(c[0], c[1], a[0], a[1], d % 30 === 0 ? 'pic-line' : 'pic-thin'));
+        if (d % 30 === 0) { const t = polar(cx, cy, r + 26, 90 - d); add(s, text(t[0], t[1], d, 'pic-small', 'middle', 10)); }
+      }
+      // Every boundary drawn so far, and the one being turned.
+      let at = 0;
+      st.angles.forEach(function (a, k) {
+        at += a;
+        const end = polar(cx, cy, r, 90 - at);
+        add(s, line(cx, cy, end[0], end[1], view.step !== null && k === st.at ? 'pic-arm pic-active-arm' : 'pic-thin'));
+      });
+      if (sol) {
+        let sAt = 0;
+        sol.forEach(function (a) { sAt += a; const end = polar(cx, cy, r + 4, 90 - sAt); add(s, line(cx, cy, end[0], end[1], 'pic-solution-line')); });
+      }
+      const top = polar(cx, cy, r, 90);
+      add(s, line(cx, cy, top[0], top[1], 'pic-arm'));
+      return s;
+    }
+    if (b.mode === 'angle') {
+      const s = svg(400, 230, 'A protractor to draw an angle');
+      const cx = 200;
+      const cy = 200;
+      protractor(s, cx, cy, 170);
+      const baseDir = b.base === 'right' ? 0 : 180;
+      const armDir = function (a) { return b.base === 'right' ? a : 180 - a; };
+      const baseEnd = polar(cx, cy, 190, baseDir);
+      add(s, line(cx, cy, baseEnd[0], baseEnd[1], 'pic-arm'));
+      if (sol) { const e = polar(cx, cy, 185, armDir(sol[0])); add(s, line(cx, cy, e[0], e[1], 'pic-solution-line')); }
+      const end = polar(cx, cy, 190, armDir(st.angles[0]));
+      add(s, line(cx, cy, end[0], end[1], 'pic-arm pic-pen-arm' + (view.step !== null ? ' pic-active-arm' : '')),
+        arc(cx, cy, 30, Math.min(baseDir, armDir(st.angles[0])), Math.max(baseDir, armDir(st.angles[0]))));
+      return s;
+    }
+    // A triangle on a base AB: the angle at A opens from AB, the angle at B from BA.
+    const s = svg(440, 300, 'A triangle to draw');
+    const unit = 360 / 9;
+    const ax = 220 - b.ab * unit / 2;
+    const bx = 220 + b.ab * unit / 2;
+    const by = 260;
+    const active = view.step !== null ? st.at : -1;
+    if (active === 0) protractor(s, ax, by, 120);
+    if (active === 1) protractor(s, bx, by, 120);
+    add(s, line(ax, by, bx, by, 'pic-arm'), text(ax - 12, by + 14, 'A', '', 'middle', 14), text(bx + 12, by + 14, 'B', '', 'middle', 14),
+      text((ax + bx) / 2, by + 18, b.ab + ' cm', 'pic-small', 'middle', 12));
+    const a = st.angles[0];
+    const c = st.angles[1];
+    const ta = Math.tan(a * Math.PI / 180);
+    const tc = Math.tan(c * Math.PI / 180);
+    if (a > 0 && c > 0 && a + c < 180) {
+      // Where the two arms meet: C.
+      const w = bx - ax;
+      const xC = ax + w * tc / (ta + tc);
+      const yC = by - (xC - ax) * ta;
+      add(s, line(ax, by, xC, yC, 'pic-arm pic-pen-arm'), line(bx, by, xC, yC, 'pic-arm pic-pen-arm'), text(xC, yC - 12, 'C', 'pic-label', 'middle', 14));
+    } else {
+      if (a > 0) { const e = polar(ax, by, 200, a); add(s, line(ax, by, e[0], e[1], 'pic-arm pic-pen-arm')); }
+      if (c > 0) { const e = polar(bx, by, 200, 180 - c); add(s, line(bx, by, e[0], e[1], 'pic-arm pic-pen-arm')); }
+    }
+    if (sol) {
+      const e1 = polar(ax, by, 200, sol[0]);
+      const e2 = polar(bx, by, 200, 180 - sol[1]);
+      add(s, line(ax, by, e1[0], e1[1], 'pic-solution-line'), line(bx, by, e2[0], e2[1], 'pic-solution-line'));
+    }
+    if (active === 0) add(s, arc(ax, by, 26, 0, a));
+    if (active === 1) add(s, arc(bx, by, 26, 180 - c, 180));
+    return s;
+  };
+
+  function board(problem, state, view) {
+    const v = Object.assign({ step: null, solution: null, result: null }, view || {});
+    const draw = B[problem.board.tool];
+    if (!draw) throw new Error('No board for ' + problem.board.tool);
+    const holder = document.createElement('div');
+    holder.className = 'picture pic-board pic-board-' + problem.board.tool + (v.result ? ' is-' + v.result : '');
+    holder.appendChild(draw(problem, state, v));
+    return holder;
+  }
+
   function render(picture) {
     const draw = R[picture.kind];
     if (!draw) throw new Error('No picture for ' + picture.kind);
@@ -747,5 +1115,5 @@
     return holder;
   }
 
-  root.DigitStackPictures = { render: render, kinds: Object.keys(R) };
+  root.DigitStackPictures = { render: render, board: board, kinds: Object.keys(R) };
 })(typeof window !== 'undefined' ? window : this);

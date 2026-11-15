@@ -3424,6 +3424,44 @@ kbd {
 .pic-cellbox { fill: none; stroke: var(--page-line-strong); stroke-width: 1.5; }
 .pic-graph { fill: none; stroke: var(--pen); stroke-width: 3; stroke-linejoin: round; }
 .pic-pie { stroke: var(--page); stroke-width: 2; }
+
+/* Drawing boards: the child's drawing in pen blue, the part being drawn
+   highlighted like the active box, and after a miss the proper drawing in
+   the working colour, dashed. */
+.worksheet.is-board { width: 100%; }
+.pic-board .pic { width: min(100%, 460px); }
+.pic-board-clock .pic { width: min(100%, 280px); }
+.pic-board-line .pic { width: min(100%, 680px); }
+.pic-board-line .pic[aria-label='A thermometer'] { width: min(100%, 210px); }
+.pic-board-shade .pic { width: min(100%, 340px); }
+.pic-board-grid .pic { width: min(100%, 480px); }
+.pic-board-angle .pic { width: min(100%, 580px); }
+.pic-pen-part { fill: rgba(var(--pen-rgb), 0.55); stroke: var(--ink); stroke-width: 2; }
+.pic-given-part { fill: var(--pic-fill); stroke: var(--ink); stroke-width: 2; }
+.pic-focus { stroke: var(--on-highlight); stroke-width: 5; }
+.pic-part.pic-focus { fill: var(--highlight); }
+.pic-solution-part { stroke: var(--purple); stroke-width: 4; stroke-dasharray: 7 4; }
+.pic-pen-hand { stroke: var(--pen); }
+.pic-solution-hand { stroke: var(--purple); opacity: 0.75; stroke-dasharray: 7 5; }
+.pic-face-active { stroke: var(--on-highlight); }
+.pic-cursor { fill: rgba(var(--pen-rgb), 0.12); stroke: var(--on-highlight); stroke-width: 3; }
+.pic-cursor-cross { stroke: var(--on-highlight); stroke-width: 2; }
+.pic-cursor-mark { fill: var(--highlight); stroke: var(--on-highlight); stroke-width: 2.5; }
+.pic-pen-mark { fill: var(--pen); }
+.pic-solution-mark { fill: none; stroke: var(--purple); stroke-width: 3; stroke-dasharray: 4 3; }
+.pic-pen-line { fill: none; stroke: var(--pen); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.pic-solution-line { fill: none; stroke: var(--purple); stroke-width: 3; stroke-dasharray: 7 5; }
+.pic-pen-point { fill: var(--pen); }
+.pic-solution-point { fill: none; stroke: var(--purple); stroke-width: 2.5; stroke-dasharray: 3 3; }
+.pic-centre { fill: var(--page); stroke: var(--ink); stroke-width: 2.5; }
+.pic-pen-tally .pic-tally { stroke: var(--pen); }
+.pic-focus-row { fill: color-mix(in srgb, var(--highlight) 45%, transparent); stroke: var(--on-highlight); stroke-width: 2.5; }
+.pic .pic-solution-text { fill: var(--purple); font-weight: 800; }
+.pic-solution-bar { fill: none; stroke: var(--purple); stroke-width: 3; stroke-dasharray: 6 4; }
+.pic-focus-outline { fill: none; stroke: var(--on-highlight); stroke-width: 3; stroke-dasharray: 5 3; }
+.pic-pen-arm { stroke: var(--pen); }
+.pic-active-arm { stroke-width: 5; }
+.pic .pic-scale-inner { fill: var(--ink-2); }
 .pic-pie-0 { fill: var(--cover); }
 .pic-pie-1 { fill: color-mix(in srgb, var(--cover) 60%, var(--page)); }
 .pic-pie-2 { fill: color-mix(in srgb, var(--cover) 35%, var(--page)); }
@@ -3566,6 +3604,74 @@ kbd {
 body:not(.is-mixed) .mixed-only,
 body.is-mixed .not-mixed {
   display: none;
+}
+
+/* Drawing questions: arrow, mark and undo keys take the place of the
+   number keys. */
+.console:not(.is-draw) .board-pad,
+.console:not(.is-draw) .draw-only,
+.console.is-draw .keypad,
+.console.is-draw .not-draw,
+.console.is-tutorial .board-pad {
+  display: none;
+}
+
+.board-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.board-pad button {
+  height: 52px;
+  border: 2px solid rgba(var(--ink-rgb), 0.18);
+  border-bottom: 5px solid var(--cover);
+  border-radius: 12px;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.board-pad button:active {
+  transform: translateY(2px);
+}
+
+.board-pad .board-mark {
+  background: var(--highlight);
+  color: var(--on-highlight);
+  font-size: 1.05rem;
+}
+
+.console[data-tool='clock'] .board-mark,
+.console[data-tool='line'] .board-mark,
+.console[data-tool='bars'] .board-mark,
+.console[data-tool='angle'] .board-mark {
+  visibility: hidden;
+}
+
+.console:not([data-tool='grid']) .board-wide:not(.board-done),
+.console[data-tool='clock'] .space-hint,
+.console[data-tool='line'] .space-hint,
+.console[data-tool='bars'] .space-hint,
+.console[data-tool='angle'] .space-hint {
+  display: none;
+}
+
+.board-pad .board-wide {
+  grid-column: span 3;
+  height: 46px;
+  font-size: 1.05rem;
+}
+
+.console.is-test .board-pad .board-done {
+  display: none;
+}
+
+.console:not(.is-test) .board-pad .board-wide:not(.board-done) {
+  grid-column: span 3;
 }
 
 /* A mixed test's dock: Back and Next (Enter), with Hand in test under
