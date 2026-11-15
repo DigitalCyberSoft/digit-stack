@@ -133,7 +133,9 @@
     sound: 'digitstack.sound.v1',
     progress: 'digitstack.progress.v1',
     play: 'digitstack.play.v1',
-    mixed: 'digitstack.mixed.v1'
+    mixed: 'digitstack.mixed.v1',
+    // What the last marked mixed test said to practise next.
+    focus: 'digitstack.focus.v1'
   };
 
   // Saved rounds hold whole problems. Bump this when the engine's problem
@@ -173,6 +175,8 @@
       return map;
     }, {}),
     modeButtons: Array.from(document.querySelectorAll('[data-mode]')),
+    // The "practise next" tags, made the first time the start screen shows.
+    focusTags: {},
     mixedBtn: $('mixedBtn'),
     mixedNote: $('mixedNote'),
     mixedOverlay: $('mixedOverlay'),
@@ -227,6 +231,7 @@
     endTitle: $('endTitle'),
     endAnswer: $('endAnswer'),
     endDetail: $('endDetail'),
+    endFocus: $('endFocus'),
     endActions: $('endActions'),
     helpOverlay: $('helpOverlay'),
     helpClose: $('helpClose'),
@@ -2588,6 +2593,7 @@
   function showEndPanel(passedNow) {
     els.consoleMain.hidden = true;
     els.endPanel.hidden = false;
+    els.endFocus.hidden = true;
     els.endTitle.textContent = 'Solved.';
     els.endAnswer.textContent = state.problem.answer.expression;
     els.endActions.innerHTML = '';
@@ -2896,6 +2902,20 @@
   function updateMixedCard() {
     const m = state.mixed;
     if (!els.mixedNote) return;
+    const focus = readFocus();
+    // A book the last mixed test named says so, with what to practise.
+    AREAS.forEach(function (area) {
+      const named = focus && !(m && !m.finished) ? focus.areas.find(function (f) { return f.area === area; }) : null;
+      let tag = els.focusTags[area];
+      if (!tag) {
+        tag = document.createElement('span');
+        tag.className = 'mode-focus';
+        els.shapes[area].parentNode.insertBefore(tag, els.shapes[area]);
+        els.focusTags[area] = tag;
+      }
+      tag.hidden = !named;
+      tag.textContent = named ? 'Practise next: ' + named.titles.join(', ') : '';
+    });
     if (m && !m.finished) {
       els.mixedNote.textContent = 'Test in progress: question ' + Math.min(m.index + 1, m.count) + ' of ' + m.count +
         (m.deadline ? ', ' + clockText(m.deadline - Date.now()) + ' left' : '') + '. Press R to carry on.';
@@ -2903,8 +2923,11 @@
       els.mixedNote.textContent = 'Your last test is marked. Press R to see the results.';
     } else if (state.mixedCleared) {
       els.mixedNote.textContent = 'A mixed test from before the game was updated was cleared, because its questions have changed. Press R for a new one.';
+    } else if (focus && focus.areas.length) {
+      els.mixedNote.textContent = 'Your last test says: practise ' + namesList(focus.areas.map(function (f) { return f.area; })) +
+        ' next. Press R for a new test.';
     } else {
-      els.mixedNote.textContent = 'Questions from every area for the school year. Choose how many, a time limit and how hard. Marks and a grade at the end.';
+      els.mixedNote.textContent = 'Questions from every area for the school year. Choose how many, a time limit and how hard. Marks, a grade and what to practise next at the end.';
     }
   }
 
@@ -3253,7 +3276,7 @@
       const entries = m.answers[i] || {};
       if (isDraw(problem)) {
         const board = entries.board && Engine.drawing.valid(problem, entries.board) ? entries.board : null;
-        results.push({ area: m.areas[i], correct: Boolean(board) && Engine.drawing.mark(problem, board), answered: Boolean(board) && Engine.drawing.touched(problem, board) });
+        results.push({ area: m.areas[i], title: problem.title, correct: Boolean(board) && Engine.drawing.mark(problem, board), answered: Boolean(board) && Engine.drawing.touched(problem, board) });
         continue;
       }
       const values = Engine.solutionOf(problem).values;
@@ -3261,7 +3284,7 @@
       const answered = marked.some(function (id) { return entries[id]; });
       const typed = typedAnswers(problem, function (id) { return entries[id]; });
       const correct = answered && marked.every(function (id) { return typed[id] === (values[id] || ''); });
-      results.push({ area: m.areas[i], correct: correct, answered: answered });
+      results.push({ area: m.areas[i], title: problem.title, correct: correct, answered: answered });
     }
     return results;
   }
@@ -3275,6 +3298,7 @@
     m.finished = true;
     m.timeUp = timeUp;
     m.endedAt = timeUp && m.deadline ? m.deadline : Date.now();
+    saveFocus(Engine.mixedFocus(markMixed(m)), m);
     m.current = null;
     m.running = false;
     if (state.pauseOpen) closePause();
@@ -3309,6 +3333,8 @@
       const mine = results.filter(function (r) { return r.area === area; });
       return AREA_INFO[area].name + ' ' + mine.filter(function (r) { return r.correct; }).length + '/' + mine.length;
     });
+    const plan = Engine.mixedFocus(results);
+    renderFocus(plan, m, results);
     els.endDetail.textContent = percent + '%' + (grade === 'F' ? ', under 50%: not a pass yet.' : '.') + ' Time: ' + clockText(m.endedAt - m.startedAt) +
       (m.minutes ? ' of ' + m.minutes + ' minutes.' : '.') + ' ' + byArea.join(', ') + '.';
     els.endActions.innerHTML = '';
@@ -3326,8 +3352,107 @@
       primary = printEndButton('Finish', 'Enter', 'primary', finishMixedReview);
     }
     focusButtonSoon(primary);
-    els.liveRegion.textContent = score + ' out of ' + m.count + ', ' + percent + '%, grade ' + grade + '. ' +
+    els.liveRegion.textContent = score + ' out of ' + m.count + ', ' + percent + '%, grade ' + grade + '. ' + focusSpoken(plan) + ' ' +
       'Use the arrow keys to look at each question. ' + (goOver ? 'Press Enter to go over the ones that were not right, or F to finish.' : 'Press Enter to finish.');
+  }
+
+  /* What to practise next. The results name up to three areas, worst
+     first (Engine.mixedFocus), with the key that opens each, the questions
+     missed and how many of the area's questions were right. The same
+     advice is saved, so the start screen still shows it after the results
+     are put away. */
+
+  // "Divide, Add and Shape"
+  function namesList(areas) {
+    const names = areas.map(function (area) { return AREA_INFO[area].name; });
+    return names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names.join('');
+  }
+
+  function keyLabel(area) {
+    return AREA_INFO[area].key.toUpperCase();
+  }
+
+  function renderFocus(plan, m, results) {
+    const box = els.endFocus;
+    box.innerHTML = '';
+    box.hidden = false;
+    const title = document.createElement('h3');
+    title.className = 'end-focus-title';
+    box.appendChild(title);
+    const notes = [];
+    if (!plan.focus.length) {
+      title.textContent = 'Every question was right';
+      notes.push(m.difficulty !== 'hard' ? 'Next time, try a hard test.'
+        : (m.year < TOP_YEAR ? 'Next time, try Year ' + (m.year + 1) + ': set the school year on the start screen.' : 'Keep practising to stay sharp.'));
+    } else {
+      title.textContent = 'Practise next';
+      const list = document.createElement('ol');
+      list.className = 'end-focus-list';
+      plan.focus.forEach(function (f) {
+        const item = document.createElement('li');
+        item.className = 'end-focus-item';
+        item.dataset.area = f.area;
+        item.style.setProperty('--swatch', 'var(--cover-' + f.area + ')');
+        const name = document.createElement('span');
+        name.className = 'end-focus-name';
+        name.textContent = AREA_INFO[f.area].name;
+        const key = document.createElement('kbd');
+        key.textContent = keyLabel(f.area);
+        key.setAttribute('aria-label', 'key ' + keyLabel(f.area));
+        const what = document.createElement('span');
+        what.className = 'end-focus-what';
+        what.textContent = f.titles.join(', ') + ': ' + f.right + ' of ' + f.total + ' right' +
+          (f.blank ? ', ' + f.blank + ' not answered' : '') + '.';
+        item.append(name, key, what);
+        list.appendChild(item);
+      });
+      box.appendChild(list);
+      if (plan.others.length) notes.push('Also missed: ' + namesList(plan.others.map(function (f) { return f.area; })) + '.');
+      notes.push('Open an area from the start screen with its key.' +
+        (plan.most <= 2 ? ' Each area had ' + (plan.most === 1 ? 'one question' : 'only one or two questions') + ', so take these as pointers.' : ''));
+    }
+    const blanks = results.filter(function (r) { return !r.answered; }).length;
+    if (m.timeUp && blanks) notes.push('Time ran out with ' + (blanks === 1 ? '1 question' : blanks + ' questions') + ' not answered.');
+    const note = document.createElement('p');
+    note.className = 'end-focus-note';
+    note.textContent = notes.join(' ');
+    box.appendChild(note);
+  }
+
+  // The advice as said aloud, for the screen reader's summary.
+  function focusSpoken(plan) {
+    if (!plan.focus.length) return 'Every question was right.';
+    return 'Practise next: ' + plan.focus.map(function (f) {
+      return AREA_INFO[f.area].name + ', key ' + keyLabel(f.area) + ', ' + f.titles.join(', ');
+    }).join('; ') + '.';
+  }
+
+  function saveFocus(plan, m) {
+    writeStored(STORAGE.focus, JSON.stringify({
+      year: m.year,
+      at: m.endedAt,
+      areas: plan.focus.map(function (f) { return { area: f.area, titles: f.titles }; })
+    }));
+  }
+
+  // Only what the game itself could have saved is shown. JSON.parse has no
+  // non-throwing form.
+  function readFocus() {
+    const raw = readStored(STORAGE.focus, null);
+    if (raw === null) return null;
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (err) {
+      if (err instanceof SyntaxError) return null;
+      throw err;
+    }
+    if (!data || !Array.isArray(data.areas)) return null;
+    const areas = data.areas.filter(function (f) {
+      return f && AREAS.indexOf(f.area) !== -1 && Array.isArray(f.titles) &&
+        f.titles.every(function (t) { return typeof t === 'string'; });
+    });
+    return { year: data.year, areas: areas };
   }
 
   // One question of a marked test: the child's boxes, marked, with the

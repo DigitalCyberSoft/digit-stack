@@ -173,6 +173,15 @@ async function answer(page, wrong) {
   check('E again hands the test in, and the changed answer counts: 7 right', s.screen === 'mixedResults' && s.mixed.finished && right === 7, 'right=' + right);
   check('the grade follows the score (7 of 10 is 70%: B' + MINUS + ')', s.mixed.grade === 'B' + MINUS && /7 out of 10/.test(await page.locator('#endTitle').innerText()) && /Grade B/.test(await page.locator('#endAnswer').innerText()));
   check('each question has a chip, right or not', (await page.locator('.question-chip').count()) === 10 && (await page.locator('.question-chip.is-missed').count()) === 3);
+  // What to practise next: the areas of the three questions not right (each area had one question, so they tie and keep the areas'
+  // order), each with the key that opens it.
+  const KEYS = { divide: '1', multiply: '2', add: '3', subtract: '4', number: '5', fractions: '6', measures: '7', shape: '8', data: '9', algebra: '0', words: 'W' };
+  const missedAreas = AREAS.filter(a => s.mixed.results.some((r, k) => !r.correct && s.mixed.areas[k] === a));
+  const advice = await page.locator('#endFocus .end-focus-item').evaluateAll(items => items.map(i => i.dataset.area + ' ' + i.querySelector('kbd').textContent + ' ' + i.querySelector('.end-focus-what').textContent));
+  check('the results say which three areas to practise next, worst first, with their keys', advice.length === 3 &&
+    advice.every((a, k) => a.startsWith(missedAreas[k] + ' ' + KEYS[missedAreas[k]] + ' ') && /: 0 of 1 right\.$/.test(a)) && /Practise next/.test(await page.locator('#endFocus').innerText()), JSON.stringify(advice));
+  check('the advice says each area had only one question', /Each area had one question, so take these as pointers/.test(await page.locator('.end-focus-note').innerText()));
+  check('the summary read aloud says what to practise', /Practise next: /.test(await page.locator('#liveRegion').textContent()));
   await page.keyboard.press('ArrowRight'); await wait(page);
   s = await st(page);
   const question2 = s.problem.question + ' ' + s.problem.line;
@@ -198,6 +207,13 @@ async function answer(page, wrong) {
   await page.keyboard.press('Enter'); await wait(page);
   s = await st(page);
   check('Enter on the results then finishes and clears the test', s.screen === 'setup' && !s.mixed && (await stored(page, 'digitstack.mixed.v1')) === null);
+  // The advice stays on the start screen: the mixed card names the areas, and their books say what to practise.
+  const NAMES = { divide: 'Divide', multiply: 'Multiply', add: 'Add', subtract: 'Subtract', number: 'Number', fractions: 'Fractions', measures: 'Measures', shape: 'Shape', data: 'Data', algebra: 'Algebra', words: 'Word problems' };
+  const startNote = await page.locator('#mixedNote').innerText();
+  const tagged = await page.evaluate(() => Array.from(document.querySelectorAll('[data-mode]')).filter(b => { const t = b.querySelector('.mode-focus'); return t && !t.hidden; }).map(b => b.dataset.mode));
+  check('the start screen keeps the advice: the mixed card names the areas and their books are tagged',
+    startNote.includes('practise ' + NAMES[missedAreas[0]] + ', ' + NAMES[missedAreas[1]] + ' and ' + NAMES[missedAreas[2]] + ' next') &&
+    JSON.stringify(tagged.slice().sort()) === JSON.stringify(missedAreas.slice().sort()), startNote + ' | ' + tagged.join(','));
 
   // A time limit that has run out ends the test at once: what was typed counts, the rest is not answered.
   await fresh(page, 3);
@@ -221,6 +237,8 @@ async function answer(page, wrong) {
   await page.keyboard.press('r'); await wait(page, 100);
   s = await st(page);
   check('only the answered question counts: 1 of 20 is 5%, an F', s.mixed.results.filter(r => r.correct).length === 1 && s.mixed.results.filter(r => !r.answered).length === 19 && s.mixed.grade === 'F');
+  check('the advice says time ran out, and counts questions not answered', /Time ran out with 19 questions not answered\./.test(await page.locator('.end-focus-note').innerText()) &&
+    /not answered\./.test(await page.locator('.end-focus-what').first().innerText()), await page.locator('#endFocus').innerText());
   await page.keyboard.press('f'); await wait(page);
   check('F on the results finishes without going over the questions', (await st(page)).screen === 'setup' && (await stored(page, 'digitstack.mixed.v1')) === null);
 
@@ -297,6 +315,27 @@ async function answer(page, wrong) {
     return { ok: moved.startsWith('bottom-') && (await st(page)).roundClean, moved };
   });
   check('a fraction takes its top, then the down arrow goes to its bottom', r.ok, JSON.stringify(r));
+
+  // A finished test with every answer right says so, names nothing to practise, and suggests a hard test next.
+  await page.goto(URL);
+  await page.evaluate(() => {
+    const E = window.DigitStackEngine; const now = Date.now();
+    localStorage.clear();
+    const m = { version: 2, seed: 777, fingerprint: E.fingerprint(), year: 3, count: 10, minutes: 0, difficulty: 'medium', index: 10, answers: [], current: null,
+      startedAt: now - 60000, deadline: null, finished: true, timeUp: false, endedAt: now, open: false };
+    E.withSeed(5, () => { m.areas = E.kit.shuffle(E.AREAS).slice(0, 10); });
+    for (let i = 0; i < 10; i++) {
+      const p = E.withSeed((m.seed + i * 7919) >>> 0, () => E.generateProblem(m.areas[i], m.year, m.difficulty));
+      m.answers.push(p.method === 'draw' ? { board: E.drawing.solved(p) } : Object.assign({}, E.solutionOf(p).values));
+    }
+    localStorage.setItem('digitstack.mixed.v1', JSON.stringify(m));
+  });
+  await page.goto(URL); await wait(page, 100);
+  await page.keyboard.press('r'); await wait(page, 100);
+  s = await st(page);
+  const allRight = await page.locator('#endFocus').innerText();
+  check('a test with every answer right says so and suggests a hard test next', s.screen === 'mixedResults' && s.mixed.results.every(r => r.correct) &&
+    /Every question was right/.test(allRight) && /try a hard test/.test(allRight) && (await page.locator('#endFocus .end-focus-item').count()) === 0, allRight);
 
   check('no console or page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await browser.close(); server.close();

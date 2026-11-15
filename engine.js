@@ -3482,6 +3482,39 @@
   // while this code is the same as when it was started.
   let fingerprintCache = null;
 
+  // After a mixed test: the areas to practise next, worst first. `results`
+  // holds one { area, correct, answered, title } per question. An area
+  // with more questions missed (wrong or not answered) comes first, then
+  // one that missed a bigger share of its questions, then more wrong
+  // answers, then the usual order of areas. `focus` names at most `limit`
+  // (3) areas, each with the titles of the questions it missed; `others`
+  // are the rest that missed something; `most` is the most questions any
+  // area had, which says how much each tally can show.
+  function mixedFocus(results, limit) {
+    const by = {};
+    results.forEach(function (r) {
+      const a = by[r.area] || (by[r.area] = { area: r.area, total: 0, right: 0, wrong: 0, blank: 0, titles: [] });
+      a.total += 1;
+      if (r.correct) {
+        a.right += 1;
+        return;
+      }
+      if (r.answered) a.wrong += 1;
+      else a.blank += 1;
+      if (r.title && a.titles.indexOf(r.title) === -1) a.titles.push(r.title);
+    });
+    const missed = AREAS.map(function (area) { return by[area]; }).filter(function (a) { return a && a.right < a.total; });
+    missed.sort(function (x, y) {
+      const mx = x.total - x.right;
+      const my = y.total - y.right;
+      return (my - mx) || (my / y.total - mx / x.total) || (y.wrong - x.wrong) ||
+        (AREAS.indexOf(x.area) - AREAS.indexOf(y.area));
+    });
+    const keep = limit || 3;
+    const most = Object.keys(by).reduce(function (m, area) { return Math.max(m, by[area].total); }, 0);
+    return { focus: missed.slice(0, keep), others: missed.slice(keep), most: most };
+  }
+
   function fingerprint() {
     if (fingerprintCache) return fingerprintCache;
     let text = '';
@@ -3507,6 +3540,7 @@
     FRONT_CHOICE: FRONT_CHOICE,
     leadingZeros: leadingZeros,
     readTyped: readTyped,
+    mixedFocus: mixedFocus,
     COUNTING_STEPS: COUNTING_STEPS,
     FACT_TABLES: FACT_TABLES,
     ALL_TABLES: ALL_TABLES,

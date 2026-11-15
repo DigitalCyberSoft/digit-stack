@@ -1037,6 +1037,25 @@ if (!/"ex-c0":"8"/.test(marks) || !/"ex-c1":"12"/.test(marks) || !/"ex-c2":"12"/
 leadTexts.forEach((v, t) => { if (v.zero && !v.other) fail('a text is only shown when the box takes 0: ' + v.example, null); });
 if (shapeKeys < 100) fail('the layout check compared only ' + shapeKeys + ' kinds of question', null);
 
+// Mixed-test advice: more missed first, then a bigger share missed, then more wrong, then the areas' usual order; three named, the
+// rest listed; a question not answered counts as missed; titles once each.
+{
+  const r = (area, correct, answered, title) => ({ area, correct, answered, title });
+  const plan = E.mixedFocus([r('add', true, true, 'Column addition'), r('add', false, true, 'Column addition'), r('fractions', false, true, 'Equivalent fractions'),
+    r('fractions', false, false, 'Adding fractions'), r('number', false, true, 'Rounding'), r('data', true, true, 'Bar charts'), r('shape', false, true, 'Angles'),
+    r('shape', true, true, 'Angles'), r('number', true, true, 'Rounding')]);
+  const got = plan.focus.map(f => f.area + ' ' + f.right + '/' + f.total + ' w' + f.wrong + ' b' + f.blank + ' ' + f.titles.join('+')).join('; ');
+  const wantFocus = 'fractions 0/2 w1 b1 Equivalent fractions+Adding fractions; add 1/2 w1 b0 Column addition; number 1/2 w1 b0 Rounding';
+  if (got !== wantFocus || plan.others.map(f => f.area).join() !== 'shape' || plan.most !== 2) fail('mixed advice order: ' + got + ' | others ' + plan.others.map(f => f.area).join(), null);
+  const right = E.mixedFocus([r('add', true, true, 'Column addition'), r('words', true, true, 'Money')]);
+  if (right.focus.length || right.others.length || right.most !== 1) fail('mixed advice for an all-right test names an area', null);
+  const one = E.mixedFocus([r('number', false, true, 'Rounding'), r('number', false, true, 'Rounding'), r('number', false, true, 'Rounding'), r('add', false, true, 'Column addition')]);
+  if (one.focus[0].area !== 'number' || one.focus[0].titles.length !== 1) fail('mixed advice repeats a title or ranks a single miss first', null);
+  // Two of four missed outranks one of one: more misses are more to go on than a bigger share of fewer questions.
+  const count = E.mixedFocus([r('shape', false, true, 'Angles'), r('data', false, true, 'Bar charts'), r('data', false, true, 'Pictograms'), r('data', true, true, 'Tables'), r('data', true, true, 'Tables')]);
+  if (count.focus.map(f => f.area).join() !== 'data,shape') fail('mixed advice puts a bigger share of fewer questions before more misses: ' + count.focus.map(f => f.area).join(), null);
+}
+
 // Every verifier must have run on generated problems: one that is never reached would pass without checking anything.
 const exercised = new Set(Object.values(stats).flatMap(v => Object.keys(v).filter(f => f.startsWith('check:')).map(f => f.slice(6))));
 Object.keys(VERIFY).concat(Object.keys(DRAW_VERIFY)).forEach(kind => { if (!exercised.has(kind)) fail('verifier ' + kind + ' never ran', null); });
