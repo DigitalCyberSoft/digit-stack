@@ -523,6 +523,7 @@
   function savePlay() {
     // A mixed test keeps its own record; the areas' places stay as they were.
     if (state.mixed && state.mixed.running) return saveMixed();
+    if (state.tutorial && state.tutorial.kind === 'mixed') return true;
     // While an example plays, the area's saved place stays as it was, so a
     // replay returns to the same step.
     if (state.operation && state.screen !== 'tutorial') {
@@ -936,9 +937,21 @@
     return state.tutorial.problems[state.tutorial.index];
   }
 
-  function startTutorial() {
+  // `walk` (optional) goes through given problems instead of the year's
+  // examples: { kind: 'walkthrough', problems } after a missed test problem,
+  // or { kind: 'mixed', problems, questions, areas } for the questions of a
+  // mixed test that were not right.
+  function startTutorial(walk) {
     clearTimer();
-    state.tutorial = {
+    state.tutorial = walk ? {
+      kind: walk.kind,
+      problems: walk.problems,
+      questions: walk.questions || null,
+      areas: walk.areas || null,
+      index: 0,
+      step: 0
+    } : {
+      kind: 'example',
       problems: Engine.tutorialProblems(state.operation, state.year),
       index: 0,
       step: 0
@@ -954,11 +967,37 @@
     els.console.classList.add('is-tutorial', 'no-carry');
     els.console.classList.remove('is-test');
     showSpecialKeys(null);
-    els.turnLabel.textContent = 'Watch';
+    els.turnLabel.textContent = state.tutorial.kind === 'example' ? 'Watch' : 'How to solve it';
+    els.tutorSkip.firstChild.textContent = { example: 'Skip to my turn ', walkthrough: 'Next problem ', mixed: 'Back to the results ' }[state.tutorial.kind];
     hideFixNote();
     window.scrollTo(0, 0);
     savePlay();
     showTutorialStep();
+  }
+
+  // After a wrong test answer: the same problem, worked one box at a time
+  // with the reason for each, then the next problem.
+  function startWalkthrough() {
+    if (state.screen !== 'testFailed' || !state.problem) return;
+    ensureAudio();
+    startTutorial({ kind: 'walkthrough', problems: [state.problem] });
+  }
+
+  // After a mixed test is marked: every question that was not right, in
+  // order, then back to the results.
+  function startMixedWalkthrough() {
+    if (state.screen !== 'mixedResults' || !state.mixed) return;
+    const m = state.mixed;
+    const missed = markMixed(m).map(function (r, k) { return r.correct ? -1 : k; }).filter(function (k) { return k >= 0; });
+    if (!missed.length) return;
+    ensureAudio();
+    els.endPanel.className = 'end-panel';
+    startTutorial({
+      kind: 'mixed',
+      problems: missed.map(function (k) { return mixedQuestion(m, k); }),
+      questions: missed,
+      areas: missed.map(function (k) { return m.areas[k]; })
+    });
   }
 
   // Writes one step's box the way play does, and marks it as the step shown.
@@ -998,26 +1037,44 @@
     const problem = currentExample();
     const count = problem.actions.length;
     const more = tutorial.index + 1 < tutorial.problems.length;
+    const mixed = tutorial.kind === 'mixed';
     state.problem = problem;
     state.actions = problem.actions;
+    if (mixed) {
+      state.operation = tutorial.areas[tutorial.index];
+      document.body.dataset.area = state.operation;
+    }
     renderWorksheet(problem);
-    updateModeUI();
-    updateLadder();
-    updateStreak();
+    if (mixed) {
+      const stage = document.createElement('span');
+      stage.className = 'mode-stage';
+      stage.textContent = 'Going over';
+      els.modeChip.textContent = 'Mixed test';
+      els.modeChip.appendChild(stage);
+      els.modeShape.textContent = 'Question ' + (tutorial.questions[tutorial.index] + 1) + ' of ' + state.mixed.count + ': ' + AREA_INFO[state.operation].name;
+      updateMixedClock();
+    } else {
+      updateModeUI();
+      updateLadder();
+      updateStreak();
+    }
     const written = Math.min(tutorial.step, count);
     restoreSteps({ actionIndex: Math.max(0, written - 1), roundClean: true, fixes: 0 });
     const action = written >= 1 ? problem.actions[written - 1] : null;
     if (action) showTutorialAction(action);
 
-    const example = 'Example ' + (tutorial.index + 1) + ' of ' + tutorial.problems.length;
+    let example;
+    if (tutorial.kind === 'walkthrough') example = 'How to solve it';
+    else if (mixed) example = 'Question ' + (tutorial.questions[tutorial.index] + 1) + ' (' + (tutorial.index + 1) + ' of ' + tutorial.problems.length + ' to go over)';
+    else example = 'Example ' + (tutorial.index + 1) + ' of ' + tutorial.problems.length;
     let stage;
     let stepText;
     let prompt;
     let detail;
     if (tutorial.step === 0) {
-      stage = 'Example';
+      stage = tutorial.kind === 'example' ? 'Example' : 'How to';
       stepText = example;
-      prompt = 'Watch an example: ' + problem.title.toLowerCase() + '.';
+      prompt = tutorial.kind === 'example' ? 'Watch an example: ' + problem.title.toLowerCase() + '.' : 'Here is how to solve it, one step at a time.';
       detail = problem.question + ' Press Enter or the right arrow to see each step.';
     } else if (tutorial.step <= count) {
       stage = titleCase(action.stage);
@@ -1028,9 +1085,15 @@
       stage = 'Answer';
       stepText = example + ', finished';
       prompt = problem.answer.expression;
-      detail = more
-        ? 'Next, an example of ' + tutorial.problems[tutorial.index + 1].title.toLowerCase() + '.'
-        : 'Now it is your turn. Press Enter to start.';
+      if (tutorial.kind === 'walkthrough') {
+        detail = 'That is how to solve it. Press Enter for the next problem.';
+      } else if (mixed) {
+        detail = more ? 'Next: question ' + (tutorial.questions[tutorial.index + 1] + 1) + '.' : 'That was the last one. Press Enter to go back to your results.';
+      } else {
+        detail = more
+          ? 'Next, an example of ' + tutorial.problems[tutorial.index + 1].title.toLowerCase() + '.'
+          : 'Now it is your turn. Press Enter to start.';
+      }
       problem.answerRowIds.forEach(function (rowId) {
         const rowEl = state.rowEls.get(rowId);
         if (rowEl) rowEl.classList.add('answer-solved');
@@ -1048,7 +1111,10 @@
     els.sheetStatus.textContent = example.toLowerCase();
     els.sheetStatus.classList.remove('is-win', 'is-fail');
     els.tutorBack.disabled = tutorial.index === 0 && tutorial.step === 0;
-    els.tutorNext.firstChild.textContent = tutorial.step > count && !more ? 'My turn ' : 'Next ';
+    let last = 'My turn ';
+    if (tutorial.kind === 'walkthrough') last = 'Next problem ';
+    if (mixed) last = 'Results ';
+    els.tutorNext.firstChild.textContent = tutorial.step > count && !more ? last : 'Next ';
     els.liveRegion.textContent = stepText + '. ' + prompt + ' ' + detail;
   }
 
@@ -1084,9 +1150,21 @@
 
   function finishTutorial() {
     if (state.screen !== 'tutorial') return;
+    const kind = state.tutorial.kind;
+    state.tutorial = null;
+    if (kind === 'walkthrough') {
+      // The missed round is already counted; the test carries on.
+      loadProblem(Engine.generateProblem(state.operation, state.year));
+      return;
+    }
+    if (kind === 'mixed') {
+      state.mixed.walked = true;
+      saveMixed();
+      showMixedResults(state.reviewIndex);
+      return;
+    }
     const operation = state.operation;
     markWatched(operation, state.year);
-    state.tutorial = null;
     beginArea(operation);
   }
 
@@ -1137,7 +1215,9 @@
     const info = AREA_INFO[state.operation];
     const stage = document.createElement('span');
     stage.className = 'mode-stage';
-    stage.textContent = state.screen === 'tutorial' ? 'Example' : (state.mode === 'test' ? 'Test' : 'Learning');
+    let label = state.mode === 'test' ? 'Test' : 'Learning';
+    if (state.screen === 'tutorial') label = state.tutorial && state.tutorial.kind === 'walkthrough' ? 'Going over' : 'Example';
+    stage.textContent = label;
     els.modeChip.textContent = info.name;
     els.modeChip.appendChild(stage);
     els.modeShape.textContent = 'Year ' + state.year + ': ' + YEAR_INFO[state.year][state.operation];
@@ -1342,8 +1422,9 @@
         } else if (cell.kind === 'given') {
           cellEl.textContent = String(cell.value);
         } else if (cell.kind === 'bringdown') {
-          // In a test the child writes the brought-down digit themselves.
-          if (state.mode === 'test') {
+          // In a test the child writes the brought-down digit themselves; a
+          // walkthrough of a test problem brings it down as learning does.
+          if (state.mode === 'test' && state.screen !== 'tutorial') {
             cellEl.classList.remove('pending');
             cellEl.classList.add('test-box');
           } else {
@@ -2228,8 +2309,9 @@
       els.endKicker.textContent = 'Not quite';
       els.endTitle.textContent = 'The answer is';
       els.endDetail.textContent = 'Your boxes are marked and the proper working is on the sheet. ' +
-        'The clean count is back to 0.';
-      primary = printEndButton('Next problem', 'Enter', 'primary', newProblem);
+        'The clean count is back to 0. Press Enter to see how to solve it, step by step.';
+      primary = printEndButton('Show me how', 'Enter', 'primary', startWalkthrough);
+      printEndButton('Next problem', 'N', '', newProblem);
     } else if (!state.roundClean) {
       els.endPanel.className = 'end-panel is-fail';
       els.endKicker.textContent = state.fixes === 1 ? 'Solved with a fix' : 'Solved with ' + state.fixes + ' fixes';
@@ -2923,10 +3005,20 @@
     els.endActions.innerHTML = '';
     printEndButton('Previous', '←', '', function () { stepReview(-1); });
     printEndButton('Next', '→', '', function () { stepReview(1); });
-    const finish = printEndButton('Finish', 'Enter', 'primary', finishMixedReview);
-    focusButtonSoon(finish);
+    // Questions that were not right are gone over first; once they have
+    // been, Enter finishes.
+    const goOver = score < m.count && !m.walked;
+    let primary;
+    if (goOver) {
+      primary = printEndButton('Show me how to solve the ' + (m.count - score === 1 ? 'one' : (m.count - score) + ' questions') + ' I missed', 'Enter', 'primary', startMixedWalkthrough);
+      printEndButton('Finish', 'F', '', finishMixedReview);
+    } else {
+      if (score < m.count) printEndButton('Go over them again', 'W', '', startMixedWalkthrough);
+      primary = printEndButton('Finish', 'Enter', 'primary', finishMixedReview);
+    }
+    focusButtonSoon(primary);
     els.liveRegion.textContent = score + ' out of ' + m.count + ', ' + percent + '%, grade ' + grade + '. ' +
-      'Use the arrow keys to look at each question. Press Enter to finish.';
+      'Use the arrow keys to look at each question. ' + (goOver ? 'Press Enter to go over the ones that were not right, or F to finish.' : 'Press Enter to finish.');
   }
 
   // One question of a marked test: the child's boxes, marked, with the
@@ -3039,7 +3131,9 @@
     }
     if ((event.key === 'w' || event.key === 'W') && state.screen !== 'setup' && state.screen !== 'tutorial') {
       event.preventDefault();
-      watchExample();
+      if (state.screen === 'testFailed') startWalkthrough();
+      else if (state.screen === 'mixedResults') startMixedWalkthrough();
+      else watchExample();
       return;
     }
 
@@ -3078,12 +3172,18 @@
     }
 
     if (state.screen === 'mixedResults') {
+      const m = state.mixed;
+      const missed = m && markMixed(m).some(function (r) { return !r.correct; });
       if (/^Arrow/.test(event.key)) {
         event.preventDefault();
         stepReview(event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1);
-      } else if (event.key === 'Enter' && !isFocusedButton(event)) {
+      } else if (event.key === 'f' || event.key === 'F') {
         event.preventDefault();
         finishMixedReview();
+      } else if (event.key === 'Enter' && !isFocusedButton(event)) {
+        event.preventDefault();
+        if (missed && !m.walked) startMixedWalkthrough();
+        else finishMixedReview();
       }
       return;
     }
@@ -3130,10 +3230,14 @@
         openPause();
         return;
       }
-      if ((event.key === 'Enter' || event.key === ' ' || event.key === 'n' || event.key === 'N') &&
-        !isFocusedButton(event)) {
+      if (event.key === 'n' || event.key === 'N') {
         event.preventDefault();
         newProblem();
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === ' ') && !isFocusedButton(event)) {
+        event.preventDefault();
+        startWalkthrough();
       }
       return;
     }
@@ -3384,6 +3488,8 @@
         saving: state.saving,
         display: DISPLAY.get(),
         tutorial: state.tutorial ? {
+          kind: state.tutorial.kind,
+          questions: state.tutorial.questions,
           index: state.tutorial.index,
           step: state.tutorial.step,
           examples: state.tutorial.problems.map(function (problem) {

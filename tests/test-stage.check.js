@@ -106,11 +106,41 @@ async function startTest(page, year, key) {
   check('a wrong answer shows the proper answer in the marked boxes', s.screen === 'testFailed' && wrong >= 1 && shownRight, wrong);
   const revealed = await page.locator('.cell.solution').count();
   check('the proper working is shown too (every working value, and at least one)', expectedWorking > 0 && revealed === expectedWorking, revealed + ' of ' + expectedWorking);
-  check('the end panel offers only the next problem', /Not quite/.test(await page.locator('#endKicker').innerText()) && await page.locator('#endActions .end-btn').count() === 2 && /Next problem/.test(await page.locator('#endActions').innerText()));
+  const endText = await page.locator('#endActions').innerText();
+  check('the end panel offers to show how to solve it, or the next problem', /Not quite/.test(await page.locator('#endKicker').innerText()) &&
+    await page.locator('#endActions .end-btn').count() === 3 && /Show me how/.test(endText) && /Next problem/.test(endText), endText);
   await page.screenshot({ path: SHOTS + '/tm-wrong.png' });
+
+  // Enter walks through the missed problem: the same problem, one box per step with the game's reason, then the next problem.
+  const missed = (await st(page)).problem.question;
   await page.keyboard.press('Enter'); await page.waitForTimeout(80);
   s = await st(page);
-  check('Enter goes to the next round with the count at 0', s.screen === 'playing' && s.cleanStreak === 0 && s.mode === 'test', s.screen);
+  check('Enter walks through the missed problem', s.screen === 'tutorial' && s.tutorial.kind === 'walkthrough' && s.problem.question === missed && s.tutorial.step === 0,
+    JSON.stringify({ screen: s.screen, kind: s.tutorial && s.tutorial.kind }));
+  const walkSteps = s.problem.actions.length; const reasons = [];
+  for (let k = 1; k <= walkSteps; k++) {
+    await page.keyboard.press('ArrowRight'); await page.waitForTimeout(15);
+    reasons.push(await page.evaluate(k => { const s = window.__digitStack.getState(); const a = s.problem.actions[k - 1];
+      return document.getElementById('subprompt').textContent === a.why && document.querySelector('[data-cell-id="' + a.cellId + '"]').classList.contains('tutor-step'); }, k));
+  }
+  const unfilled = await page.evaluate(() => { const s = window.__digitStack.getState(); const sol = window.DigitStackEngine.solutionOf(s.problem).values;
+    return Object.keys(sol).filter(id => (document.querySelector('[data-cell-id="' + id + '"]') || {}).textContent !== sol[id]); });
+  check('each step of the walkthrough fills its box and gives its reason, and every box ends with the worked answer',
+    reasons.length === walkSteps && reasons.every(Boolean) && unfilled.length === 0, JSON.stringify(reasons) + ' ' + unfilled.join(','));
+  await page.keyboard.press('ArrowRight'); await page.waitForTimeout(40);
+  check('the walkthrough ends on the answer', /The answer|=/.test(await page.locator('#prompt').innerText()) && /next problem/i.test(await page.locator('#subprompt').innerText()));
+  await page.keyboard.press('Enter'); await page.waitForTimeout(80);
+  s = await st(page);
+  check('then Enter goes to the next round with the count at 0', s.screen === 'playing' && s.cleanStreak === 0 && s.mode === 'test' && s.problem.question !== missed, s.screen);
+
+  // N skips the walkthrough and goes straight on.
+  await answer(page, true); await page.keyboard.press('Enter'); await page.waitForTimeout(40);
+  if ((await st(page)).handInWarned) { await page.keyboard.press('Enter'); await page.waitForTimeout(60); }
+  const missedAgain = (await st(page)).problem.question;
+  const failedAgain = (await st(page)).screen === 'testFailed';
+  await page.keyboard.press('n'); await page.waitForTimeout(80);
+  s = await st(page);
+  check('N after a missed test problem goes straight to the next one', failedAgain && s.screen === 'playing' && s.mode === 'test' && s.problem.question !== missedAgain);
 
   // Sign box toggle.
   await startTest(page, 5, '3');

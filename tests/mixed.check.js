@@ -150,14 +150,27 @@ async function answer(page, wrong) {
   check('each question has a chip, right or not', (await page.locator('.question-chip').count()) === 10 && (await page.locator('.question-chip.is-missed').count()) === 3);
   await page.keyboard.press('ArrowRight'); await wait(page);
   s = await st(page);
+  const question2 = s.problem.question + ' ' + s.problem.line;
   const reviewLine = await page.locator('#reviewLine').innerText();
   check('the arrows step through the marked questions, a wrong one showing its answer', s.reviewIndex === 1 && /not quite/.test(reviewLine) && /The answer is/.test(reviewLine) && (await page.locator('.cell.mark-wrong').count()) > 0, reviewLine);
   await page.reload(); await wait(page);
   check('marked results wait on the start screen after closing', (await st(page)).screen === 'setup' && /results/.test(await page.locator('#mixedNote').innerText()));
   await page.keyboard.press('r'); await wait(page, 80);
+  // The questions that were not right (2, 4 and 6) are gone over, one after another, before finishing.
+  const offer = await page.locator('#endActions').innerText();
+  check('the results offer to go over the 3 missed questions, or finish with F', /Show me how to solve the 3 questions I missed/.test(offer) && /Finish/.test(offer), offer);
+  await page.keyboard.press('Enter'); await wait(page, 80);
+  s = await st(page);
+  check('Enter goes over the missed questions in order, starting with question 2', s.screen === 'tutorial' && s.tutorial.kind === 'mixed' &&
+    JSON.stringify(s.tutorial.questions) === '[1,3,5]' && s.problem.question + ' ' + s.problem.line === question2, JSON.stringify(s.tutorial && s.tutorial.questions));
+  const shownQuestions = new Set();
+  for (let i = 0; i < 300 && (await st(page)).screen === 'tutorial'; i++) { shownQuestions.add((await st(page)).tutorial.index); await page.keyboard.press('ArrowRight'); await wait(page, 10); }
+  s = await st(page);
+  const after = await page.locator('#endActions').innerText();
+  check('each missed question is gone over, then the results come back with Finish on Enter', shownQuestions.size === 3 && s.screen === 'mixedResults' && /Go over them again/.test(after), after);
   await page.keyboard.press('Enter'); await wait(page);
   s = await st(page);
-  check('Enter on the results finishes and clears the test', s.screen === 'setup' && !s.mixed && (await stored(page, 'digitstack.mixed.v1')) === null);
+  check('Enter on the results then finishes and clears the test', s.screen === 'setup' && !s.mixed && (await stored(page, 'digitstack.mixed.v1')) === null);
 
   // A time limit that has run out ends the test at once: what was typed counts, the rest is not answered.
   await fresh(page, 3);
@@ -169,7 +182,8 @@ async function answer(page, wrong) {
   const kicker = await page.locator('#endKicker').innerText();
   check('a test whose time ran out opens on its results', s.screen === 'mixedResults' && s.mixed.timeUp && /Time is up/.test(kicker), kicker);
   check('only the answered question counts: 1 of 20 is 5%, an F', s.mixed.results.filter(r => r.correct).length === 1 && s.mixed.results.filter(r => !r.answered).length === 19 && s.mixed.grade === 'F');
-  await page.keyboard.press('Enter'); await wait(page);
+  await page.keyboard.press('f'); await wait(page);
+  check('F on the results finishes without going over the questions', (await st(page)).screen === 'setup' && (await stored(page, 'digitstack.mixed.v1')) === null);
 
   // Handing in early: the check lists what is not answered, and keeping going puts it away.
   await page.keyboard.press('r'); await wait(page); await page.keyboard.press('Enter'); await wait(page, 80);
@@ -186,7 +200,7 @@ async function answer(page, wrong) {
   await page.keyboard.press('e'); await wait(page, 80);
   s = await st(page);
   check('E in the pause panel hands the test in at once and marks it', s.screen === 'mixedResults' && s.mixed.results.filter(r => r.correct).length === 2 && !s.mixed.timeUp && /Hand in the test now/.test(endLabel), endLabel);
-  await page.keyboard.press('Enter'); await wait(page);
+  await page.keyboard.press('f'); await wait(page);
 
   // The new boxes in a test: <, > and =; a choice by number; two sign boxes; a fraction's top and bottom.
   const tryKind = async (area, year, title, typeIt) => {

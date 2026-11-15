@@ -61,8 +61,11 @@ async function shot(page, name, target) {
   let png;
   if (target) {
     const box = await page.locator(target).boundingBox();
-    // fullPage lets a tall element (the ten books) be captured past the bottom of the window.
-    png = await page.screenshot({ fullPage: true, clip: { x: Math.max(0, box.x - 12), y: Math.max(0, box.y - 12), width: box.width + 24, height: box.height + 24 } });
+    // fullPage lets a tall element (the ten books) be captured past the bottom of the window. Its clip is measured from the top of the
+    // page, while boundingBox is measured from the top of the window, so add how far the game has scrolled (it scrolls to the active box
+    // on a tall sheet).
+    const [sx, sy] = await page.evaluate(() => [window.scrollX, window.scrollY]);
+    png = await page.screenshot({ fullPage: true, clip: { x: Math.max(0, box.x + sx - 12), y: Math.max(0, box.y + sy - 12), width: box.width + 24, height: box.height + 24 } });
   } else {
     png = await page.screenshot();
   }
@@ -106,6 +109,10 @@ async function shot(page, name, target) {
   await open(desk, Object.assign({ mode: 'test', streak: 1, fill: { 'ex-c2': '12', 'ex-c1': '2', 'diff-c2': '5' }, selected: 'diff-c1' }, sub932)); made.push(await shot(desk, 'test-open'));
   await open(desk, { area: 'multiply', year: 3, mode: 'test', streak: 2, build: 'buildMultiplication', args: [342, 7, 3], fill: { 'p0-c3': '4', 'p0-c2': '8', 'p0-c1': '3', 'p0-c0': '2' } });
   await desk.keyboard.press('Enter'); await desk.waitForTimeout(700); made.push(await shot(desk, 'test-wrong'));
+  // Enter then walks through the same problem, one box per step with its reason.
+  await desk.keyboard.press('Enter'); await desk.waitForTimeout(300);
+  for (let k = 0; k < 3; k++) { await desk.keyboard.press('ArrowRight'); await desk.waitForTimeout(150); }
+  await desk.waitForTimeout(500); made.push(await shot(desk, 'walkthrough'));
   await open(desk, Object.assign({ mode: 'test', streak: 4, fill: 'all' }, add789));
   await desk.keyboard.press('Enter'); await desk.waitForTimeout(700); made.push(await shot(desk, 'year-passed'));
 
