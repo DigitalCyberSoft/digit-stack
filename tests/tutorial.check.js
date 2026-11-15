@@ -35,7 +35,12 @@ const snapshot = page => page.evaluate(() => Array.from(document.querySelectorAl
   }
   check('every year has one example per layout it uses, shortest first, with a reason for every step', gaps.length === 0, gaps.slice(0, 3).join(' | '));
   const both = (p, choice) => p.actions.some(a => a.choice === choice && a.value > 0) && p.actions.some(a => a.choice === choice && a.value === 0);
-  const showsBoth = [['add', 3, 'carry'], ['subtract', 3, 'exchange'], ['multiply', 3, 'carry'], ['divide', 4, 'leftover']].filter(([a, y, c]) => !both(E.tutorialProblems(a, y)[0], c));
+  // The written method's example, found by its title: shorter sentence examples (tables, missing numbers) now come first.
+  const METHOD = { add: 'Column addition', subtract: 'Column subtraction', multiply: 'Short multiplication', divide: 'Short division' };
+  const showsBoth = [['add', 3, 'carry'], ['subtract', 3, 'exchange'], ['multiply', 3, 'carry'], ['divide', 4, 'leftover']].filter(([a, y, c]) => {
+    const example = E.tutorialProblems(a, y).find(p => p.title === METHOD[a]);
+    return !example || !both(example, c);
+  });
   check('examples show a decision both ways (carry and no carry, exchange and none, left over and none)', showsBoth.length === 0, JSON.stringify(showsBoth));
 
   await new Promise(r => server.listen(8786, '127.0.0.1', r));
@@ -68,13 +73,17 @@ const snapshot = page => page.evaluate(() => Array.from(document.querySelectorAl
   const answerShown = await page.locator('#prompt').innerText();
   const answerWanted = (await st(page)).problem.answer.expression;
   check('the last step shows the answer', answerShown === answerWanted, answerShown + ' vs ' + answerWanted);
-  await page.keyboard.press('Enter'); await wait(page);
+  // Year 3 Add has more than one example (one per layout), so carry on to the end of the last one.
+  for (let i = 0; i < 300 && (await st(page)).screen === 'tutorial'; i++) { await page.keyboard.press('Enter'); await wait(page, 15); }
   s = await st(page);
   check('finishing starts learning at the same year, with the example marked watched', s.screen === 'playing' && s.mode === 'guided' && s.year === 3 && s.operation === 'add' && s.progress.watched.add.includes(3) && s.cleanStreak === 0);
   await page.reload(); await wait(page);
   check('reopening goes straight back to learning', (await st(page)).screen === 'playing');
 
-  // W replays the example and comes back to the same step.
+  // W replays the example and comes back to the same step. The round is a known column addition, long enough not to finish in two presses.
+  await page.evaluate(p => { const saved = JSON.parse(localStorage.getItem('digitstack.play.v1')); saved.areas.add.round = { problem: p, actionIndex: 0, roundClean: true, fixes: 0 };
+    localStorage.setItem('digitstack.play.v1', JSON.stringify(saved)); }, E.buildAddition(789, 642, 3));
+  await page.reload(); await wait(page);
   s = await st(page); await page.keyboard.press(String(s.action.value)); await wait(page, 40);
   s = await st(page); await page.keyboard.press(String(s.action.value)); await wait(page, 40);
   const round = await st(page);
@@ -104,19 +113,20 @@ const snapshot = page => page.evaluate(() => Array.from(document.querySelectorAl
   const problem = E.buildAddition(789, 642, 3);
   const values = E.solutionOf(problem).values;
   await fresh(page, { schoolYear: 3, passed: empty(), learned: Object.assign(empty(), { add: [3] }), watched: Object.assign(empty(), { add: [3] }) },
-    { version: 1, operation: 'add', areas: { add: { year: 3, mode: 'test', cleanStreak: target - 1, round: { problem, entries: values, selectedCellId: null } } } });
+    { version: 2, operation: 'add', areas: { add: { year: 3, mode: 'test', cleanStreak: target - 1, round: { problem, entries: values, selectedCellId: null } } } });
   await page.keyboard.press('Enter'); await wait(page, 120);
   const passed = await st(page);
   await page.keyboard.press('Enter'); await wait(page); s = await st(page);
   check('passing a year opens the next year on its example', passed.pendingYear === 4 && s.screen === 'tutorial' && s.year === 4);
 
-  // A year with two layouts shows both, shortest first.
+  // A year with several layouts shows each one, shortest first: short multiplication before long.
   await fresh(page, { schoolYear: 4, passed: empty(), learned: empty(), watched: empty() });
   await page.keyboard.press('2'); await wait(page); s = await st(page);
   const titles = s.tutorial.examples.map(e => e.title);
   for (let k = 0; k <= s.tutorial.examples[0].steps + 1; k++) { await page.keyboard.press('ArrowRight'); await wait(page, 20); }
   const second = await st(page);
-  check('Year 4 multiply shows short then long multiplication', JSON.stringify(titles) === '["Short multiplication","Long multiplication"]' && second.tutorial.index === 1 && second.tutorial.step === 0);
+  const iShort = titles.indexOf('Short multiplication'); const iLong = titles.indexOf('Long multiplication');
+  check('Year 4 multiply shows short multiplication before long, and steps on to the next example', iShort !== -1 && iLong > iShort && second.tutorial.index === 1 && second.tutorial.step === 0, JSON.stringify(titles));
   await page.locator('#tutorSkip').click(); await wait(page); s = await st(page);
   check('the Skip button starts learning', s.screen === 'playing' && s.mode === 'guided');
 

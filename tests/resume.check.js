@@ -10,7 +10,8 @@ const check = (n, ok, d) => out.push((ok ? 'PASS ' : 'FAIL ') + n + (!ok && d !=
 const st = page => page.evaluate(() => window.__digitStack.getState());
 const wait = page => page.waitForTimeout(50);
 const prog = (year, learned = {}, passed = {}) => ({ schoolYear: year, passed: Object.assign({ divide: [], multiply: [], add: [], subtract: [] }, passed), learned: Object.assign({ divide: [], multiply: [], add: [], subtract: [] }, learned) });
-const play = (operation, areas, version = 1) => ({ version, operation, areas });
+// Saved play records are written with the game's current PLAY_VERSION (2 since sentences and decimals).
+const play = (operation, areas, version = 2) => ({ version, operation, areas });
 async function fresh(page, progress, saved) {
   await page.goto(URL);
   await page.evaluate(([p, q, keys]) => { localStorage.clear(); localStorage.setItem(keys[1], JSON.stringify(Object.assign({ schoolYear: 1 }, p || {}, { watched: { divide: [1, 2, 3, 4, 5, 6, 7], multiply: [1, 2, 3, 4, 5, 6, 7], add: [1, 2, 3, 4, 5, 6, 7], subtract: [1, 2, 3, 4, 5, 6, 7] } }))); if (q !== null) localStorage.setItem(keys[0], typeof q === 'string' ? q : JSON.stringify(q)); }, [progress || null, saved === undefined ? null : saved, [PLAY, PROGRESS]]);
@@ -87,8 +88,12 @@ const statusText = page => page.evaluate(() => document.getElementById('sheetSta
   check('choosing the area again picks up its round', r1.screen === 'playing' && r1.problem.question === s.problem.question && r1.actionIndex === s.actionIndex);
 
   // Test stage: typed boxes, a two-digit exchange box and the selected box.
-  await fresh(page, prog(3, { subtract: [3] })); await page.keyboard.press('4'); await wait(page);
-  s = await st(page);
+  // Year 3 subtraction also has missing-number and estimate sentences, so reopen until the test is a column subtraction.
+  for (let i = 0; i < 80; i++) {
+    await fresh(page, prog(3, { subtract: [3] })); await page.keyboard.press('4'); await wait(page);
+    s = await st(page);
+    if (s.problem.rows.some(r => r.id === 'ex')) break;
+  }
   check('a learned year opens in its test', s.mode === 'test' && s.year === 3);
   const exRow = s.problem.rows.find(r => r.id === 'ex');
   const exCell = exRow.cells.filter(Boolean).pop();
@@ -134,6 +139,8 @@ const statusText = page => page.evaluate(() => document.getElementById('sheetSta
   check('unreadable saved play opens the start screen', (await st(page)).screen === 'setup');
   await fresh(page, prog(3), play('add', { add: { year: 3, mode: 'guided', cleanStreak: 2, round: null } }, 0));
   check('saved play from another version is ignored', (await st(page)).screen === 'setup');
+  await fresh(page, prog(3), play('add', { add: { year: 3, mode: 'guided', cleanStreak: 2, round: null } }, 1));
+  check('saved play from before sentences and decimals (version 1) is ignored', (await st(page)).screen === 'setup');
   await fresh(page, prog(3), play('add', { add: { year: 3, mode: 'guided', cleanStreak: 99, round: null } }));
   check('an impossible clean count is not used', (await st(page)).cleanStreak === 0);
   const before = errors.length;

@@ -443,3 +443,8 @@ blockquote cite {
     font-size: 1.12rem;
   }
 }
+
+/* An age range such as 10-11 stays on one line. */
+td.age {
+  white-space: nowrap;
+}

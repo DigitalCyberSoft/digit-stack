@@ -12,11 +12,18 @@
   const TOP_YEAR = YEARS[YEARS.length - 1];
   const MINUS = Engine.MINUS;
 
+  // Keys 1 to 9 and 0 open the ten areas, in this order.
   const AREA_INFO = {
     divide: { key: '1', sign: '÷', name: 'Divide' },
     multiply: { key: '2', sign: '×', name: 'Multiply' },
     add: { key: '3', sign: '+', name: 'Add' },
-    subtract: { key: '4', sign: MINUS, name: 'Subtract' }
+    subtract: { key: '4', sign: MINUS, name: 'Subtract' },
+    number: { key: '5', sign: '123', name: 'Number' },
+    fractions: { key: '6', sign: '½', name: 'Fractions' },
+    measures: { key: '7', sign: 'cm', name: 'Measures' },
+    shape: { key: '8', sign: '△', name: 'Shape' },
+    data: { key: '9', sign: '▥', name: 'Data' },
+    algebra: { key: '0', sign: 'x', name: 'Algebra' }
   };
 
   // Ages follow the key stage tables on gov.uk ("The national curriculum").
@@ -26,61 +33,114 @@
       multiply: 'Dot rows up to 100; 2, 5 and 10 tables',
       divide: 'Sharing and grouping; ÷ 2, 5 and 10',
       add: 'Facts to 20, 2-digit sums, missing numbers',
-      subtract: 'Facts to 20, 2-digit take-aways, missing numbers'
+      subtract: 'Facts to 20, 2-digit take-aways, missing numbers',
+      number: 'Counting, 1 more and less, comparing, words',
+      fractions: 'Halves and quarters',
+      measures: "Coins, o'clock and half past, days, rulers",
+      shape: '2-D and 3-D shapes, turns',
+      data: 'Tally charts and pictograms',
+      algebra: 'Balancing, function machines, patterns'
     },
     2: {
       age: '6-7',
       multiply: '2, 3, 4, 5, 8, 10 tables; missing numbers',
       divide: '÷ 2, 3, 4, 5, 8, 10; missing numbers',
       add: '3-digit sentences, missing numbers, 2-3 digit columns',
-      subtract: '3-digit sentences, missing numbers, 2-3 digit columns'
+      subtract: '3-digit sentences, missing numbers, 2-3 digit columns',
+      number: 'Place value, <, > and =, counting in steps',
+      fractions: '1/3, 1/4, 2/4 and 3/4 of amounts and shapes',
+      measures: 'Time to 5 minutes, money and change, scales',
+      shape: 'Sides, faces, edges, vertices, symmetry',
+      data: 'Pictograms, tallies, block diagrams, tables',
+      algebra: 'Balancing to 100, machines, patterns'
     },
     3: {
       age: '7-8',
-      multiply: '2- or 3-digit × 1-digit',
-      divide: '2- or 3-digit ÷ 1-digit, exact',
-      add: '3- or 4-digit columns',
-      subtract: '3- or 4-digit columns'
+      multiply: 'Tables to 12; 2- or 3-digit × 1-digit',
+      divide: 'Tables to 12; 2- or 3-digit ÷ 1-digit, exact',
+      add: '3- or 4-digit columns, missing numbers, estimates',
+      subtract: '3- or 4-digit columns, missing numbers, estimates',
+      number: 'To 1,000, counting in steps, Roman numerals',
+      fractions: 'Tenths, equivalents, adding, comparing',
+      measures: 'Measures, perimeter, clocks, durations, money',
+      shape: 'Right angles, parallel and perpendicular lines',
+      data: 'Bar charts, pictograms and tables',
+      algebra: 'Two-step machines, sequences'
     },
     4: {
       age: '8-9',
-      multiply: 'Up to 4-digit × 1-digit, 2-digit × 2-digit',
-      divide: '3- or 4-digit ÷ 1-digit, remainders',
-      add: '4- or 5-digit columns',
-      subtract: '4- or 5-digit columns'
+      multiply: 'Tables to 12 × 12; 4-digit × 1-digit, 2-digit × 2-digit',
+      divide: 'Tables to 12 × 12; 3- or 4-digit ÷ 1-digit, remainders',
+      add: '4- or 5-digit columns, decimals, below zero',
+      subtract: '4- or 5-digit columns, decimals, below zero',
+      number: 'Rounding, Roman numerals to C, factor pairs',
+      fractions: 'Equivalents, decimals, dividing by 10 and 100',
+      measures: 'Converting units, area, money, 24-hour clock',
+      shape: 'Angles, triangles, quadrilaterals, coordinates',
+      data: 'Bar charts and time graphs',
+      algebra: 'Symbols, sequences, machines'
     },
     5: {
       age: '9-10',
-      multiply: '3- or 4-digit × 2-digit',
-      divide: '4-digit ÷ 1-digit, up to 4-digit ÷ 2-digit',
-      add: '5- or 6-digit columns; below zero',
-      subtract: '5- or 6-digit columns; below zero'
+      multiply: 'Long multiplication; mental × with 10s and 100s',
+      divide: '4-digit short division, long division, remainders',
+      add: '5- or 6-digit columns, decimals, below zero',
+      subtract: '5- or 6-digit columns, decimals, below zero',
+      number: 'Primes, factors, squares, cubes, × and ÷ by 10',
+      fractions: 'Mixed numbers, decimals, percentages',
+      measures: 'Metric units, area, volume, decimals',
+      shape: 'Degrees, protractors, angles on a line',
+      data: 'Line graphs and timetables',
+      algebra: 'Letters, sequences, formulae'
     },
     6: {
       age: '10-11',
-      multiply: '4-digit × 2-digit, up to 4-digit × 3-digit',
-      divide: '4- or 5-digit ÷ 2-digit',
-      add: '6-digit columns; below zero to 100',
-      subtract: '6-digit columns; below zero to 100'
+      multiply: 'Long multiplication; decimals × whole numbers',
+      divide: 'Long division, decimal answers, fraction remainders',
+      add: '6-digit columns, decimals, below zero to 100',
+      subtract: '6-digit columns, decimals, below zero to 100',
+      number: 'Order of operations, HCF and LCM, primes',
+      fractions: 'Fraction calculations, percentages, ratio',
+      measures: 'Area of triangles, volume, miles and km',
+      shape: 'Angles in shapes, 4-quadrant coordinates',
+      data: 'Pie charts and the mean',
+      algebra: 'Formulae, equations, two unknowns'
     },
     7: {
       age: '11-12',
-      multiply: '4- or 5-digit × 3-digit',
-      divide: '5-digit ÷ 2-digit, 4-digit ÷ 3-digit',
-      add: '6- or 7-digit columns; adding negatives',
-      subtract: '6- or 7-digit columns; subtracting negatives'
+      multiply: 'Up to 5-digit × 3-digit, decimals, negatives',
+      divide: 'Divisors up to 3 digits, decimals, negatives',
+      add: '6- or 7-digit columns, decimals, adding negatives',
+      subtract: '6- or 7-digit columns, decimals, subtracting negatives',
+      number: 'Powers, roots, prime factors, standard form',
+      fractions: 'Fraction operations, percentage change, ratio',
+      measures: 'Circles, trapezia, area units, speed',
+      shape: 'Parallel lines, Pythagoras, trigonometry',
+      data: 'Averages, probability, scatter graphs',
+      algebra: 'Expressions, equations, nth term, graphs'
     }
   };
 
   const STORAGE = {
     sound: 'digitstack.sound.v1',
     progress: 'digitstack.progress.v1',
-    play: 'digitstack.play.v1'
+    play: 'digitstack.play.v1',
+    mixed: 'digitstack.mixed.v1'
   };
 
   // Saved rounds hold whole problems. Bump this when the engine's problem
   // layout changes, so rounds saved by older code are dropped, not misdrawn.
-  const PLAY_VERSION = 1;
+  // 2: sentences, decimals and the six topic areas.
+  const PLAY_VERSION = 2;
+
+  // Mixed test settings, chosen with the arrow keys.
+  const MIXED_COUNTS = [10, 20, 30, 40, 50];
+  const MIXED_MINUTES = [0, 10, 15, 20, 30, 45, 60, 90];
+  const MIXED_LEVELS = ['easy', 'medium', 'hard'];
+
+  // Grades: 5-point bands from 50%, and under 50% is always a fail.
+  const GRADES = [[95, 'A+'], [90, 'A'], [85, 'A' + MINUS], [80, 'B+'], [75, 'B'], [70, 'B' + MINUS], [65, 'C+'], [60, 'C'], [55, 'C' + MINUS],
+    [50, 'D'], [0, 'F']];
 
   const TEST_HELP = 'Arrows move between boxes; Tab follows the method. Type to fill a box, ' +
     'Backspace clears it. Small boxes are for working and are not marked. Press Enter to hand in.';
@@ -94,13 +154,20 @@
     setupScreen: $('setupScreen'),
     gameScreen: $('gameScreen'),
     setupLadder: $('setupLadder'),
-    shapes: {
-      divide: $('divideShape'),
-      multiply: $('multiplyShape'),
-      add: $('addShape'),
-      subtract: $('subtractShape')
-    },
+    shapes: AREAS.reduce(function (map, area) {
+      map[area] = $(area + 'Shape');
+      return map;
+    }, {}),
     modeButtons: Array.from(document.querySelectorAll('[data-mode]')),
+    mixedBtn: $('mixedBtn'),
+    mixedNote: $('mixedNote'),
+    mixedOverlay: $('mixedOverlay'),
+    mixedRows: Array.from(document.querySelectorAll('[data-setting]')),
+    mixedStart: $('mixedStart'),
+    mixedCancel: $('mixedCancel'),
+    mixedSummary: $('mixedSummary'),
+    compareKeys: Array.from(document.querySelectorAll('[data-compare]')),
+    pauseEnd: $('pauseEnd'),
     handInBtn: $('handInBtn'),
     turnLabel: $('turnLabel'),
     tutorBack: $('tutorBack'),
@@ -135,6 +202,7 @@
     keypad: $('keypad'),
     minusKey: $('minusKey'),
     footMinus: $('footMinus'),
+    carryHint: $('carryHint'),
     endPanel: $('endPanel'),
     endKicker: $('endKicker'),
     endTitle: $('endTitle'),
@@ -186,7 +254,13 @@
     fillOrder: [],
     play: null,
     saving: true,
-    tutorial: null
+    tutorial: null,
+    // The mixed test: its settings while choosing them, then the run.
+    mixedSetup: null,
+    mixedOpen: false,
+    mixed: null,
+    mixedTimer: null,
+    reviewIndex: 0
   };
 
   /* Storage is optional: a blocked store should not stop the game, but the
@@ -439,6 +513,8 @@
   }
 
   function savePlay() {
+    // A mixed test keeps its own record; the areas' places stay as they were.
+    if (state.mixed && state.mixed.running) return saveMixed();
     // While an example plays, the area's saved place stays as it was, so a
     // replay returns to the same step.
     if (state.operation && state.screen !== 'tutorial') {
@@ -634,7 +710,8 @@
         item.removeAttribute('aria-current');
       }
       const pass = item.querySelector('.ladder-pass');
-      pass.textContent = passedAreas.map(function (area) { return AREA_INFO[area].sign; }).join('');
+      // Ten areas are too many signs for a ruler mark, so it shows a count.
+      pass.textContent = passedAreas.length ? passedAreas.length + '/' + AREAS.length : '';
       pass.setAttribute('aria-label', passedAreas.length
         ? 'Passed: ' + passedAreas.map(function (area) { return AREA_INFO[area].name; }).join(', ')
         : 'No checks passed');
@@ -659,8 +736,15 @@
 
   function showSetup() {
     clearTimer();
+    stopMixedTimer();
     if (state.helpOpen) closeHelp();
     if (state.pauseOpen) closePause();
+    // A mixed test left half done stays saved; R picks it up.
+    if (state.mixed && !state.mixed.finished) {
+      state.mixed.running = false;
+      state.mixed.open = false;
+      saveMixed();
+    }
     state.screen = 'setup';
     state.operation = null;
     state.tutorial = null;
@@ -679,10 +763,12 @@
     els.consoleMain.hidden = false;
     els.endPanel.hidden = true;
     updateSetupLadder();
+    updateMixedCard();
+    document.body.classList.remove('is-mixed');
     window.scrollTo(0, 0);
     blurFocus();
-    els.liveRegion.textContent = 'Choose the school year with the arrow keys. Then press 1 to divide, ' +
-      '2 to multiply, 3 to add or 4 to subtract.';
+    els.liveRegion.textContent = 'Choose the school year with the arrow keys. Then press 1 to 9 or 0 for an area, ' +
+      'or R for a mixed test.';
     savePlay();
   }
 
@@ -743,9 +829,7 @@
     els.turnLabel.textContent = 'Your turn';
     // The dock only holds the Hand in button, so only a test shows it.
     els.console.classList.toggle('no-carry', state.mode !== 'test');
-    els.footMinus.hidden = !problem.signBox;
-    els.minusKey.hidden = !problem.signBox;
-    els.keypad.classList.toggle('has-minus', Boolean(problem.signBox));
+    showSpecialKeys(problem);
     els.console.classList.toggle('is-test', state.mode === 'test');
     els.handInBtn.disabled = state.mode !== 'test';
     hideFixNote();
@@ -763,6 +847,20 @@
     }
     blurFocus();
     savePlay();
+  }
+
+  // The minus key only for answers that can be below zero, and <, = and >
+  // only for a comparison.
+  function showSpecialKeys(problem) {
+    const minus = Boolean(problem && problem.signBox);
+    const compare = Boolean(problem && problem.compareBox);
+    els.footMinus.hidden = !minus;
+    els.minusKey.hidden = !minus;
+    els.keypad.classList.toggle('has-minus', minus);
+    els.keypad.classList.toggle('has-compare', compare);
+    els.compareKeys.forEach(function (key) { key.hidden = !compare; });
+    // "0 nothing to carry" only where there are small boxes to answer.
+    els.carryHint.hidden = !(problem && problem.actions.some(function (a) { return a.choice && a.choice !== 'sign'; }));
   }
 
   // Redraws what a saved round had filled in, in the order it was typed and
@@ -797,14 +895,24 @@
     }
   }
 
-  // Puts back the boxes typed in a test before it was closed. Only digits,
-  // two-digit exchange values and a minus in the sign box are accepted.
+  // Puts back the boxes typed in a test before it was closed. Only what each
+  // box could hold is accepted: digits (two in an exchange box), a minus in a
+  // sign box, a sign in a comparison box, an answer's name in a choice box.
+  function entryFits(cell, text) {
+    if (typeof text !== 'string') return false;
+    if (cell.signBox) return text === MINUS;
+    if (cell.compare) return ['<', '>', '='].indexOf(text) !== -1;
+    if (cell.option) {
+      return state.problem.options.some(function (o) { return o[1] === text; });
+    }
+    return /^[0-9]{1,2}$/.test(text);
+  }
+
   function restoreEntries(saved) {
     Object.keys(saved.entries).forEach(function (cellId) {
       const text = saved.entries[cellId];
       const entry = state.cellEls.get(cellId);
-      if (!entry || !isFillable(entry.cell) || typeof text !== 'string') return;
-      if (text === MINUS ? !entry.cell.signBox : !/^[0-9]{1,2}$/.test(text)) return;
+      if (!entry || !isFillable(entry.cell) || !entryFits(entry.cell, text)) return;
       setEntry(cellId, text);
     });
     if (state.cellEls.has(saved.selectedCellId)) selectCell(saved.selectedCellId);
@@ -835,8 +943,7 @@
     els.endPanel.className = 'end-panel';
     els.console.classList.add('is-tutorial', 'no-carry');
     els.console.classList.remove('is-test');
-    els.footMinus.hidden = true;
-    els.minusKey.hidden = true;
+    showSpecialKeys(null);
     els.turnLabel.textContent = 'Watch';
     hideFixNote();
     window.scrollTo(0, 0);
@@ -1030,7 +1137,10 @@
 
   /* Worksheet */
 
+  // Year 1 dot rows are plain dots; every other picture is drawn by
+  // pictures.js from the problem's data.
   function renderPicture(picture) {
+    if (picture.kind) return window.DigitStackPictures.render(picture);
     const grid = document.createElement('div');
     grid.className = 'dot-picture';
     grid.style.gridTemplateColumns = 'repeat(' + picture.cols + ', auto)';
@@ -1042,14 +1152,92 @@
     return grid;
   }
 
+  // A column that holds nothing but decimal points is drawn narrow, so 23.40
+  // reads as one number and the working under it stays in its columns.
+  function columnTemplate(problem) {
+    const widths = [];
+    for (let col = 0; col < problem.width; col++) {
+      let points = 0;
+      let other = 0;
+      problem.rows.forEach(function (row) {
+        if (row.kind === 'rule') return;
+        const cell = row.cells[col];
+        if (!cell) return;
+        if (cell.point) points += 1;
+        else other += 1;
+      });
+      widths.push(points && !other ? 'var(--point)' : 'var(--cell)');
+    }
+    return (problem.noGutter ? '' : 'var(--gutter) ') + widths.join(' ');
+  }
+
+  function cellClasses(cell) {
+    let cellClass = 'cell ' + cell.kind;
+    if (cell.kind === 'carry') cellClass += ' carry-slot';
+    if (cell.shiftZero) cellClass += ' shift-zero';
+    if (cell.sign) cellClass += ' sign-cell';
+    if (cell.signBox) cellClass += ' sign-box';
+    if (cell.remainderLabel) cellClass += ' remainder-label';
+    if (cell.kind === 'bringdown') cellClass += ' pending';
+    if (cell.point) cellClass += ' point-cell';
+    if (cell.placeholder) cellClass += ' placeholder';
+    if (cell.unit) cellClass += ' unit-cell';
+    if (cell.bar) cellClass += ' bar-cell';
+    if (cell.power) cellClass += ' power-cell';
+    if (cell.compare) cellClass += ' compare-box';
+    if (cell.option) cellClass += ' option-box';
+    if (cell.comma) cellClass += ' has-comma';
+    if (cell.mark) cellClass += ' marked-digit';
+    if (cell.colon) cellClass += ' colon-cell';
+    return cellClass;
+  }
+
+  // The choices for a numbered answer, under the sentence.
+  function renderLegend(options) {
+    const legend = document.createElement('div');
+    legend.className = 'option-legend';
+    options.forEach(function (option) {
+      const chip = document.createElement('span');
+      chip.className = 'legend-chip';
+      chip.dataset.key = String(option[0]);
+      const key = document.createElement('kbd');
+      key.textContent = String(option[0]);
+      chip.appendChild(key);
+      chip.appendChild(document.createTextNode(' ' + option[1]));
+      legend.appendChild(chip);
+    });
+    return legend;
+  }
+
+  // A sentence or a picture wider than the page shrinks its boxes to fit.
+  function fitSheet() {
+    const holder = els.worksheet.parentElement;
+    els.worksheet.style.removeProperty('--cell');
+    if (!holder || !holder.clientWidth || els.gameScreen.hidden) return;
+    for (let pass = 0; pass < 2; pass++) {
+      // The laid-out width: the pencil label over the active box may hang
+      // over the edge without making the page scroll.
+      const available = holder.clientWidth - 8;
+      const needed = els.worksheet.offsetWidth;
+      if (needed <= available) return;
+      const probe = document.createElement('div');
+      probe.className = 'cell-probe';
+      els.worksheet.appendChild(probe);
+      const cell = probe.getBoundingClientRect().width;
+      probe.remove();
+      if (!cell) return;
+      els.worksheet.style.setProperty('--cell', Math.max(16, Math.floor(cell * available / needed)) + 'px');
+    }
+  }
+
   function renderWorksheet(problem) {
     els.worksheet.innerHTML = '';
-    els.worksheet.classList.toggle('is-sentence', problem.method === 'fact');
+    els.worksheet.classList.toggle('is-sentence', problem.method === 'fact' || problem.method === 'sentence');
+    els.worksheet.classList.toggle('is-stacked', problem.rows.some(function (row) { return row.part === 'top'; }));
     state.cellEls.clear();
     state.rowEls.clear();
     state.groupChips.clear();
-    const template = (problem.noGutter ? '' : 'var(--gutter) ') +
-      'repeat(' + problem.width + ', var(--cell))';
+    const template = columnTemplate(problem);
     const fragment = document.createDocumentFragment();
     if (problem.picture) fragment.appendChild(renderPicture(problem.picture));
 
@@ -1073,6 +1261,7 @@
       }
 
       rowEl.className = 'row row-' + row.kind +
+        (row.part ? ' row-part-' + row.part : '') +
         (row.isOperator ? ' is-operator' : '') +
         (row.kind === 'dividend' ? ' dividend' : '') +
         (row.kind === 'sum' ? ' sum' : '') +
@@ -1100,16 +1289,14 @@
           continue;
         }
         const cellEl = document.createElement('div');
-        let cellClass = 'cell ' + cell.kind;
-        if (cell.kind === 'carry') cellClass += ' carry-slot';
-        if (cell.shiftZero) cellClass += ' shift-zero';
-        if (cell.sign) cellClass += ' sign-cell';
-        if (cell.signBox) cellClass += ' sign-box';
-        if (cell.remainderLabel) cellClass += ' remainder-label';
-        if (cell.kind === 'bringdown') cellClass += ' pending';
-        cellEl.className = cellClass;
+        cellEl.className = cellClasses(cell);
         cellEl.dataset.cellId = cell.id;
         cellEl.dataset.col = String(col);
+        // Words, units and choice boxes run across several columns.
+        if (cell.span > 1) {
+          cellEl.style.gridColumn = 'span ' + cell.span;
+          col += cell.span - 1;
+        }
         if (cell.kind === 'given') {
           cellEl.textContent = String(cell.value);
         } else if (cell.kind === 'bringdown') {
@@ -1129,7 +1316,9 @@
       fragment.appendChild(rowEl);
     });
 
+    if (problem.options) fragment.appendChild(renderLegend(problem.options));
     els.worksheet.appendChild(fragment);
+    fitSheet();
     els.sheetTitle.textContent = problem.title;
     els.rowMap.innerHTML = '';
     problem.groups.forEach(function (group) {
@@ -1366,11 +1555,36 @@
     if (action.kind !== 'digit') return;
 
     if (digit !== action.value) {
+      if (action.option) {
+        // A numbered answer shows the name of the one typed.
+        const typed = state.problem.options.find(function (o) { return o[0] === digit; });
+        handleMiss(action, typed ? typed[1] : String(digit), 'Not quite. The answer is ' + action.shown + '. ' + action.why,
+          action.shown);
+        return;
+      }
       handleMiss(action, String(digit), 'Not quite. This box needs ' + action.value + '. ' + action.why,
         String(action.value));
       return;
     }
     applyDigit(action, digit);
+    playSound('tick');
+    advance(1);
+  }
+
+  // <, > and = go in a comparison box.
+  const COMPARE_KEYS = { '<': '<', ',': '<', '>': '>', '.': '>', '=': '=' };
+
+  function submitCompare(symbol) {
+    if (state.screen !== 'playing' || state.lockInput) return;
+    const action = currentAction();
+    if (!action || action.kind !== 'compare') return;
+    ensureAudio();
+    flashKey('button[data-compare="' + symbol + '"]');
+    if (symbol !== action.value) {
+      handleMiss(action, symbol, 'Not quite. ' + action.why, action.value);
+      return;
+    }
+    applyDigit(action, symbol);
     playSound('tick');
     advance(1);
   }
@@ -1638,7 +1852,8 @@
   function describeCell(cellId) {
     const entry = state.cellEls.get(cellId);
     const role = markedCellIds().indexOf(cellId) !== -1
-      ? (entry.cell.signBox ? 'sign box' : 'answer box')
+      ? (entry.cell.signBox ? 'sign box' : (entry.cell.compare ? 'comparison box: type <, > or ='
+        : (entry.cell.option ? 'choice box: type the number of your answer' : 'answer box')))
       : (entry.cell.kind === 'carry' ? 'small working box' : 'working box');
     const text = state.entries.get(cellId);
     return role + ', ' + (text ? 'holds ' + text : 'empty');
@@ -1715,6 +1930,16 @@
       }
       return;
     }
+    // Digits do not go in a comparison box; in a choice box they pick a name.
+    if (entry.cell.compare) return;
+    if (entry.cell.option) {
+      const option = state.problem.options.find(function (o) { return o[0] === digit; });
+      if (!option) return;
+      setEntry(id, option[1]);
+      playSound('tick');
+      savePlay();
+      return;
+    }
     const before = state.entries.get(id) || '';
     // Exchange boxes can hold two digits, such as 12.
     const text = entry.row.isExchange && before.length === 1 ? before + digit : String(digit);
@@ -1750,14 +1975,48 @@
     }
   }
 
+  // The sign box a minus goes in: the selected box, the sign box of the
+  // number being typed, or the nearest one to its left (coordinates have
+  // two).
+  function signBoxFor(cellId) {
+    const entry = state.cellEls.get(cellId);
+    const boxes = [];
+    state.problem.rows.forEach(function (row) {
+      (row.cells || []).forEach(function (cell) { if (cell && cell.signBox) boxes.push({ cell: cell, row: row }); });
+    });
+    if (!boxes.length) return null;
+    if (entry && entry.cell.signBox) return entry.cell;
+    if (entry && entry.cell.group !== undefined) {
+      const same = boxes.find(function (box) { return box.cell.group === entry.cell.group && box.row === entry.row; });
+      if (same) return same.cell;
+    }
+    const left = boxes.filter(function (box) { return entry && box.cell.col <= entry.cell.col; })
+      .sort(function (a, b) { return b.cell.col - a.cell.col; })[0];
+    return (left || boxes[0]).cell;
+  }
+
   function testMinus() {
     if (state.screen !== 'playing' || state.mode !== 'test' || !state.problem.signBox) return;
-    const sign = state.problem.rows[0].cells.find(function (cell) { return cell && cell.signBox; });
+    const sign = signBoxFor(state.selectedCellId);
     if (!sign) return;
     resetHandInWarning();
     flashKey('#minusKey');
     setEntry(sign.id, state.entries.get(sign.id) === MINUS ? '' : MINUS);
     playSound('tick');
+    savePlay();
+  }
+
+  function testCompare(symbol) {
+    if (state.screen !== 'playing' || state.mode !== 'test') return;
+    const entry = state.cellEls.get(state.selectedCellId);
+    if (!entry || !entry.cell.compare) return;
+    ensureAudio();
+    flashKey('button[data-compare="' + symbol + '"]');
+    resetHandInWarning();
+    setEntry(state.selectedCellId, symbol);
+    playSound('tick');
+    const next = rowNeighbour(state.selectedCellId, 1);
+    if (next) selectCell(next);
     savePlay();
   }
 
@@ -1792,6 +2051,11 @@
         ' empty. Press Enter again to hand in, or keep going.';
       els.fixNote.hidden = false;
       els.liveRegion.textContent = els.fixNote.textContent;
+      return;
+    }
+    // A mixed test marks nothing until the end.
+    if (state.mixed && state.mixed.running) {
+      mixedHandIn();
       return;
     }
     const correct = marked.every(function (id) {
@@ -2008,7 +2272,18 @@
   }
 
   function updatePauseStats() {
+    const m = state.mixed;
+    const mixed = Boolean(m && m.running);
+    els.pauseEnd.hidden = !mixed;
+    document.querySelectorAll('.pause-stat-label').forEach(function (label, k) {
+      label.textContent = mixed ? ['School year', 'Question', m.deadline ? 'Time left' : 'Time taken'][k] : ['School year', 'Clean streak', 'Year check'][k];
+    });
     els.pauseYear.textContent = 'Year ' + state.year;
+    if (mixed) {
+      els.pauseStreak.textContent = (m.index + 1) + ' of ' + m.count;
+      els.pauseCheck.textContent = m.deadline ? clockText(m.deadline - Date.now()) : clockText(Date.now() - m.startedAt);
+      return;
+    }
     els.pauseStreak.textContent = Math.min(state.cleanStreak, cleanTarget()) + ' / ' + cleanTarget();
     els.pauseCheck.textContent = state.screen === 'tutorial'
       ? 'Watching'
@@ -2037,6 +2312,7 @@
   }
 
   function quitToStart() {
+    if (state.mixed && state.mixed.running) saveMixed();
     closePause();
     showSetup();
   }
@@ -2078,6 +2354,23 @@
       }
       return;
     }
+    if (state.mixedOpen) {
+      if (trapTab(event, els.mixedOverlay)) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMixedSetup();
+      } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        moveMixedSetting(event.key === 'ArrowUp' ? -1 : 1, 0);
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        moveMixedSetting(0, event.key === 'ArrowLeft' ? -1 : 1);
+      } else if (event.key === 'Enter' && !(event.target.closest('button') && event.target !== els.mixedStart)) {
+        event.preventDefault();
+        startMixed();
+      }
+      return;
+    }
     if (state.pauseOpen) {
       if (trapTab(event, els.pauseOverlay)) return;
       if (event.key === 'Escape') {
@@ -2090,12 +2383,458 @@
         quitToStart();
         return;
       }
+      if ((event.key === 'e' || event.key === 'E') && state.mixed && state.mixed.running) {
+        event.preventDefault();
+        endMixedNow();
+        return;
+      }
       if (event.key === 'Enter' || event.key === ' ') {
         if (event.target.closest('button')) return;
         event.preventDefault();
         closePause();
       }
     }
+  }
+
+  /* Mixed test: a set number of questions from every area for the school
+     year, handed in one after another with no marking, then the marks, a
+     grade and every answer. Questions are made from a seed, so a closed
+     test is rebuilt exactly. A time limit counts down to a fixed moment, so
+     pausing or closing the game does not stop the clock. */
+
+  function gradeFor(percent) {
+    return GRADES.find(function (grade) { return percent >= grade[0]; })[1];
+  }
+
+  function clockText(ms) {
+    const seconds = Math.max(0, Math.round(ms / 1000));
+    return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+  }
+
+  function removeStored(key) {
+    try {
+      if (window.localStorage) window.localStorage.removeItem(key);
+    } catch (err) {
+      if (!(err instanceof DOMException)) throw err;
+    }
+  }
+
+  // A saved test counts only if it was made by this version of the
+  // questions and every part of it makes sense. JSON.parse has no
+  // non-throwing form.
+  function readMixed() {
+    const raw = readStored(STORAGE.mixed, null);
+    if (raw === null) return null;
+    let m;
+    try {
+      m = JSON.parse(raw);
+    } catch (err) {
+      if (err instanceof SyntaxError) return null;
+      throw err;
+    }
+    if (!m || typeof m !== 'object' || m.version !== PLAY_VERSION) return null;
+    if (YEARS.indexOf(m.year) === -1 || MIXED_LEVELS.indexOf(m.difficulty) === -1 || !Number.isInteger(m.seed)) return null;
+    if (!Array.isArray(m.areas) || m.areas.length !== m.count || m.areas.some(function (a) { return AREAS.indexOf(a) === -1; })) return null;
+    if (!Number.isInteger(m.index) || m.index < 0 || m.index > m.count || !Array.isArray(m.answers)) return null;
+    if (m.deadline !== null && typeof m.deadline !== 'number') return null;
+    m.running = false;
+    return m;
+  }
+
+  function saveMixed() {
+    const m = state.mixed;
+    if (!m) return true;
+    if (m.running && state.screen === 'playing' && state.mode === 'test') {
+      m.current = { entries: Object.fromEntries(state.entries), selectedCellId: state.selectedCellId };
+    }
+    const copy = Object.assign({}, m);
+    delete copy.running;
+    return writeStored(STORAGE.mixed, JSON.stringify(copy));
+  }
+
+  function mixedQuestion(m, index) {
+    return Engine.withSeed((m.seed + index * 7919) >>> 0, function () {
+      return Engine.generateProblem(m.areas[index], m.year, m.difficulty);
+    });
+  }
+
+  // Every area comes up about equally often, in a random order.
+  function mixedAreas(count, seed) {
+    return Engine.withSeed(seed, function () {
+      let list = [];
+      while (list.length < count) list = list.concat(Engine.kit.shuffle(AREAS));
+      return Engine.kit.shuffle(list.slice(0, count));
+    });
+  }
+
+  function updateMixedCard() {
+    const m = state.mixed;
+    if (!els.mixedNote) return;
+    if (m && !m.finished) {
+      els.mixedNote.textContent = 'Test in progress: question ' + Math.min(m.index + 1, m.count) + ' of ' + m.count +
+        (m.deadline ? ', ' + clockText(m.deadline - Date.now()) + ' left' : '') + '. Press R to carry on.';
+    } else if (m && m.finished) {
+      els.mixedNote.textContent = 'Your last test is marked. Press R to see the results.';
+    } else {
+      els.mixedNote.textContent = 'Questions from every area for the school year. Choose how many, a time limit and how hard. Marks and a grade at the end.';
+    }
+  }
+
+  function openMixedSetup() {
+    if (state.screen !== 'setup' || state.helpOpen || state.pauseOpen) return;
+    ensureAudio();
+    if (state.mixed) {
+      if (state.mixed.finished) showMixedResults(0);
+      else resumeMixed();
+      return;
+    }
+    state.mixedSetup = state.mixedSetup || { row: 0, count: 1, minutes: 0, level: 1 };
+    state.mixedOpen = true;
+    state.previousFocus = document.activeElement;
+    els.mixedOverlay.hidden = false;
+    setAppInert(true);
+    renderMixedSetup();
+    window.requestAnimationFrame(function () {
+      if (!els.mixedOverlay.hidden) els.mixedStart.focus({ preventScroll: true });
+    });
+  }
+
+  function closeMixedSetup() {
+    if (!state.mixedOpen) return;
+    state.mixedOpen = false;
+    els.mixedOverlay.hidden = true;
+    setAppInert(false);
+    finishModalFocus();
+  }
+
+  function mixedChoices(setup) {
+    return {
+      count: MIXED_COUNTS[setup.count],
+      minutes: MIXED_MINUTES[setup.minutes],
+      difficulty: MIXED_LEVELS[setup.level]
+    };
+  }
+
+  function renderMixedSetup() {
+    const setup = state.mixedSetup;
+    const picked = { count: setup.count, minutes: setup.minutes, level: setup.level };
+    els.mixedRows.forEach(function (row, index) {
+      const name = row.dataset.setting;
+      row.classList.toggle('is-current', index === setup.row);
+      row.querySelectorAll('[data-value]').forEach(function (button, k) {
+        button.setAttribute('aria-pressed', String(k === picked[name]));
+      });
+    });
+    const c = mixedChoices(setup);
+    els.mixedSummary.textContent = c.count + ' questions from Year ' + state.progress.schoolYear + ', ' + c.difficulty + ', ' +
+      (c.minutes ? c.minutes + ' minutes.' : 'no time limit.');
+  }
+
+  function moveMixedSetting(rowStep, valueStep) {
+    const setup = state.mixedSetup;
+    setup.row = (setup.row + rowStep + els.mixedRows.length) % els.mixedRows.length;
+    const name = els.mixedRows[setup.row].dataset.setting;
+    const size = { count: MIXED_COUNTS.length, minutes: MIXED_MINUTES.length, level: MIXED_LEVELS.length }[name];
+    setup[name] = Math.max(0, Math.min(size - 1, setup[name] + valueStep));
+    renderMixedSetup();
+  }
+
+  function startMixed() {
+    const c = mixedChoices(state.mixedSetup);
+    const seed = Math.floor(Math.random() * 2147483647);
+    const now = Date.now();
+    state.mixed = {
+      version: PLAY_VERSION,
+      seed: seed,
+      year: state.progress.schoolYear,
+      count: c.count,
+      minutes: c.minutes,
+      difficulty: c.difficulty,
+      areas: mixedAreas(c.count, seed ^ 0x5bd1e995),
+      index: 0,
+      answers: [],
+      current: null,
+      startedAt: now,
+      deadline: c.minutes ? now + c.minutes * 60000 : null,
+      finished: false,
+      timeUp: false,
+      endedAt: null,
+      running: true
+    };
+    closeMixedSetup();
+    showMixedQuestion();
+  }
+
+  function resumeMixed() {
+    const m = state.mixed;
+    if (!m || m.finished) return;
+    m.running = true;
+    if (m.deadline && Date.now() >= m.deadline) {
+      finishMixed(true);
+      return;
+    }
+    showMixedQuestion();
+  }
+
+  function showMixedQuestion() {
+    const m = state.mixed;
+    const problem = mixedQuestion(m, m.index);
+    state.operation = m.areas[m.index];
+    state.year = m.year;
+    state.mode = 'test';
+    state.cleanStreak = 0;
+    state.pendingYear = null;
+    state.pendingTest = false;
+    document.body.classList.add('is-mixed');
+    const saved = m.current && typeof m.current.entries === 'object'
+      ? { entries: m.current.entries, selectedCellId: m.current.selectedCellId } : null;
+    // Open on screen: closing the game now brings it back here.
+    m.open = true;
+    loadProblem(problem, saved);
+    updateMixedUI();
+    startMixedTimer();
+  }
+
+  function updateMixedUI() {
+    const m = state.mixed;
+    if (!m || !m.running) return;
+    const stage = document.createElement('span');
+    stage.className = 'mode-stage';
+    stage.textContent = 'Question ' + (m.index + 1) + ' of ' + m.count;
+    els.modeChip.textContent = 'Mixed test';
+    els.modeChip.appendChild(stage);
+    els.modeShape.textContent = 'Year ' + m.year + ', ' + m.difficulty + ': ' + AREA_INFO[m.areas[m.index]].name;
+    els.stageChip.textContent = 'Test';
+    els.stepLine.textContent = 'Question ' + (m.index + 1) + ' of ' + m.count + '. Fill the boxes, then hand in';
+    els.sheetStatus.textContent = 'no marks until the end';
+    updateMixedClock();
+  }
+
+  function updateMixedClock() {
+    const m = state.mixed;
+    if (!m) return;
+    const now = m.finished ? m.endedAt : Date.now();
+    // Counting down while the test runs; once marked, the time it took.
+    const countdown = Boolean(m.deadline) && !m.finished;
+    els.gateLabel.textContent = countdown ? 'Time left' : 'Time taken';
+    els.streakValue.textContent = countdown ? clockText(m.deadline - now) : clockText(now - m.startedAt);
+    els.gateLine.textContent = m.minutes ? m.minutes + ' minute limit' : 'No time limit';
+    els.streakChip.classList.toggle('is-full', false);
+    els.streakChip.classList.toggle('is-late', Boolean(m.deadline && m.deadline - now < 60000));
+    const done = m.finished ? m.count : m.index;
+    els.streakMeter.innerHTML = '';
+    const bar = document.createElement('span');
+    bar.className = 'mixed-progress';
+    const fill = document.createElement('i');
+    fill.style.width = Math.round(100 * done / m.count) + '%';
+    bar.appendChild(fill);
+    els.streakMeter.appendChild(bar);
+    els.streakMeter.setAttribute('aria-valuemax', String(m.count));
+    els.streakMeter.setAttribute('aria-valuenow', String(done));
+    els.streakMeter.setAttribute('aria-valuetext', done + ' of ' + m.count + ' questions handed in');
+  }
+
+  function stopMixedTimer() {
+    if (state.mixedTimer !== null) {
+      window.clearInterval(state.mixedTimer);
+      state.mixedTimer = null;
+    }
+  }
+
+  function startMixedTimer() {
+    stopMixedTimer();
+    state.mixedTimer = window.setInterval(tickMixed, 1000);
+  }
+
+  function tickMixed() {
+    const m = state.mixed;
+    if (!m || !m.running) {
+      stopMixedTimer();
+      return;
+    }
+    if (m.deadline) {
+      const left = m.deadline - Date.now();
+      if (left <= 0) {
+        finishMixed(true);
+        return;
+      }
+      const secondsLeft = Math.round(left / 1000);
+      if (secondsLeft === 300 || secondsLeft === 60) els.liveRegion.textContent = (secondsLeft / 60) + (secondsLeft === 60 ? ' minute' : ' minutes') + ' left.';
+    }
+    if (state.screen === 'playing') updateMixedClock();
+    if (state.pauseOpen) updatePauseStats();
+  }
+
+  function mixedHandIn() {
+    const m = state.mixed;
+    m.answers[m.index] = Object.fromEntries(state.entries);
+    m.current = null;
+    m.index += 1;
+    playSound('tick');
+    if (m.index >= m.count) {
+      finishMixed(false);
+      return;
+    }
+    showMixedQuestion();
+    saveMixed();
+    els.liveRegion.textContent = 'Handed in. Question ' + (m.index + 1) + ' of ' + m.count + '. ' + state.problem.question;
+  }
+
+  // Marks every question the same way a test is marked: each answer box
+  // must hold exactly what the worked answer has.
+  function markMixed(m) {
+    const results = [];
+    for (let i = 0; i < m.count; i++) {
+      const problem = mixedQuestion(m, i);
+      const values = Engine.solutionOf(problem).values;
+      const entries = m.answers[i] || {};
+      const marked = [];
+      problem.rows.forEach(function (row) {
+        if (problem.markRowIds.indexOf(row.id) === -1) return;
+        row.cells.forEach(function (cell) { if (cell && cell.kind === 'input') marked.push(cell.id); });
+      });
+      const answered = marked.some(function (id) { return entries[id]; });
+      const correct = answered && marked.every(function (id) { return (entries[id] || '') === (values[id] || ''); });
+      results.push({ area: m.areas[i], correct: correct, answered: answered });
+    }
+    return results;
+  }
+
+  function finishMixed(timeUp) {
+    const m = state.mixed;
+    if (!m || m.finished) return;
+    // What was typed in the question on screen counts as handed in.
+    if (m.running && state.screen === 'playing' && m.index < m.count) m.answers[m.index] = Object.fromEntries(state.entries);
+    stopMixedTimer();
+    m.finished = true;
+    m.timeUp = timeUp;
+    m.endedAt = timeUp && m.deadline ? m.deadline : Date.now();
+    m.current = null;
+    m.running = false;
+    if (state.pauseOpen) closePause();
+    playSound(timeUp ? 'miss' : 'win');
+    saveMixed();
+    showMixedResults(0);
+  }
+
+  function showMixedResults(index) {
+    const m = state.mixed;
+    const results = markMixed(m);
+    const score = results.filter(function (r) { return r.correct; }).length;
+    const percent = Math.round(100 * score / m.count);
+    const grade = gradeFor(percent);
+    state.screen = 'mixedResults';
+    state.reviewIndex = Math.max(0, Math.min(m.count - 1, index));
+    document.body.classList.add('is-mixed');
+    els.setupScreen.hidden = true;
+    els.gameScreen.hidden = false;
+    els.pauseBtn.hidden = true;
+    els.console.classList.remove('is-tutorial');
+    clearTimer();
+    showMixedReview(state.reviewIndex, results);
+
+    els.consoleMain.hidden = true;
+    els.endPanel.hidden = false;
+    els.endPanel.className = 'end-panel mixed-results ' + (grade === 'F' ? 'is-fail' : 'is-win');
+    els.endKicker.textContent = (m.timeUp ? 'Time is up. ' : '') + 'Mixed test, Year ' + m.year + ', ' + m.difficulty;
+    els.endTitle.textContent = score + ' out of ' + m.count;
+    els.endAnswer.textContent = 'Grade ' + grade;
+    const byArea = AREAS.filter(function (area) { return results.some(function (r) { return r.area === area; }); }).map(function (area) {
+      const mine = results.filter(function (r) { return r.area === area; });
+      return AREA_INFO[area].name + ' ' + mine.filter(function (r) { return r.correct; }).length + '/' + mine.length;
+    });
+    els.endDetail.textContent = percent + '%' + (grade === 'F' ? ', under 50%: not a pass yet.' : '.') + ' Time: ' + clockText(m.endedAt - m.startedAt) +
+      (m.minutes ? ' of ' + m.minutes + ' minutes.' : '.') + ' ' + byArea.join(', ') + '.';
+    els.endActions.innerHTML = '';
+    printEndButton('Previous', '←', '', function () { stepReview(-1); });
+    printEndButton('Next', '→', '', function () { stepReview(1); });
+    const finish = printEndButton('Finish', 'Enter', 'primary', finishMixedReview);
+    focusButtonSoon(finish);
+    els.liveRegion.textContent = score + ' out of ' + m.count + ', ' + percent + '%, grade ' + grade + '. ' +
+      'Use the arrow keys to look at each question. Press Enter to finish.';
+  }
+
+  // One question of a marked test: the child's boxes, marked, with the
+  // proper working where an answer was wrong.
+  function showMixedReview(index, results) {
+    const m = state.mixed;
+    const problem = mixedQuestion(m, index);
+    const result = (results || markMixed(m))[index];
+    state.reviewIndex = index;
+    state.operation = m.areas[index];
+    state.year = m.year;
+    state.problem = problem;
+    state.actions = problem.actions;
+    state.mode = 'test';
+    renderWorksheet(problem);
+    showSpecialKeys(null);
+    document.body.dataset.area = state.operation;
+    state.solution = Engine.solutionOf(problem);
+    state.entries = new Map();
+    const entries = m.answers[index] || {};
+    Object.keys(entries).forEach(function (cellId) {
+      const entry = state.cellEls.get(cellId);
+      if (entry && isFillable(entry.cell) && entryFits(entry.cell, entries[cellId])) setEntry(cellId, entries[cellId]);
+    });
+    markTest(markedCellIds(), result.correct);
+    // A question never answered is said once, not on every box.
+    if (!result.answered) els.worksheet.querySelectorAll('[data-was]').forEach(function (el) { delete el.dataset.was; });
+    if (result.correct) {
+      problem.answerRowIds.forEach(function (rowId) {
+        const rowEl = state.rowEls.get(rowId);
+        if (rowEl) rowEl.classList.add('answer-solved');
+      });
+    }
+    const stage = document.createElement('span');
+    stage.className = 'mode-stage';
+    stage.textContent = 'Results';
+    els.modeChip.textContent = 'Mixed test';
+    els.modeChip.appendChild(stage);
+    els.modeShape.textContent = 'Question ' + (index + 1) + ' of ' + m.count + ': ' + AREA_INFO[state.operation].name;
+    els.sheetStatus.textContent = result.correct ? 'right' : (result.answered ? 'not quite' : 'not answered');
+    els.sheetStatus.classList.toggle('is-win', result.correct);
+    els.sheetStatus.classList.toggle('is-fail', !result.correct);
+    updateMixedClock();
+    // One chip per question, right or wrong, to jump between them.
+    const all = results || markMixed(m);
+    els.rowMap.innerHTML = '';
+    all.forEach(function (r, k) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'row-chip question-chip' + (r.correct ? ' is-done' : ' is-missed') + (k === index ? ' is-active' : '');
+      // A right chip gets its tick from the stylesheet, like a finished row.
+      chip.textContent = (r.correct ? '' : '✗ ') + (k + 1);
+      chip.setAttribute('aria-label', 'Question ' + (k + 1) + ', ' + (r.correct ? 'right' : 'not right'));
+      chip.addEventListener('click', function () { showMixedReview(k); });
+      els.rowMap.appendChild(chip);
+    });
+    const line = document.getElementById('reviewLine');
+    if (line) {
+      line.textContent = 'Question ' + (index + 1) + ': ' + (result.correct ? 'right. ' : (result.answered ? 'not quite. ' : 'not answered. ')) +
+        'The answer is ' + problem.answer.expression + '.';
+    }
+    els.liveRegion.textContent = 'Question ' + (index + 1) + ' of ' + m.count + ', ' + AREA_INFO[state.operation].name + '. ' +
+      (result.correct ? 'Right.' : 'Not right. The answer is ' + problem.answer.expression + '.');
+  }
+
+  function stepReview(step) {
+    if (state.screen !== 'mixedResults') return;
+    const m = state.mixed;
+    const next = Math.max(0, Math.min(m.count - 1, state.reviewIndex + step));
+    if (next !== state.reviewIndex) showMixedReview(next);
+  }
+
+  function finishMixedReview() {
+    if (state.screen !== 'mixedResults') return;
+    state.mixed = null;
+    removeStored(STORAGE.mixed);
+    showSetup();
+  }
+
+  // From the pause panel: hand in everything now.
+  function endMixedNow() {
+    if (!state.mixed || !state.mixed.running) return;
+    finishMixed(false);
   }
 
   /* Keyboard */
@@ -2108,7 +2847,7 @@
     if (event.defaultPrevented) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
 
-    if (state.helpOpen || state.pauseOpen) {
+    if (state.helpOpen || state.pauseOpen || state.mixedOpen) {
       handleModalKeys(event);
       return;
     }
@@ -2163,6 +2902,17 @@
       return;
     }
 
+    if (state.screen === 'mixedResults') {
+      if (/^Arrow/.test(event.key)) {
+        event.preventDefault();
+        stepReview(event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1);
+      } else if (event.key === 'Enter' && !isFocusedButton(event)) {
+        event.preventDefault();
+        finishMixedReview();
+      }
+      return;
+    }
+
     if (state.screen === 'playing' && state.mode === 'test') {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -2170,6 +2920,9 @@
       } else if (/^[0-9]$/.test(event.key)) {
         event.preventDefault();
         if (!event.repeat) testType(Number(event.key));
+      } else if (COMPARE_KEYS[event.key] && state.problem.compareBox) {
+        event.preventDefault();
+        testCompare(COMPARE_KEYS[event.key]);
       } else if (event.key === 'Backspace' || event.key === 'Delete') {
         event.preventDefault();
         testBackspace();
@@ -2205,6 +2958,9 @@
       if (area) {
         event.preventDefault();
         startRun(area);
+      } else if (event.key === 'r' || event.key === 'R') {
+        event.preventDefault();
+        openMixedSetup();
       } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
         event.preventDefault();
         selectYear(state.progress.schoolYear - 1);
@@ -2224,6 +2980,11 @@
       if (/^[0-9]$/.test(event.key)) {
         event.preventDefault();
         if (!event.repeat) submitDigit(Number(event.key));
+        return;
+      }
+      if (COMPARE_KEYS[event.key] && state.problem && state.problem.compareBox) {
+        event.preventDefault();
+        if (!event.repeat) submitCompare(COMPARE_KEYS[event.key]);
         return;
       }
       if (event.key === '-' || event.key === MINUS) {
@@ -2351,6 +3112,9 @@
       if (key.dataset.digit !== undefined) {
         if (state.mode === 'test') testType(Number(key.dataset.digit));
         else submitDigit(Number(key.dataset.digit));
+      } else if (key.dataset.compare) {
+        if (state.mode === 'test') testCompare(key.dataset.compare);
+        else submitCompare(key.dataset.compare);
       } else if (key === els.minusKey) {
         if (state.mode === 'test') testMinus();
         else submitMinus();
@@ -2362,6 +3126,32 @@
     els.helpGotIt.addEventListener('click', closeHelp);
     els.resumeBtn.addEventListener('click', closePause);
     els.quitBtn.addEventListener('click', quitToStart);
+    els.pauseEnd.addEventListener('click', endMixedNow);
+
+    els.mixedBtn.addEventListener('click', function () {
+      openMixedSetup();
+      els.mixedBtn.blur();
+    });
+    els.mixedStart.addEventListener('click', startMixed);
+    els.mixedCancel.addEventListener('click', closeMixedSetup);
+    els.mixedRows.forEach(function (row, index) {
+      row.querySelectorAll('[data-value]').forEach(function (button, k) {
+        button.addEventListener('click', function () {
+          state.mixedSetup.row = index;
+          state.mixedSetup[row.dataset.setting] = k;
+          renderMixedSetup();
+        });
+      });
+    });
+    els.mixedOverlay.addEventListener('click', function (event) {
+      if (event.target === els.mixedOverlay) closeMixedSetup();
+    });
+
+    let resizeTimer = null;
+    window.addEventListener('resize', function () {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(function () { if (state.problem) fitSheet(); }, 120);
+    });
 
     els.helpOverlay.addEventListener('click', function (event) {
       if (event.target === els.helpOverlay) closeHelp();
@@ -2406,23 +3196,49 @@
           examples: state.tutorial.problems.map(function (problem) {
             return { title: problem.title, question: problem.question, steps: problem.actions.length };
           })
-        } : null
+        } : null,
+        mixedOpen: state.mixedOpen,
+        mixedSetup: state.mixedSetup ? Object.assign({}, mixedChoices(state.mixedSetup), { row: state.mixedSetup.row }) : null,
+        mixed: state.mixed ? {
+          year: state.mixed.year,
+          count: state.mixed.count,
+          minutes: state.mixed.minutes,
+          difficulty: state.mixed.difficulty,
+          areas: state.mixed.areas.slice(),
+          index: state.mixed.index,
+          answered: state.mixed.answers.length,
+          deadline: state.mixed.deadline,
+          finished: state.mixed.finished,
+          timeUp: state.mixed.timeUp,
+          running: state.mixed.running,
+          results: state.mixed.finished ? markMixed(state.mixed) : null,
+          grade: state.mixed.finished ? (function () {
+            const results = markMixed(state.mixed);
+            return gradeFor(Math.round(100 * results.filter(function (r) { return r.correct; }).length / state.mixed.count));
+          })() : null
+        } : null,
+        reviewIndex: state.reviewIndex
       };
-    }
+    },
+    gradeFor: gradeFor
   };
 
   function init() {
     seedPreferences();
     state.progress = readProgress();
     state.play = readPlay();
+    state.mixed = readMixed();
     buildLadders();
     updateSoundUI();
     updateDisplayUI();
     bindEvents();
-    // Opening the game picks up the area that was left open.
+    // Opening the game picks up a mixed test still running, or else the
+    // area that was left open.
     const openArea = state.play.operation;
+    const openMixed = Boolean(state.mixed && !state.mixed.finished && state.mixed.open);
     showSetup();
-    if (openArea) beginArea(openArea);
+    if (openMixed) resumeMixed();
+    else if (openArea) beginArea(openArea);
   }
 
   init();

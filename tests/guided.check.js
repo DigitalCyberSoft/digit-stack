@@ -138,7 +138,8 @@ async function find(page, year, key, want, then, limit = 200) {
   check('found a short division with both left-over decisions', okLeft);
   check('found and solved multiplication carries', await find(page, 5, '2', p => p.method === 'long', async () => { const e = await solveGuided(page); check('long multiplication solves by digits alone', e.screen === 'won'); await page.screenshot({ path: SHOTS + '/z-long-mult.png' }); }));
 
-  for (const [y, key, want] of [[6, '1', 3], [1, '3', 10], [4, '2', 5], [3, '2', 5]]) {
+  // Gate sizes from the measured table in engine.js (CLEAN_ROUNDS), one area-year for each of 3, 5 and 10 and two more.
+  for (const [y, key, want] of [[6, '1', 5], [6, '2', 3], [1, '3', 10], [4, '2', 5], [3, '2', 10]]) {
     await fresh(page); await setYear(page, y); await page.keyboard.press(key); await page.waitForTimeout(50);
     s = await st(page);
     check('Year ' + y + ' key ' + key + ' needs ' + want + ' in a row', s.cleanTarget === want && await page.locator('#streakMeter span').count() === want, s.cleanTarget);

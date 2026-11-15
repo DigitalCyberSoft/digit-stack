@@ -1,14 +1,14 @@
 # Digit Stack
 
-A keyboard-first browser game for practising addition, subtraction, multiplication and division, set by school year from Year 1 to Year 7. Content and written layouts follow the national curriculum in England and its Mathematics Appendix 1.
+A keyboard-first browser maths game set by school year from Year 1 to Year 7: written methods for addition, subtraction, multiplication and division, then number, fractions, measures, shape, data and algebra, and a timed mixed test. Content and written layouts follow the national curriculum in England and its Mathematics Appendix 1.
 
-Each year is pitched for a strong pupil in that year: its own content at the top of the range, plus the next year's methods, plus missing-number problems in Years 1 and 2. The programmes of study set one programme for the majority of pupils and say pupils who grasp concepts rapidly should get "rich and sophisticated problems before any acceleration through new content".
+Each year is pitched for a strong pupil in that year: its own content at the top of the range, plus some of the next year's, plus missing-number problems from Year 1. The programmes of study set one programme for the majority of pupils and say pupils who grasp concepts rapidly should get "rich and sophisticated problems before any acceleration through new content".
 
 ## Run it
 
 Play it at https://digitalcybersoft.github.io/digit-stack/.
 
-Guides with screenshots: [for students](https://digitalcybersoft.github.io/digit-stack/guide/students.html) and [for parents and teachers](https://digitalcybersoft.github.io/digit-stack/guide/parents-and-teachers.html).
+Guides with screenshots: [for students](https://digitalcybersoft.github.io/digit-stack/guide/students.html) and [for parents and teachers](https://digitalcybersoft.github.io/digit-stack/guide/parents-and-teachers.html). The parent and teacher guide has the full table of what each year covers.
 
 To run it locally, open `index.html` directly in a modern browser, or serve the folder:
 
@@ -18,51 +18,60 @@ python3 -m http.server 8000
 
 Then open http://localhost:8000.
 
+## Areas
+
+Ten areas, opened with `1` to `9` and `0` on the start screen. Each starts at the school year and moves up on its own.
+
+| Key | Area | Covers |
+| --- | --- | --- |
+| `1` | Divide | Sharing, facts, short and long division, decimal answers and remainders as fractions (Year 6), negatives (Year 7) |
+| `2` | Multiply | Groups and tables to 12 x 12, short and long multiplication, decimals, negatives (Year 7) |
+| `3` | Add | Sentences and missing numbers, column addition, estimates, decimals, numbers below zero |
+| `4` | Subtract | The same, with column subtraction by crossing out |
+| `5` | Number | Place value, counting, comparing, rounding, Roman numerals, primes, powers, order of operations, standard form |
+| `6` | Fractions | Fractions, decimals and percentages; ratio and proportion from Year 6 |
+| `7` | Measures | Money, time, length, mass, capacity, perimeter, area, volume, speed |
+| `8` | Shape | 2-D and 3-D shapes, turns, angles, symmetry, coordinates, transformations, Pythagoras, trigonometry |
+| `9` | Data | Tally charts, pictograms, bar and line graphs, timetables, pie charts, averages, probability |
+| `0` | Algebra | Balancing, machines, patterns, sequences, formulae, equations, expressions, graphs |
+
+Decimals follow the curriculum: tenths as fractions in Year 3, decimal notation from Year 4, up to 3 places from Year 5.
+
 ## Watch, learn, then test
 
 Every area and year has three stages, and the game moves between them by itself.
 
-1. **Watch (worked example).** The first time a year is opened in an area, the game works one example for each layout that year uses, filling in one box per step with the reason for it. `→` or `Enter` steps forward, `←` back, `N` skips. While learning, `W` replays it and returns to the same box. Tests have no examples.
-2. **Learn (guided).** The game takes the child through the method one box at a time, with a prompt for each step.
-3. **Test.** Once enough learning rounds in a row are clean, that year's test starts. Every box is open with no prompts. Arrow keys move between boxes and `Tab` follows the method's order. Typing fills a box and moves on in the direction that row is written; `Backspace` clears; `-` toggles the sign box; `Enter` hands in, asking once more if answer boxes are empty. Only the answer boxes are marked; carries, exchanges, left-overs, products and differences are working. A wrong answer marks each answer box, shows the proper answer and the full working, sets the count back to 0, and `Enter` goes to the next problem.
+1. **Watch (worked example).** The first time a year is opened in an area, the game works one example for each kind of question that year uses, shortest first, filling in one box per step with the reason for it. `→` or `Enter` steps forward, `←` back, `N` skips. While learning, `W` replays it and returns to the same box. Tests have no examples.
+2. **Learn (guided).** The game takes the child through each question one box at a time, with a prompt for each step.
+3. **Test.** Once enough learning rounds in a row are clean, that year's test starts. Every box is open with no prompts. Arrow keys move between boxes and `Tab` follows the method's order. Typing fills a box and moves on in the direction that row is written; `Backspace` clears; `-` toggles the sign box of the number being typed; `Enter` hands in, asking once more if answer boxes are empty. Only the answer boxes are marked. A wrong answer marks each answer box, shows the proper answer and the full working, sets the count back to 0, and `Enter` goes to the next problem.
 
-Enough clean tests in a row pass the year, and the next year starts with learning. Learning and the test each need the same number of clean rounds in a row, set by how long that area's rounds are in that year: 10 when a round averages under 5 key presses, 5 for 5 to 15, 3 above 15. Each area (divide, multiply, add, subtract) moves up on its own.
+Enough clean tests in a row pass the year, and the next year starts with learning. Learning and the test each need the same number of clean rounds in a row, set by how long that area's rounds are in that year: 10 when a round averages under 5 key presses, 5 for 5 to 15, 3 above 15.
 
-Progress is saved in the browser, so the game can be closed at any point and opened again where it stopped. Each area keeps its own place: the years learned and passed, the clean count, and the round in progress with every box typed so far. A mistake made before closing still counts, and a finished round is already counted, so reopening after one starts the next problem. If the browser blocks saving, the start screen says so.
+Progress is saved in the browser, so the game can be closed at any point and opened again where it stopped. Each area keeps its own place: the years learned and passed, the clean count, and the round in progress with every box typed so far. A mistake made before closing still counts. If the browser blocks saving, the start screen says so.
 
-Tests use the same problems as learning, so they include short and long multiplication and division.
+## How to play
 
-## How to play (learning)
-
-- Set the child's school year with the left and right arrow keys, then press `1` Divide, `2` Multiply, `3` Add or `4` Subtract. Every area starts at the school year.
+- Set the child's school year with the left and right arrow keys, then press an area's key.
 - Every box is on the sheet before play starts. The highlighted box with the pencil is the active box. The child's own digits are blue; the question's are black.
-- The cursor stops at every small box: type the carry, the amount left over in short division, or `1` to exchange a ten in subtraction. Type `0` when there is none; a 0 is not written on the sheet. The stop happens whether or not anything moves, so it gives nothing away.
-- Subtraction is by crossing out (decomposition). After a `1`, the child types the new value of the column that gives the ten; across a zero they type each changed digit. Exchanged digits are crossed out.
-- Long division types each difference straight in.
-- From Year 5, some Add and Subtract answers are below zero. The answer starts with a sign box: press `-` for a negative answer, or type the first digit for a positive one.
+- The cursor stops at every small box in a written method: type the carry, the amount left over in short division, or `1` to exchange a ten in subtraction. Type `0` when there is none; a 0 is not written on the sheet. The stop happens whether or not anything moves, so it gives nothing away.
+- Every answer is typed. Fractions take the top number, then the bottom. Decimal points, units and the colon in a time are already written in the answer. `<`, `=` and `>` compare (`,` and `.` also work). A word answer, such as *acute* or *kite*, is chosen by its number, and yes or no is `1` or `0`. An answer that could be below zero has a sign box: press `-`, or type the first digit.
 - A wrong digit shows why and what the box needs. Fix it to finish the problem. A round with a fix does not count as clean, so the count goes back to 0. `Enter` then tries the same problem again and `N` starts a new one.
-- In Years 1 and 2 the answer fills from the left, the way a number is written. Written methods fill from the right.
-- Keyboard: arrows set the school year, `1`-`4` choose the area, `0-9` type, `-` minus, `W` watch the example, `Esc` pause, `H` help, `S` sound, `T` theme, `C` colour-blind friendly colours. The on-screen keypad is optional.
+- Keyboard: arrows set the school year, `1`-`9` and `0` choose the area, `R` the mixed test, `0-9` type, `-` minus, `<` `=` `>` compare, `W` watch the example, `Esc` pause, `H` help, `S` sound, `T` theme, `C` colour-blind friendly colours. The on-screen keypad is optional.
+
+## The mixed test
+
+`R` on the start screen opens a mixed test of questions from all ten areas for the school year, each area coming up about equally often.
+
+- **Questions:** 10, 20, 30, 40 or 50. **Time limit:** none, or 10 to 90 minutes. **How hard:** easy, medium or hard. Easy asks the easiest of three generated questions for each place, by key presses and decimal places; hard the hardest; medium the first.
+- Each question works like a test, but nothing is marked until the end. The time limit counts down to a fixed moment, so it keeps running while paused or closed. `Esc` pauses; `E` then ends the test early and `Q` leaves it for later (`R` carries on).
+- The results show the score, percentage, a grade, the time taken and a score per area, and the arrow keys step through every marked question. Grades: A+ 95% or more, A 90, A− 85, B+ 80, B 75, B− 70, C+ 65, C 60, C− 55, D 50, and F under 50%, which is always a fail.
+- Questions are made from a seed, so a test closed part way through is rebuilt exactly. The mixed test does not change any area's progress.
 
 ## Display settings
 
 - **Theme:** `T` or the sun and moon button cycles automatic, light and dark. Automatic follows the device and changes with it.
-- **Colour-blind friendly colours:** `C` or the eye button. Right answers turn blue with a tick, wrong ones orange, the proper working reddish purple with a dotted underline, and the book covers use a palette made for colour vision deficiency.
-- Both are saved in the browser and applied by `theme.js` before the page draws, so it never flashes the wrong colours. The guides follow the same settings.
-
-## What each year covers
-
-| Year | Age | Multiply | Divide | Add and Subtract |
-| --- | --- | --- | --- | --- |
-| 1 | 5-6 | Rows of 2, 5 or 10 dots up to 100; 2, 5, 10 tables | Sharing and grouping; dividing by 2, 5, 10 | Facts to 20; 2-digit and 1s, 10s or 2-digit; three 1-digit numbers; missing numbers such as 7 = ? − 9 |
-| 2 | 6-7 | 2, 3, 4, 5, 8, 10 tables; missing numbers | Same tables; missing numbers | 3-digit and 1s, 10s or 100s; missing numbers; 2- and 3-digit columns |
-| 3 | 7-8 | 2- or 3-digit × 1-digit | 2- or 3-digit ÷ 1-digit, exact | 3- and 4-digit columns |
-| 4 | 8-9 | 3- or 4-digit × 1-digit; 2-digit × 2-digit | 3- or 4-digit ÷ 1-digit with remainders | 4- and 5-digit columns |
-| 5 | 9-10 | 3- or 4-digit × 2-digit | 4-digit ÷ 1-digit; 3- or 4-digit ÷ 2-digit | 5- and 6-digit columns; below zero with small numbers |
-| 6 | 10-11 | 4-digit × 2-digit; 3- or 4-digit × 3-digit | 4- or 5-digit ÷ 2-digit | 6-digit columns; below zero up to 100 |
-| 7 | 11-12 | 4- or 5-digit × 3-digit | 5-digit ÷ 2-digit; 4-digit ÷ 3-digit | 6- and 7-digit columns; adding and subtracting negatives |
-
-About 1 in 4 column subtractions exchange across a zero. From Year 5, about 1 in 3 Add and Subtract problems are number sentences with negative numbers; some answers are below zero and some are not. Multiply and Divide stay with positive whole numbers. Decimals and fractions are not covered.
+- **Colour-blind friendly colours:** `C` or the eye button. Right answers turn blue with a tick, wrong ones orange, the proper working reddish purple with a dotted underline, and the ten book covers use Okabe-Ito and Paul Tol colours chosen so every pair stays at least 17 apart (CIE76) under simulated protanopia, deuteranopia and tritanopia.
+- Both are saved in the browser and applied by `theme.js` before the page draws, so it never flashes the wrong colours. Pictures are drawn in the same colours. The guides follow the same settings.
 
 ## Tests
 
@@ -74,15 +83,16 @@ npx playwright install chromium   # or set CHROME_PATH to an installed Chrome
 npm test
 ```
 
-- `tests/engine.check.js` replays 2,000 generated problems per area and year (56,000 in all): arithmetic, layouts, the order of steps, small-box decisions, wording, and the year-check table.
+- `tests/engine.check.js` makes 2,000 problems per area and year (140,000 in all) and checks the arithmetic, layouts, the order of steps, small-box decisions, wording, decimal places by year, the year-check table, and Appendix 1's examples. Every sentence's answer is also worked out a second way: finished sentences are evaluated with exact fractions, and picture questions are worked out from the picture's own data (the clock's hands, the chart's bars, a shape's corners).
 - `tests/guided.check.js` plays learning in a browser by keyboard: small-box decisions, fixes, year checks, and the move from learning to test to the next year.
-- `tests/test-stage.check.js` hands in right and wrong answers in the test stage: short and long multiplication and division, column addition and subtraction, number sentences and facts.
-- `tests/solve-all.check.js` plays full rounds in nine area and year cases, from Year 1 to Year 7 long multiplication and division.
+- `tests/test-stage.check.js` hands in right and wrong answers in the test stage.
+- `tests/solve-all.check.js` plays full rounds by keyboard in all ten areas, Year 1 to Year 7, including decimal division, comparisons, choices and sign boxes.
 - `tests/resume.check.js` closes and reopens the game mid-round, between rounds, at the learning gate and after a passed check, and checks bad saved data and blocked storage.
-- `tests/tutorial.check.js` checks the worked examples: one per layout, a reason for every step, stepping forward and back, skipping, replaying, and moving up a year.
-- `tests/display.check.js` checks the theme and colour settings, WCAG contrast in all four combinations, and colour differences under simulated protanopia, deuteranopia and tritanopia (Machado, Oliveira and Fernandes, 2009).
-- `tests/guide.check.js` checks the guide pages: images, links, phone width, and the game's links to them.
+- `tests/tutorial.check.js` checks the worked examples: one per kind of question, a reason for every step, stepping forward and back, skipping, replaying, and moving up a year.
+- `tests/mixed.check.js` plays the mixed test: settings, no marking until the end, closing and reopening, quitting and carrying on, a time limit running out, ending early, grades and the review.
+- `tests/display.check.js` checks the theme and colour settings, WCAG contrast in all four combinations including all ten covers, and colour differences under simulated colour vision deficiency (Machado, Oliveira and Fernandes, 2009).
 - `tests/layout.check.js` checks the layout at 390, 860 and 1280 px wide.
+- `tests/guide.check.js` checks the guide pages: images, links, phone width, and the game's links to them.
 
 Each script exits non-zero when a check fails. Screenshots go to `tests/shots/`.
 
@@ -91,8 +101,10 @@ Each script exits non-zero when a check fails. Screenshots go to `tests/shots/`.
 - `index.html`: page structure.
 - `styles.css`: visual design, including the dark and colour-blind palettes.
 - `theme.js`: applies the saved theme and colour settings before the page draws.
-- `engine.js`: pure arithmetic, worksheet layouts, year content, the action sequence and worked sheet for each problem, and the year-check table.
-- `game.js`: learning and test play, year checks, keyboard controls, rendering, and sound.
+- `engine.js`: arithmetic, written-method layouts, decimals, the sentence builder, the four calculation areas, the year-check table, and the seeded random numbers.
+- `topics.js`: the number, fractions, measures, shape, data and algebra areas.
+- `pictures.js`: draws each question's picture (clocks, coins, scales, shapes, angles, grids, charts) as SVG.
+- `game.js`: learning and test play, the mixed test, year checks, keyboard controls, rendering, saving, and sound.
 - `assets/`: locally hosted fonts and their OFL license files.
 - `tests/`: engine and browser checks (see Tests).
 - `guide/`: the student and parent/teacher pages, their stylesheet, and screenshots in `guide/img/`.

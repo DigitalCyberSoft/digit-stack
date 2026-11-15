@@ -112,12 +112,23 @@ async function open(page, settings) {
     const low = [];
     const measure = async (name, sel, min, pseudo, against) => { const r = await contrastIn(page, sel, pseudo, against); if (r === null) low.push(name + ' missing'); else if (r < min) low.push(name + ' ' + r.toFixed(2)); };
     await open(page, { theme, cvd });
-    await measure('lede', '.lede', 4.5); await measure('start hint', '.no-mouse', 4.5); await measure('book name', '.mode-name', 4.5);
-    await measure('book year', '.mode-shapes', 4.5); await measure('ruler age', '.ladder-tag', 4.5); await measure('guide link', '.guide-links a', 4.5);
+    await measure('lede', '.lede', 4.5); await measure('start hint', '.no-mouse', 4.5);
+    // Every book's name and year line, all ten areas.
+    for (const area of ['divide', 'multiply', 'add', 'subtract', 'number', 'fractions', 'measures', 'shape', 'data', 'algebra']) {
+      await measure(area + ' book name', '.mode-btn.' + area + ' .mode-name', 4.5); await measure(area + ' book year', '.mode-btn.' + area + ' .mode-shapes', 4.5);
+    }
+    await measure('mixed test card', '.mixed-note', 4.5);
+    await measure('ruler age', '.ladder-tag', 4.5); await measure('guide link', '.guide-links a', 4.5);
     await page.evaluate(() => { const items = document.querySelectorAll('#setupLadder li'); items[2].click(); });
     await measure('chosen year', '.ladder-large li.is-current .ladder-node', 4.5);
-    // A guided round: Add, Year 3.
-    await page.keyboard.press('3'); await page.waitForTimeout(60);
+    // A guided round: Add, Year 3, the column addition 789 + 642 (Year 3 Add also has one-box sentences, which have no column chips).
+    await page.evaluate(() => { const p = window.DigitStackEngine.buildAddition(789, 642, 3);
+      localStorage.setItem('digitstack.play.v1', JSON.stringify({ version: 2, operation: null, areas: { add: { year: 3, mode: 'guided', cleanStreak: 0, round: { problem: p, actionIndex: 0, roundClean: true, fixes: 0 } } } })); });
+    // The game reads saved play when it starts, so reload before choosing the area.
+    await page.reload(); await page.waitForTimeout(60);
+    await page.evaluate(() => { const items = document.querySelectorAll('#setupLadder li'); items[2].click(); });
+    // The active box fades to yellow over 120 ms; measure once it has settled.
+    await page.keyboard.press('3'); await page.waitForTimeout(400);
     await measure('prompt', '#prompt', 4.5); await measure('subprompt', '#subprompt', 4.5); await measure('step line', '#stepLine', 4.5);
     await measure('stage chip', '#stageChip', 4.5); await measure('learning tag', '.mode-stage', 4.5); await measure('sticker label', '.streak-label', 4.5);
     await measure('sticker line', '.gate-line', 4.5); await measure('printed digit', '.cell.given', 4.5); await measure('number key', '#keypad button', 4.5);
@@ -132,7 +143,7 @@ async function open(page, settings) {
     await page.evaluate(([p, k, th, cv]) => {
       const E = window.DigitStackEngine; const problem = E.buildMultiplication(342, 7, 3);
       localStorage.clear(); localStorage.setItem('digitstack.progress.v1', JSON.stringify(p)); localStorage.setItem(k.theme, th); localStorage.setItem(k.cvd, cv);
-      localStorage.setItem('digitstack.play.v1', JSON.stringify({ version: 1, operation: 'multiply', areas: { multiply: { year: 3, mode: 'test', cleanStreak: 0, round: { problem, entries: { 'p0-c3': '4', 'p0-c2': '8', 'p0-c1': '3', 'p0-c0': '2' }, selectedCellId: null } } } }));
+      localStorage.setItem('digitstack.play.v1', JSON.stringify({ version: 2, operation: 'multiply', areas: { multiply: { year: 3, mode: 'test', cleanStreak: 0, round: { problem, entries: { 'p0-c3': '4', 'p0-c2': '8', 'p0-c1': '3', 'p0-c0': '2' }, selectedCellId: null } } } }));
     }, [progress, KEYS, theme, cvd]);
     await page.reload(); await page.waitForTimeout(60); await page.keyboard.press('Enter'); await page.waitForTimeout(120);
     await measure('right answer digit', '.cell.mark-right', 3); await measure('wrong answer digit', '.cell.mark-wrong', 3);
@@ -145,14 +156,18 @@ async function open(page, settings) {
   // Colour-blind colours stay apart under simulated dichromacy (CIE76 delta E in Lab).
   for (const theme of ['light', 'dark']) {
     await open(page, { theme, cvd: 'on' });
-    const v = await page.evaluate(() => { const cs = getComputedStyle(document.documentElement); const g = n => cs.getPropertyValue(n).trim(); return { tick: g('--tick'), cross: g('--cross'), pen: g('--pen'), purple: g('--purple'), divide: g('--cover-divide'), multiply: g('--cover-multiply'), add: g('--cover-add'), subtract: g('--cover-subtract') }; });
+    const COVERS = ['divide', 'multiply', 'add', 'subtract', 'number', 'fractions', 'measures', 'shape', 'data', 'algebra'];
+    const v = await page.evaluate(covers => { const cs = getComputedStyle(document.documentElement); const g = n => cs.getPropertyValue(n).trim();
+      const out = { tick: g('--tick'), cross: g('--cross'), pen: g('--pen'), purple: g('--purple') }; covers.forEach(c => { out[c] = g('--cover-' + c); }); return out; }, COVERS);
     const need = [['tick', 'cross', 40], ['pen', 'purple', 15], ['divide', 'multiply', 20], ['divide', 'add', 20], ['divide', 'subtract', 20], ['multiply', 'add', 20], ['multiply', 'subtract', 20], ['add', 'subtract', 20]];
+    // All ten covers: every pair at least 15 apart (the palette was chosen by search; its closest pair measures 17.0).
+    for (let i = 0; i < COVERS.length; i++) for (let j = i + 1; j < COVERS.length; j++) if (i > 3 || j > 3) need.push([COVERS[i], COVERS[j], 15]);
     const weak = [];
     for (const [a, b, min] of need) for (const [kind, m] of Object.entries(MACHADO)) {
       const e = deltaE(lab(simulate(hex(v[a]), m)), lab(simulate(hex(v[b]), m)));
       if (e < min) weak.push(a + '/' + b + ' ' + kind + ' ' + e.toFixed(1));
     }
-    check('colour-blind colours stay apart in ' + theme + ' (right/wrong 40+, pen/working 15+, covers 20+)', weak.length === 0, weak.join(', '));
+    check('colour-blind colours stay apart in ' + theme + ' (right/wrong 40+, pen/working 15+, first four covers 20+, all ten covers 15+)', weak.length === 0, weak.join(', '));
   }
 
   check('no console or page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
