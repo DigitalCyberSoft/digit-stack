@@ -582,6 +582,308 @@
     describe: function (p, s) { return s.angles.map(function (a) { return a + '°'; }).join(', ') + '.'; }
   };
 
+  /* Compass and ruler (key stage 3). The arrows move between points: the
+     ones given and every place where arcs and lines cross. Space draws an
+     arc with the compass point there; + and - open and close the compass
+     by half a centimetre; L at one point and L at another draws a line
+     with the ruler. Backspace takes back the last arc or line. */
+
+  const EPS = 1e-6;
+
+  function dist(a, b) {
+    return Math.hypot(a[0] - b[0], a[1] - b[1]);
+  }
+
+  function circleCircle(c1, r1, c2, r2) {
+    const d = dist(c1, c2);
+    if (d < EPS || d > r1 + r2 + EPS || d < Math.abs(r1 - r2) - EPS) return [];
+    const a = (r1 * r1 - r2 * r2 + d * d) / (2 * d);
+    const h = Math.sqrt(Math.max(0, r1 * r1 - a * a));
+    const mx = c1[0] + a * (c2[0] - c1[0]) / d;
+    const my = c1[1] + a * (c2[1] - c1[1]) / d;
+    if (h < EPS) return [[mx, my]];
+    return [[mx + h * (c2[1] - c1[1]) / d, my - h * (c2[0] - c1[0]) / d], [mx - h * (c2[1] - c1[1]) / d, my + h * (c2[0] - c1[0]) / d]];
+  }
+
+  // Where a circle meets the line from p through q: a segment keeps 0 <= t
+  // <= 1, a ray t >= 0, a whole line any t.
+  function circleLine(c, r, p, q, kind) {
+    const dx = q[0] - p[0];
+    const dy = q[1] - p[1];
+    const fx = p[0] - c[0];
+    const fy = p[1] - c[1];
+    const A = dx * dx + dy * dy;
+    const B = 2 * (fx * dx + fy * dy);
+    const C = fx * fx + fy * fy - r * r;
+    const disc = B * B - 4 * A * C;
+    if (disc < -EPS) return [];
+    const root = Math.sqrt(Math.max(0, disc));
+    return [(-B - root) / (2 * A), (-B + root) / (2 * A)].filter(function (t, k, all) {
+      if (k === 1 && Math.abs(t - all[0]) < EPS) return false;
+      if (kind === 'segment') return t >= -EPS && t <= 1 + EPS;
+      if (kind === 'ray') return t >= -EPS;
+      return true;
+    }).map(function (t) { return [p[0] + t * dx, p[1] + t * dy]; });
+  }
+
+  function boardLines(b) {
+    return (b.segments || []).map(function (x) { return [b.points[x[0]], b.points[x[1]], 'segment']; })
+      .concat((b.rays || []).map(function (x) { return [b.points[x[0]], b.points[x[1]], 'ray']; }),
+        (b.lines || []).map(function (x) { return [b.points[x[0]], b.points[x[1]], 'line']; }));
+  }
+
+  // Every point the compass or ruler can use, given ones first.
+  function compassPoints(b, s) {
+    const pts = Object.keys(b.points).map(function (name) { return { at: b.points[name], name: name }; });
+    const add = function (at) {
+      if (at[0] < -EPS || at[0] > b.w + EPS || at[1] < -EPS || at[1] > b.h + EPS) return;
+      if (pts.some(function (x) { return dist(x.at, at) < 1e-4; })) return;
+      pts.push({ at: at });
+    };
+    const lines = boardLines(b);
+    s.arcs.forEach(function (arcA, i) {
+      lines.forEach(function (l) { circleLine(arcA.c, arcA.r, l[0], l[1], l[2]).forEach(add); });
+      s.arcs.slice(0, i).forEach(function (arcB) { circleCircle(arcA.c, arcA.r, arcB.c, arcB.r).forEach(add); });
+    });
+    return pts;
+  }
+
+  function nearestPoint(pts, at) {
+    let best = null;
+    pts.forEach(function (x) { if (!best || dist(x.at, at) < dist(best.at, at)) best = x; });
+    return best;
+  }
+
+  // The nearest point roughly the way the arrow points (within 60° of it).
+  function compassMove(pts, at, key) {
+    const dir = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[key];
+    let best = null;
+    let bestScore = Infinity;
+    pts.forEach(function (x) {
+      const dx = x.at[0] - at[0];
+      const dy = x.at[1] - at[1];
+      const along = dx * dir[0] + dy * dir[1];
+      const across = Math.abs(dx * dir[1] - dy * dir[0]);
+      if (along < EPS || across > along * Math.tan(Math.PI / 3)) return;
+      const score = along + 2 * across;
+      if (score < bestScore) { bestScore = score; best = x; }
+    });
+    return best ? best.at.slice() : at;
+  }
+
+  function sameLine(l1, l2) {
+    // Both points of one line lie on the other.
+    const on = function (pt, l) {
+      const d = dist(l[0], l[1]);
+      if (d < EPS) return false;
+      return Math.abs((l[1][0] - l[0][0]) * (pt[1] - l[0][1]) - (l[1][1] - l[0][1]) * (pt[0] - l[0][0])) / d < 1e-4;
+    };
+    return Boolean(l1 && l2) && on(l1[0], l2) && on(l1[1], l2);
+  }
+
+  function cm(r) {
+    return (Math.round(r * 10) / 10) + ' cm';
+  }
+
+  // The construction's own points, worked out from what is drawn so far: the
+  // crossings each step builds on.
+  function construction(b, s) {
+    const P = b.points;
+    const out = {};
+    if (b.kind === 'bisector') {
+      if (s.arcs.length >= 2) out.cross = circleCircle(s.arcs[0].c, s.arcs[0].r, s.arcs[1].c, s.arcs[1].r);
+    } else if (b.kind === 'angle') {
+      if (s.arcs.length >= 1) {
+        out.D = circleLine(s.arcs[0].c, s.arcs[0].r, P.B, P.A, 'ray')[0];
+        out.E = circleLine(s.arcs[0].c, s.arcs[0].r, P.B, P.C, 'ray')[0];
+      }
+      if (s.arcs.length >= 3) {
+        out.cross = circleCircle(s.arcs[1].c, s.arcs[1].r, s.arcs[2].c, s.arcs[2].r).filter(function (x) { return dist(x, P.B) > 1e-3; });
+      }
+    } else {
+      if (s.arcs.length >= 1) out.feet = circleLine(s.arcs[0].c, s.arcs[0].r, P.L, P.M, 'line');
+      if (s.arcs.length >= 3) out.cross = circleCircle(s.arcs[1].c, s.arcs[1].r, s.arcs[2].c, s.arcs[2].r);
+    }
+    return out;
+  }
+
+  // The line the construction must end with.
+  function wantedLine(b) {
+    const P = b.points;
+    if (b.kind === 'bisector') {
+      const m = [(P.A[0] + P.B[0]) / 2, (P.A[1] + P.B[1]) / 2];
+      return [m, [m[0] - (P.B[1] - P.A[1]), m[1] + (P.B[0] - P.A[0])]];
+    }
+    if (b.kind === 'angle') {
+      const u = function (q) { const d = dist(P.B, q); return [(q[0] - P.B[0]) / d, (q[1] - P.B[1]) / d]; };
+      const a = u(P.A);
+      const c = u(P.C);
+      return [P.B, [P.B[0] + a[0] + c[0], P.B[1] + a[1] + c[1]]];
+    }
+    const dx = P.M[0] - P.L[0];
+    const dy = P.M[1] - P.L[1];
+    return [P.P, [P.P[0] - dy, P.P[1] + dx]];
+  }
+
+  // Where the ruler goes for the last step, by the step's rule (problems are
+  // plain data, so a saved round can be drawn again): both crossings of the
+  // first two arcs; B and the crossing of the last two; or P and the
+  // crossing of the last two farther from P.
+  function lineEnds(b, built, through) {
+    if (through === 'crossings') return built.cross;
+    if (through === 'vertex') return [b.points.B, built.cross[0]];
+    const cross = built.cross.slice().sort(function (x, y) { return dist(y, b.points.P) - dist(x, b.points.P); });
+    return [b.points.P, cross[0]];
+  }
+
+  function lastArc(s) {
+    return s.arcs[s.arcs.length - 1];
+  }
+
+  function at(a, b) {
+    return Boolean(a && b) && dist(a, b) < 1e-4;
+  }
+
+  TOOLS.compass = {
+    start: function (p) {
+      const first = Object.keys(p.board.points)[0];
+      return { arcs: [], line: null, width: 3, cursor: p.board.points[first].slice(), pending: null, order: [] };
+    },
+    valid: function (p, s) {
+      const ok = function (pt) { return Array.isArray(pt) && pt.length === 2 && pt.every(Number.isFinite); };
+      return Array.isArray(s.arcs) && s.arcs.every(function (a) { return ok(a.c) && Number.isFinite(a.r) && a.r > 0; }) &&
+        (s.line === null || (Array.isArray(s.line) && s.line.every(ok))) && Number.isFinite(s.width) && ok(s.cursor) &&
+        (s.pending === null || ok(s.pending)) && Array.isArray(s.order) && s.order.length === s.arcs.length + (s.line ? 1 : 0);
+    },
+    press: function (p, s, key) {
+      const b = p.board;
+      const copy = function (extra) { return Object.assign({ arcs: s.arcs, line: s.line, width: s.width, cursor: s.cursor, pending: s.pending, order: s.order }, extra); };
+      if (/^Arrow/.test(key)) {
+        const pts = compassPoints(b, s);
+        return { state: copy({ cursor: compassMove(pts, s.cursor, key.replace('Shift+', '')) }), event: 'move' };
+      }
+      if (key === 'Wider' || key === '+' || key === '=') return { state: copy({ width: Math.min(12, s.width + 0.5) }), event: 'width' };
+      if (key === 'Narrower' || key === '-') return { state: copy({ width: Math.max(0.5, s.width - 0.5) }), event: 'width' };
+      if (key === ' ' || key === 'Space') {
+        if (s.arcs.some(function (a) { return at(a.c, s.cursor) && Math.abs(a.r - s.width) < EPS; })) return { state: s, event: 'same' };
+        return { state: copy({ arcs: s.arcs.concat([{ c: s.cursor.slice(), r: s.width }]), order: s.order.concat(['arc']) }), event: 'place' };
+      }
+      if (key === 'l' || key === 'L' || key === 'Line') {
+        if (!s.pending) return { state: copy({ pending: s.cursor.slice() }), event: 'start' };
+        if (at(s.pending, s.cursor)) return { state: s, event: 'same' };
+        const order = s.line ? s.order.filter(function (x) { return x !== 'line'; }) : s.order;
+        return { state: copy({ line: [s.pending, s.cursor.slice()], pending: null, order: order.concat(['line']) }), event: 'place' };
+      }
+      if (key === 'Backspace' || key === 'Delete') {
+        if (s.pending) return { state: copy({ pending: null }), event: 'remove' };
+        return { state: TOOLS.compass.undo(p, s), event: 'remove' };
+      }
+      return null;
+    },
+    undo: function (p, s) {
+      const last = s.order[s.order.length - 1];
+      if (!last) return s;
+      return Object.assign({}, s, last === 'line' ? { line: null } : { arcs: s.arcs.slice(0, -1) }, { order: s.order.slice(0, -1), pending: null });
+    },
+    checkOn: 'place',
+    check: function (p, s, k) {
+      const b = p.board;
+      const P = b.points;
+      const step = p.steps[k];
+      const built = construction(b, s);
+      if (step.type === 'line') {
+        if (!s.line) return 'Put the ruler on two points: L at one and L at the other.';
+        return sameLine(s.line, wantedLine(b)) ? null : step.miss;
+      }
+      const arc = lastArc(s);
+      if (!arc || s.order[s.order.length - 1] !== 'arc') return 'Draw an arc: Space puts the compass point on the selected point.';
+      const centre = step.centre === 'D' || step.centre === 'E' ? built[step.centre] || null : (step.centre === 'foot0' || step.centre === 'foot1' ? null : P[step.centre]);
+      if (step.centre === 'foot0' || step.centre === 'foot1') {
+        const feet = construction(b, { arcs: s.arcs.slice(0, 1) }).feet || [];
+        const others = s.arcs.slice(1, -1).map(function (a) { return a.c; });
+        const free = feet.filter(function (f) { return !others.some(function (o) { return at(o, f); }); });
+        if (!free.some(function (f) { return at(f, arc.c); })) return step.missCentre;
+      } else if (!at(arc.c, centre)) {
+        return step.missCentre;
+      }
+      if (step.rule === 'over half') {
+        const half = b.kind === 'bisector' ? dist(P.A, P.B) / 2 : (b.kind === 'angle' ? dist(built.D, built.E) / 2 : null);
+        const span = half !== null ? half : dist(construction(b, { arcs: s.arcs.slice(0, 1) }).feet[0], construction(b, { arcs: s.arcs.slice(0, 1) }).feet[1]) / 2;
+        if (arc.r <= span + 0.05) return step.missRadius;
+      } else if (step.rule === 'same') {
+        if (Math.abs(arc.r - s.arcs[s.arcs.length - 2].r) > EPS) return step.missRadius;
+      } else if (step.rule === 'beyond line') {
+        const d = Math.abs((P.M[0] - P.L[0]) * (P.P[1] - P.L[1]) - (P.M[1] - P.L[1]) * (P.P[0] - P.L[0])) / dist(P.L, P.M);
+        if (arc.r <= d + 0.05) return step.missRadius;
+      } else if (step.rule === 'wider') {
+        if (arc.r <= s.arcs[0].r + EPS) return step.missRadius;
+      } else if (step.rule === 'inside line') {
+        const feet = construction(b, { arcs: [arc] }).feet || [];
+        const inside = function (pt) { return pt[0] >= 0 && pt[0] <= b.w && pt[1] >= 0 && pt[1] <= b.h; };
+        if (arc.r < 1 || feet.length !== 2 || !feet.every(inside)) return step.missRadius;
+      } else if (step.rule === 'inside') {
+        const crossings = construction(b, { arcs: [arc] });
+        const inside = function (pt) { return pt && pt[0] >= 0 && pt[0] <= b.w && pt[1] >= 0 && pt[1] <= b.h; };
+        if (arc.r < 1 || !inside(crossings.D) || !inside(crossings.E)) return step.missRadius;
+      }
+      return null;
+    },
+    mark: function (p, s) { return sameLine(s.line, wantedLine(p.board)); },
+    solved: function (p, done) {
+      let s = TOOLS.compass.start(p);
+      for (let k = 0; k < done; k++) {
+        TOOLS.compass.plan(p, s, k).forEach(function (key) { s = TOOLS.compass.press(p, s, key).state; });
+      }
+      return s;
+    },
+    plan: function (p, s, k) {
+      const b = p.board;
+      const step = p.steps[k];
+      const built = construction(b, s);
+      const go = function (state, target) {
+        // Arrow keys from the cursor to the target point, by breadth-first search.
+        const pts = compassPoints(b, state);
+        const key = function (pt) { return pt[0].toFixed(5) + ',' + pt[1].toFixed(5); };
+        const start = nearestPoint(pts, state.cursor).at;
+        const seen = {};
+        seen[key(start)] = [];
+        const queue = [start];
+        while (queue.length) {
+          const cur = queue.shift();
+          if (at(cur, target)) return seen[key(cur)];
+          ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].forEach(function (arrow) {
+            const next = compassMove(pts, cur, arrow);
+            if (seen[key(next)] !== undefined) return;
+            seen[key(next)] = seen[key(cur)].concat([arrow]);
+            queue.push(next);
+          });
+        }
+        throw new Error('No way to the point');
+      };
+      const widthKeys = function (r) {
+        const d = Math.round((r - s.width) / 0.5);
+        return repeat(d > 0 ? '+' : '-', Math.abs(d));
+      };
+      if (step.type === 'line') {
+        const ends = lineEnds(b, built, step.through);
+        const first = go(s, ends[0]);
+        let mid = s;
+        first.forEach(function (key) { mid = TOOLS.compass.press(p, mid, key).state; });
+        mid = TOOLS.compass.press(p, mid, 'L').state;
+        return first.concat(['L'], go(mid, ends[1]), ['L']);
+      }
+      let centre;
+      if (step.centre === 'D' || step.centre === 'E') centre = built[step.centre];
+      else if (step.centre === 'foot0' || step.centre === 'foot1') {
+        const feet = construction(b, { arcs: s.arcs.slice(0, 1) }).feet.slice().sort(function (x, y) { return x[0] - y[0] || x[1] - y[1]; });
+        centre = feet[step.centre === 'foot0' ? 0 : 1];
+      } else centre = b.points[step.centre];
+      return go(s, centre).concat(widthKeys(step.r), [' ']);
+    },
+    touched: function (p, s) { return s.arcs.length > 0 || Boolean(s.line); },
+    describe: function (p, s) { return plural(s.arcs.length, 'arc') + (s.line ? ' and a line.' : '.'); }
+  };
+
   /* The engine's side of drawing, used by the game and the checks. */
 
   function tool(p) {
@@ -615,7 +917,16 @@
     // Keys that draw step k from state s.
     plan: function (p, s, k) { return tool(p).plan(p, s, k); },
     touched: function (p, s) { return tool(p).touched(p, s); },
-    describe: function (p, s) { return tool(p).describe(p, s); }
+    describe: function (p, s) { return tool(p).describe(p, s); },
+    // The state without the last thing placed: a corner, an arc or a line.
+    undo: function (p, s) {
+      const t = tool(p);
+      if (t.undo) return t.undo(p, s);
+      return s.points ? Object.assign({}, s, { points: s.points.slice(0, -1) }) : s;
+    },
+    // Compass constructions show these points and lines; tests check against them.
+    compassPoints: function (p, s) { return compassPoints(p.board, s); },
+    wantedLine: function (p) { return wantedLine(p.board); }
   };
 
   Engine.drawing = api;
@@ -1195,6 +1506,111 @@
       inputs: 2,
       examples: 2
     });
+  };
+
+  // Shape, Year 7: ruler and compass constructions. Coordinates are in
+  // centimetres on a board 12 cm by 8 cm.
+  function halfStep(x) {
+    return Math.ceil(x * 2) / 2;
+  }
+
+  KINDS.construct = function (year) {
+    const kind = pick(['bisector', 'angle', 'perpendicularFrom', 'perpendicularAt']);
+    const w = 12;
+    const h = 8;
+    let board;
+    let steps;
+    let question;
+    if (kind === 'bisector') {
+      const A = [randInt(2, 4), randInt(2, 5)];
+      const B = [A[0] + randInt(4, 6), A[1] + randInt(-1, 2)];
+      if (B[1] < 1 || B[1] > 7) return null;
+      const r = halfStep(dist(A, B) / 2 + 1);
+      board = { tool: 'compass', kind: kind, w: w, h: h, points: { A: A, B: B }, segments: [['A', 'B']] };
+      question = 'Construct the perpendicular bisector of AB with a ruler and compass.';
+      steps = [
+        { type: 'arc', centre: 'A', rule: 'over half', r: r, prompt: 'Open the compass to more than half of AB, put its point on A and draw an arc.',
+          sub: '+ and − open and close the compass; the arrows choose the point; Space draws the arc.',
+          why: 'Arcs from A and B cross only if the compass is open more than half of AB.',
+          missCentre: 'This arc should have its point on A.', missRadius: 'Open the compass wider than half of AB (AB is ' + cm(dist(A, B)) + '), or the arcs will not cross.' },
+        { type: 'arc', centre: 'B', rule: 'same', r: r, prompt: 'Keep the compass the same. Put its point on B and draw an arc.', sub: 'The arcs cross above and below AB.',
+          why: 'With the same width from A and from B, every crossing is as far from A as from B.',
+          missCentre: 'This arc should have its point on B.', missRadius: 'Keep the same width as the arc from A.' },
+        { type: 'line', prompt: 'Line up the ruler through the two points where the arcs cross.', sub: 'L at one crossing, then L at the other.',
+          why: 'Both crossings are the same distance from A and B, so the line through them cuts AB in half at a right angle.',
+          miss: 'The line should go through both points where the arcs cross.', through: 'crossings' }
+      ];
+    } else if (kind === 'angle') {
+      const B = [randInt(2, 3), randInt(1, 2)];
+      const t1 = randInt(0, 20) * Math.PI / 180;
+      const t2 = t1 + randInt(40, 110) * Math.PI / 180;
+      const A = [B[0] + 8 * Math.cos(t1), B[1] + 8 * Math.sin(t1)];
+      const C = [B[0] + 6 * Math.cos(t2), B[1] + 6 * Math.sin(t2)];
+      if ([A, C].some(function (q) { return q[0] < 0.5 || q[0] > w - 0.5 || q[1] < 0.5 || q[1] > h - 0.5; })) return null;
+      const r0 = 3;
+      const D = [B[0] + r0 * Math.cos(t1), B[1] + r0 * Math.sin(t1)];
+      const E = [B[0] + r0 * Math.cos(t2), B[1] + r0 * Math.sin(t2)];
+      const r1 = halfStep(dist(D, E) / 2 + 1);
+      board = { tool: 'compass', kind: kind, w: w, h: h, points: { A: A, B: B, C: C }, rays: [['B', 'A'], ['B', 'C']] };
+      question = 'Construct the bisector of angle ABC with a ruler and compass.';
+      steps = [
+        { type: 'arc', centre: 'B', rule: 'inside', r: r0, prompt: 'Put the compass point on B and draw an arc that crosses both arms.', sub: '+ and − open and close the compass; Space draws the arc.',
+          why: 'The arc marks the same distance along each arm.', missCentre: 'This arc should have its point on B.', missRadius: 'Make the arc cross both arms on the page, at least 1 cm from B.' },
+        { type: 'arc', centre: 'D', rule: 'over half', r: r1, prompt: 'Put the compass point where the arc crosses BA, open it wider, and draw an arc between the arms.', sub: 'The arrows move to the crossing.',
+          why: 'From each crossing an arc with the same width finds a point as far from one arm as the other.',
+          missCentre: 'Put the compass point where the first arc crosses BA.', missRadius: 'Open the compass more than half the gap between the two crossings, so the next arcs cross.' },
+        { type: 'arc', centre: 'E', rule: 'same', r: r1, prompt: 'Keep the compass the same. Put its point where the first arc crosses BC and draw an arc.', sub: 'It crosses the last arc between the arms.',
+          why: 'Same width from both crossings.', missCentre: 'Put the compass point where the first arc crosses BC.', missRadius: 'Keep the same width as the last arc.' },
+        { type: 'line', prompt: 'Draw a line from B through the point where the last two arcs cross.', sub: 'L at B, then L at the crossing.',
+          why: 'That crossing is the same distance from both arms, so the line from B halves the angle.', miss: 'The line should go from B through the crossing of the last two arcs.',
+          through: 'vertex' }
+      ];
+    } else {
+      const L = [0.5, randInt(2, 4)];
+      const M = [w - 0.5, L[1] + randInt(-1, 1)];
+      const on = kind === 'perpendicularAt';
+      const t = randInt(35, 65) / 100;
+      const foot = [L[0] + t * (M[0] - L[0]), L[1] + t * (M[1] - L[1])];
+      const len = dist(L, M);
+      const nx = -(M[1] - L[1]) / len;
+      const ny = (M[0] - L[0]) / len;
+      const off = randInt(3, 4);
+      const P = on ? foot : [foot[0] + nx * off, foot[1] + ny * off];
+      if (P[1] > h - 0.5) return null;
+      const r0 = on ? 2 : halfStep(off + 1);
+      const r1 = on ? r0 + 1.5 : r0;
+      board = { tool: 'compass', kind: kind, w: w, h: h, points: { P: P, L: L, M: M }, lines: [['L', 'M']], hideLabels: ['L', 'M'] };
+      question = on ? 'Construct the line perpendicular to the line through P, at P, with a ruler and compass.' : 'Construct the line from P perpendicular to the line below it, with a ruler and compass.';
+      steps = [
+        { type: 'arc', centre: 'P', rule: on ? 'inside line' : 'beyond line', r: r0, prompt: 'Put the compass point on P and draw an arc that crosses the line twice.', sub: '+ and − open and close the compass; Space draws the arc.',
+          why: 'The two crossings are the same distance from P.', missCentre: 'This arc should have its point on P.', missRadius: 'Open the compass wider than the gap from P to the line, so the arc crosses it twice.' },
+        { type: 'arc', centre: 'foot0', rule: on ? 'wider' : 'over half', r: r1, prompt: 'Put the compass point on one crossing and draw an arc' + (on ? ', wider than before.' : ' on the far side of the line.'), sub: 'The arrows move to the crossing.',
+          why: 'Arcs of the same width from both crossings meet on the line through P at right angles.',
+          missCentre: 'Put the compass point on one of the two crossings.', missRadius: on ? 'Open the compass wider than for the first arc.' : 'Open the compass more than half the gap between the crossings.' },
+        { type: 'arc', centre: 'foot1', rule: 'same', r: r1, prompt: 'Keep the compass the same. Put its point on the other crossing and draw an arc.', sub: 'It crosses the last arc.',
+          why: 'Same width from both crossings.', missCentre: 'Put the compass point on the other crossing.', missRadius: 'Keep the same width as the last arc.' },
+        { type: 'line', prompt: 'Draw a line from P through where the last two arcs cross.', sub: 'L at P, then L at the crossing.',
+          why: 'That crossing is the same distance from both crossings on the line, so P to it is at right angles to the line.', miss: 'The line should go from P through the crossing of the last two arcs.',
+          through: 'far' }
+      ];
+    }
+    const p = problem({
+      area: 'shape', year: year, title: 'Constructions', stage: 'CONSTRUCT',
+      question: question, board: board, steps: steps, target: null,
+      answer: { bisector: 'The perpendicular bisector of AB.', angle: 'The bisector of angle ABC.', perpendicularFrom: 'The perpendicular from P to the line.', perpendicularAt: 'The perpendicular at P.' }[kind],
+      check: { kind: 'draw-construct', how: kind },
+      inputs: steps.length,
+      examples: 2
+    });
+    // The finished construction, drawn by the plan; it must be inside the page.
+    try {
+      p.target = TOOLS.compass.solved(p, steps.length);
+    } catch (err) {
+      if (err instanceof Error && /No way to the point|undefined/.test(err.message)) return null;
+      throw err;
+    }
+    if (!TOOLS.compass.mark(p, p.target)) return null;
+    return p;
   };
 
   // Algebra, Year 7: plot points of a straight line from its equation.

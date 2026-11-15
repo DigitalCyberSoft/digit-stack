@@ -2521,7 +2521,8 @@
   SHAPE_KINDS[4].push([2, 'drawSymmetry'], [1, 'drawVertex'], [2, 'drawTranslate']);
   SHAPE_KINDS[5].push([2, 'drawAngle'], [2, 'drawReflect'], [1, 'drawTranslate']);
   SHAPE_KINDS[6].push([2, 'drawTriangle'], [1, 'drawAngle'], [1, 'drawReflect'], [1, 'drawTranslate'], [2, 'drawNet']);
-  SHAPE_KINDS[7].push([2, 'drawRotate'], [1, 'drawAngle']);
+  SHAPE.drawConstruct = DRAW.construct;
+  SHAPE_KINDS[7].push([2, 'drawRotate'], [1, 'drawAngle'], [2, 'drawConstruct']);
 
   Engine.addArea('shape', chooser(SHAPE, SHAPE_KINDS, 'shape'));
 

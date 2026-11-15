@@ -175,6 +175,15 @@ async function shot(page, name, target) {
   };
   await open(desk, { area: 'shape', year: 5, title: 'Drawing reflections', seed: 3, step: 1 }); await drawSome(desk, 0.5); made.push(await shot(desk, 'draw-reflect'));
   await open(desk, { area: 'shape', year: 5, title: 'Drawing angles', seed: 5 }); await drawSome(desk, 0.8); made.push(await shot(desk, 'draw-angle', '#sheet'));
+  // A perpendicular bisector, finished: both arcs and the ruler line.
+  await desk.evaluate(() => {
+    const E = window.DigitStackEngine; const all = {}; E.AREAS.forEach(a => { all[a] = [1, 2, 3, 4, 5, 6, 7]; });
+    const p = E.withSeed(11, () => { for (let i = 0; i < 400; i++) { const q = E.drawing.kinds.construct(7); if (q && q.board.kind === 'bisector') return q; } return null; });
+    localStorage.setItem('digitstack.progress.v1', JSON.stringify({ schoolYear: 7, watched: all }));
+    localStorage.setItem('digitstack.play.v1', JSON.stringify({ version: 2, operation: 'shape', areas: { shape: { year: 7, mode: 'guided', cleanStreak: 0, round: { problem: p, actionIndex: 2, roundClean: true, fixes: 0 } } } }));
+  });
+  await desk.reload(); await desk.evaluate(() => document.fonts.ready); await desk.waitForTimeout(400);
+  await drawSome(desk, 1); made.push(await shot(desk, 'draw-construct', '#sheet'));
 
   // The mixed test: settings, a question part way through, and marked results.
   await open(desk, { year: 4 });

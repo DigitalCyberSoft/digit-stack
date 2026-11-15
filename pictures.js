@@ -1095,6 +1095,61 @@
     return s;
   };
 
+  // Ruler and compass: arcs are drawn as whole circles, faintly; crossings
+  // are dots the compass and ruler can use; the selected point has the
+  // compass width around it, dashed.
+  B.compass = function (p, st, view) {
+    const b = p.board;
+    const unit = 40;
+    const pad = 20;
+    const s = svg(b.w * unit + 2 * pad, b.h * unit + 2 * pad, 'A construction with ruler and compass');
+    const X = function (x) { return pad + x * unit; };
+    const Y = function (y) { return pad + (b.h - y) * unit; };
+    add(s, el('rect', { x: X(0), y: Y(b.h), width: b.w * unit, height: b.h * unit, class: 'pic-cellbox' }));
+    const clip = function (p1, p2, kind) {
+      // Draw a segment, a ray from p1 through p2, or a whole line, inside the page.
+      const dx = p2[0] - p1[0];
+      const dy = p2[1] - p1[1];
+      const far = 40;
+      const a = kind === 'line' ? [p1[0] - far * dx, p1[1] - far * dy] : p1;
+      const e = kind === 'segment' ? p2 : [p1[0] + far * dx, p1[1] + far * dy];
+      return [a, e];
+    };
+    const clipId = 'board-clip-' + Math.round(Math.random() * 1e9);
+    const defs = el('defs', {});
+    const cp = el('clipPath', { id: clipId });
+    add(cp, el('rect', { x: X(0), y: Y(b.h), width: b.w * unit, height: b.h * unit }));
+    add(defs, cp);
+    add(s, defs);
+    const g = el('g', { 'clip-path': 'url(#' + clipId + ')' });
+    add(s, g);
+    [['segments', 'segment'], ['rays', 'ray'], ['lines', 'line']].forEach(function (pair) {
+      (b[pair[0]] || []).forEach(function (l) {
+        const ends = clip(b.points[l[0]], b.points[l[1]], pair[1]);
+        add(g, line(X(ends[0][0]), Y(ends[0][1]), X(ends[1][0]), Y(ends[1][1]), 'pic-arm'));
+      });
+    });
+    const solution = view.solution;
+    if (solution) {
+      solution.arcs.forEach(function (a) { add(g, el('circle', { cx: X(a.c[0]), cy: Y(a.c[1]), r: a.r * unit, class: 'pic-solution-line' })); });
+      if (solution.line) { const ends = clip(solution.line[0], solution.line[1], 'line'); add(g, line(X(ends[0][0]), Y(ends[0][1]), X(ends[1][0]), Y(ends[1][1]), 'pic-solution-line')); }
+    }
+    st.arcs.forEach(function (a) { add(g, el('circle', { cx: X(a.c[0]), cy: Y(a.c[1]), r: a.r * unit, class: 'pic-compass-arc' })); });
+    if (st.line) { const ends = clip(st.line[0], st.line[1], 'line'); add(g, line(X(ends[0][0]), Y(ends[0][1]), X(ends[1][0]), Y(ends[1][1]), 'pic-pen-line')); }
+    const pts = window.DigitStackEngine.drawing.compassPoints(p, st);
+    pts.forEach(function (pt) {
+      add(s, el('circle', { cx: X(pt.at[0]), cy: Y(pt.at[1]), r: pt.name ? 4.5 : 3.5, class: pt.name ? 'pic-dot' : 'pic-pen-point' }));
+      if (pt.name && (b.hideLabels || []).indexOf(pt.name) === -1) add(s, text(X(pt.at[0]) - 12, Y(pt.at[1]) - 12, pt.name, '', 'middle', 15));
+    });
+    if (st.pending) add(s, el('circle', { cx: X(st.pending[0]), cy: Y(st.pending[1]), r: 9, class: 'pic-solution-point' }));
+    if (view.step !== null) {
+      add(s, el('circle', { cx: X(st.cursor[0]), cy: Y(st.cursor[1]), r: st.width * unit, class: 'pic-compass-preview' }),
+        el('circle', { cx: X(st.cursor[0]), cy: Y(st.cursor[1]), r: 11, class: 'pic-cursor' }));
+      add(s, text(X(b.w) - 6, Y(b.h) + 14, 'compass ' + st.width + ' cm', 'pic-small', 'end', 13));
+    }
+    return s;
+  };
+
   function board(problem, state, view) {
     const v = Object.assign({ step: null, solution: null, result: null }, view || {});
     const draw = B[problem.board.tool];

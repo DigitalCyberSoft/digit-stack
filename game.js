@@ -1565,8 +1565,10 @@
     if (state.screen !== 'playing' || state.mode === 'test' || state.lockInput || !isDraw(state.problem)) return;
     ensureAudio();
     if (trigger === 'enter' && Engine.drawing.checkOn(state.problem) === 'place') {
-      els.liveRegion.textContent = 'Move the pencil to the point and press Space to put the corner there.';
-      els.fixNote.textContent = 'Each corner is checked as you put it down: move the pencil and press Space.';
+      const compass = state.problem.board.tool === 'compass';
+      els.liveRegion.textContent = compass ? 'Each arc and line is checked as you draw it.' : 'Move the pencil to the point and press Space to put the corner there.';
+      els.fixNote.textContent = compass ? 'Each arc and line is checked as you draw it: Space draws an arc, L at two points draws a line.'
+        : 'Each corner is checked as you put it down: move the pencil and press Space.';
       els.fixNote.hidden = false;
       return;
     }
@@ -1594,9 +1596,9 @@
     state.fixes += 1;
     state.cleanStreak = 0;
     state.pendingYear = null;
-    // A wrong corner is taken off again, to be put down afresh.
+    // A wrong corner, arc or line is taken off again, to be drawn afresh.
     if (trigger === 'place') {
-      setBoard(Object.assign({}, state.boardState, { points: state.boardState.points.slice(0, -1) }));
+      setBoard(Engine.drawing.undo(state.problem, state.boardState));
       renderBoard();
     }
     savePlay();
@@ -1630,6 +1632,9 @@
     else if (key === ' ' || key === 'Spacebar') name = ' ';
     else if (key === 'Backspace' || key === 'Delete' || key === 'PageUp' || key === 'PageDown') name = key;
     else if (key === 'Tab') name = state.mode === 'test' && !event.shiftKey ? 'Tab' : null;
+    else if (state.problem.board.tool === 'compass' && (key === '+' || key === '=')) name = '+';
+    else if (state.problem.board.tool === 'compass' && (key === '-' || key === MINUS)) name = '-';
+    else if (state.problem.board.tool === 'compass' && (key === 'l' || key === 'L')) name = 'L';
     else if (/^[0-9]$/.test(key) || key === '-' || key === MINUS) {
       // Nothing is typed on a drawing.
       event.preventDefault();

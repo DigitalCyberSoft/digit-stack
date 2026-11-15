@@ -849,6 +849,26 @@ const DRAW_VERIFY = {
     const a = Number(m[1]); const b = Number(m[2]);
     return a + b < 180 && JSON.stringify(p.target.angles) === JSON.stringify([a, b]) ? null : 'target ' + p.target.angles;
   },
+  // A construction: worked out with distances and dot products. The finished drawing's line must be the one asked for, and its arcs
+  // must be the method: equal widths where the method needs them, each centred where it should be.
+  'draw-construct': (p, c) => {
+    const P = p.board.points; const s = p.target; const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const lineDist = (q, a, b) => Math.abs((b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0])) / d(a, b);
+    if (!s || !s.line || s.arcs.length < 2) return 'no finished construction';
+    const [u, v] = s.line; const near = (x, y) => Math.abs(x - y) < 1e-6;
+    if (c.how === 'bisector') {
+      if (!(d(s.arcs[0].c, P.A) < 1e-9 && d(s.arcs[1].c, P.B) < 1e-9 && near(s.arcs[0].r, s.arcs[1].r) && s.arcs[0].r > d(P.A, P.B) / 2)) return 'arcs are not the method';
+      return near(d(u, P.A), d(u, P.B)) && near(d(v, P.A), d(v, P.B)) ? null : 'the line is not the perpendicular bisector';
+    }
+    if (c.how === 'angle') {
+      if (d(s.arcs[0].c, P.B) > 1e-9 || !near(s.arcs[1].r, s.arcs[2].r) || !near(d(s.arcs[1].c, P.B), d(s.arcs[2].c, P.B))) return 'arcs are not the method';
+      const other = d(u, P.B) > d(v, P.B) ? u : v;
+      return Math.min(d(u, P.B), d(v, P.B)) < 1e-6 && near(lineDist(other, P.B, P.A), lineDist(other, P.B, P.C)) ? null : 'the line is not the angle bisector';
+    }
+    const dot = (v[0] - u[0]) * (P.M[0] - P.L[0]) + (v[1] - u[1]) * (P.M[1] - P.L[1]);
+    if (!near(s.arcs[1].r, s.arcs[2].r)) return 'the last two arcs are not the same width';
+    return Math.min(d(u, P.P), d(v, P.P)) < 1e-6 && Math.abs(dot) < 1e-6 ? null : 'the line is not perpendicular through P';
+  },
   'draw-points': (p, c) => {
     const want = c.xs.map(x => [x, c.m * x + c.c]);
     const eq = /y = (−?\d*)x(?: ([+−]) (\d+))?/.exec(p.question);
@@ -868,7 +888,10 @@ function verifyDrawing(p, key) {
   if (result) fail(key + ' ' + p.title + ' [' + c.kind + '] ' + result + ' :: ' + p.question, p);
   stat(key, 'check:' + c.kind);
   if (!p.question || p.actions.length !== p.steps.length || p.actions.some(a => !a.prompt || !a.why)) fail(key + ' drawing without a question or a reason for each step', p);
-  // Played by keyboard, in learning (one step at a time) and in a test (Tab moves between angles).
+  // Played by keyboard, in learning (one step at a time) and in a test (Tab moves between angles), from a copy made through JSON, as a
+  // saved round comes back: a problem must be plain data.
+  const saved = p; p = JSON.parse(JSON.stringify(p));
+  if (JSON.stringify(D.solved(p)) !== JSON.stringify(D.solved(saved))) fail(key + ' the drawing changes when the problem is saved', saved);
   for (const guided of [true, false]) {
     let s = D.start(p);
     if (D.mark(p, s)) fail(key + ' the empty board is already marked right', p);

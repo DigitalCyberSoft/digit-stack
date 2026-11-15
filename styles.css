@@ -3462,6 +3462,9 @@ kbd {
 .pic-pen-arm { stroke: var(--pen); }
 .pic-active-arm { stroke-width: 5; }
 .pic .pic-scale-inner { fill: var(--ink-2); }
+.pic-board-compass .pic { width: min(100%, 620px); }
+.pic-compass-arc { fill: none; stroke: var(--pen); stroke-width: 1.6; opacity: 0.75; }
+.pic-compass-preview { fill: none; stroke: var(--ink-2); stroke-width: 1.4; stroke-dasharray: 3 5; }
 .pic-pie-0 { fill: var(--cover); }
 .pic-pie-1 { fill: color-mix(in srgb, var(--cover) 60%, var(--page)); }
 .pic-pie-2 { fill: color-mix(in srgb, var(--cover) 35%, var(--page)); }
@@ -3652,7 +3655,10 @@ body.is-mixed .not-mixed {
   visibility: hidden;
 }
 
-.console:not([data-tool='grid']) .board-wide:not(.board-done),
+.console:not([data-tool='compass']) .compass-only,
+.console:not([data-tool='compass']) .arc-label,
+.console[data-tool='compass'] .mark-label,
+.console:not([data-tool='grid']):not([data-tool='compass']) .board-wide:not(.board-done),
 .console[data-tool='clock'] .space-hint,
 .console[data-tool='line'] .space-hint,
 .console[data-tool='bars'] .space-hint,

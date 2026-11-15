@@ -47,7 +47,8 @@ const CASES = [
   [6, '8', 'Drawing nets', 'Y6 completing a net of a cube', 1], [3, '8', 'Drawing shapes', 'Y3 drawing a rectangle on a grid', 1], [6, '8', 'Drawing reflections', 'Y6 reflecting in an axis', 1],
   [7, '8', 'Drawing rotations', 'Y7 rotating about the origin', 1], [5, '8', 'Drawing angles', 'Y5 drawing an angle with a protractor', 1], [6, '8', 'Drawing triangles', 'Y6 drawing a triangle from two angles', 1],
   [2, '9', 'Pictograms to draw', 'Y2 completing a pictogram', 1], [1, '9', 'Tally charts to draw', 'Y1 completing a tally chart', 1], [4, '9', 'Line graphs to draw', 'Y4 plotting a line graph', 1],
-  [6, '9', 'Drawing pie charts', 'Y6 drawing a pie chart', 1], [7, '0', 'Plotting graphs', 'Y7 plotting a straight-line graph', 1]
+  [6, '9', 'Drawing pie charts', 'Y6 drawing a pie chart', 1], [7, '0', 'Plotting graphs', 'Y7 plotting a straight-line graph', 1],
+  [7, '8', 'Constructions', 'Y7 a ruler and compass construction', 1]
 ];
 
 (async () => {

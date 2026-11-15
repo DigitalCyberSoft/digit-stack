@@ -270,11 +270,14 @@
                 <button type="button" data-board-key="ArrowUp" tabindex="-1" aria-label="Up">&#8593;</button>
                 <button type="button" data-board-key="Shift+ArrowRight" tabindex="-1" aria-label="Big step right (Shift and right arrow)">&#187;</button>
                 <button type="button" data-board-key="ArrowLeft" tabindex="-1" aria-label="Left">&#8592;</button>
-                <button class="board-mark" type="button" data-board-key=" " tabindex="-1" aria-label="Mark (Space)">Mark</button>
+                <button class="board-mark" type="button" data-board-key=" " tabindex="-1" aria-label="Mark, or draw an arc (Space)"><span class="mark-label">Mark</span><span class="arc-label">Arc</span></button>
                 <button type="button" data-board-key="ArrowRight" tabindex="-1" aria-label="Right">&#8594;</button>
                 <button type="button" data-board-key="Shift+ArrowDown" tabindex="-1" aria-label="Big step down (Shift and down arrow)">&#8650;</button>
                 <button type="button" data-board-key="ArrowDown" tabindex="-1" aria-label="Down">&#8595;</button>
                 <button type="button" data-board-key="Shift+ArrowUp" tabindex="-1" aria-label="Big step up (Shift and up arrow)">&#8648;</button>
+                <button class="compass-only" type="button" data-board-key="-" tabindex="-1" aria-label="Close the compass (minus)">&#8722; cm</button>
+                <button class="compass-only" type="button" data-board-key="L" tabindex="-1" aria-label="Ruler (L)">Ruler</button>
+                <button class="compass-only" type="button" data-board-key="+" tabindex="-1" aria-label="Open the compass (plus)">+ cm</button>
                 <button class="board-wide" type="button" data-board-key="Backspace" tabindex="-1" aria-label="Undo (Backspace)">Undo</button>
                 <button class="board-wide board-done guided-only" type="button" data-board-key="Enter" tabindex="-1" aria-label="Done (Enter)">Done</button>
               </div>
@@ -290,6 +293,7 @@
                 <span class="draw-only"><kbd>&#8592;&#8593;&#8594;&#8595;</kbd> move or turn</span>
                 <span class="draw-only"><kbd>Shift</kbd> bigger steps</span>
                 <span class="draw-only space-hint"><kbd>Space</kbd> mark</span>
+                <span class="draw-only compass-only"><kbd>+</kbd> <kbd>&#8722;</kbd> compass, <kbd>L</kbd> ruler</span>
                 <span class="draw-only guided-only"><kbd>Enter</kbd> done</span>
                 <span class="tutorial-only"><kbd>&#8594;</kbd> next step</span>
                 <span class="tutorial-only"><kbd>&#8592;</kbd> back</span>
@@ -342,7 +346,7 @@
         </div>
         <div class="help-block">
           <h3>Drawing</h3>
-          <p>Some questions are drawn: clock hands, shading, a mark on a number line, a line on a ruler, corners on a grid, bars and pictograms, angles on a protractor, pie charts. The arrow keys move or turn (with <kbd>Shift</kbd>, a bigger step), <kbd>Space</kbd> shades a part or puts a corner down, <kbd>Backspace</kbd> takes the last corner away, and <kbd>Enter</kbd> says the drawing is done. While learning each step is checked as you go; a grid corner is checked as you put it down.</p>
+          <p>Some questions are drawn: clock hands, shading, a mark on a number line, a line on a ruler, corners on a grid, bars and pictograms, angles on a protractor, pie charts. The arrow keys move or turn (with <kbd>Shift</kbd>, a bigger step), <kbd>Space</kbd> shades a part or puts a corner down, <kbd>Backspace</kbd> takes the last corner away, and <kbd>Enter</kbd> says the drawing is done. With a ruler and compass, <kbd>+</kbd> and <kbd>&#8722;</kbd> open and close the compass, <kbd>Space</kbd> draws an arc, and <kbd>L</kbd> at two points draws a line. While learning each step is checked as you go; a grid corner is checked as you put it down.</p>
         </div>
         <div class="help-block">
           <h3>Year checks</h3>
