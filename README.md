@@ -68,7 +68,7 @@ Progress is saved in the browser, so the game can be closed at any point and ope
 - Each question works like a test, but nothing is marked until the test is handed in. Until then questions can be visited in any order and any answer changed: `N` or `Enter` next, `P` back, or click a number in the question strip, which fills in each answered question. `E` hands the test in after a check that lists the questions with no answer; pressing `E` or `Enter` again confirms.
 - The time limit counts down to a fixed moment, so it keeps running while paused or closed. `Esc` pauses; `E` then hands in at once and `Q` leaves the test for later (`R` carries on).
 - The results show the score, percentage, a grade, the time taken and a score per area, and the arrow keys step through every marked question. `Enter` goes over each question that was not right, step by step, then returns to the results; `F` finishes. Grades: A+ 95% or more, A 90, A− 85, B+ 80, B 75, B− 70, C+ 65, C 60, C− 55, D 50, and F under 50%, which is always a fail.
-- Questions are made from a seed, so a test closed part way through is rebuilt exactly. The mixed test does not change any area's progress.
+- Questions are made from a seed, so a test closed part way through is rebuilt exactly. A saved test also keeps a fingerprint of what the question generators make; after an update that changes the questions, a saved test is cleared, and the start screen says so, rather than rebuilt with different questions. The mixed test does not change any area's progress.
 
 ## Display settings
 

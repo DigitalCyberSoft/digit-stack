@@ -3175,6 +3175,28 @@
     return CLEAN_ROUNDS[area][year];
   }
 
+  // A short code for what the generators make. A saved mixed test keeps
+  // only its seed and rebuilds its questions, so it can be trusted only
+  // while this code is the same as when it was started.
+  let fingerprintCache = null;
+
+  function fingerprint() {
+    if (fingerprintCache) return fingerprintCache;
+    let text = '';
+    withSeed(20261115, function () {
+      AREAS.forEach(function (area) {
+        YEARS.forEach(function (year) {
+          const problem = generateProblem(area, year);
+          text += area + year + problem.question + JSON.stringify(problem.answer) + '|';
+        });
+      });
+    });
+    let hash = 5381;
+    for (let i = 0; i < text.length; i++) hash = ((hash * 33) ^ text.charCodeAt(i)) >>> 0;
+    fingerprintCache = hash.toString(36);
+    return fingerprintCache;
+  }
+
   return {
     YEARS: YEARS,
     AREAS: AREAS,
@@ -3186,6 +3208,7 @@
     MAX_DECIMAL_PLACES: MAX_DECIMAL_PLACES,
     CLEAN_ROUNDS: CLEAN_ROUNDS,
     cleanRounds: cleanRounds,
+    fingerprint: fingerprint,
     cleanRoundsForInputs: cleanRoundsForInputs,
     roundInputs: roundInputs,
     effort: effort,

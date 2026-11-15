@@ -202,6 +202,18 @@ async function answer(page, wrong) {
   s = await st(page);
   const kicker = await page.locator('#endKicker').innerText();
   check('a test whose time ran out opens on its results', s.screen === 'mixedResults' && s.mixed.timeUp && /Time is up/.test(kicker), kicker);
+  // A test saved before the questions changed (another fingerprint) cannot be rebuilt: it is cleared, and the card says why.
+  const savedTest = await stored(page, 'digitstack.mixed.v1');
+  await page.evaluate(() => { const m = JSON.parse(localStorage.getItem('digitstack.mixed.v1')); m.fingerprint = 'older'; localStorage.setItem('digitstack.mixed.v1', JSON.stringify(m)); });
+  await page.reload(); await wait(page, 100);
+  const clearedNote = await page.locator('#mixedNote').innerText();
+  check('a saved test from before an update is cleared, and the card says so', (await st(page)).screen === 'setup' && !(await st(page)).mixed &&
+    (await stored(page, 'digitstack.mixed.v1')) === null && /before the game was updated/.test(clearedNote), clearedNote);
+  // Put the marked test back; marked results wait on the start screen until R.
+  await page.evaluate(t => localStorage.setItem('digitstack.mixed.v1', t), savedTest);
+  await page.reload(); await wait(page, 100);
+  await page.keyboard.press('r'); await wait(page, 100);
+  s = await st(page);
   check('only the answered question counts: 1 of 20 is 5%, an F', s.mixed.results.filter(r => r.correct).length === 1 && s.mixed.results.filter(r => !r.answered).length === 19 && s.mixed.grade === 'F');
   await page.keyboard.press('f'); await wait(page);
   check('F on the results finishes without going over the questions', (await st(page)).screen === 'setup' && (await stored(page, 'digitstack.mixed.v1')) === null);

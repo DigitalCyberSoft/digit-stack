@@ -192,7 +192,7 @@ async function shot(page, name, target) {
   await desk.waitForTimeout(150); made.push(await shot(desk, 'mixed-setup'));
   await desk.evaluate(() => {
     const E = window.DigitStackEngine; const now = Date.now();
-    const m = { version: 2, seed: 4242, year: 4, count: 20, minutes: 30, difficulty: 'medium', index: 2, answers: [], current: null, startedAt: now - 260000, deadline: now - 260000 + 1800000, finished: false, timeUp: false, endedAt: null, open: true };
+    const m = { version: 2, seed: 4242, fingerprint: E.fingerprint(), year: 4, count: 20, minutes: 30, difficulty: 'medium', index: 2, answers: [], current: null, startedAt: now - 260000, deadline: now - 260000 + 1800000, finished: false, timeUp: false, endedAt: null, open: true };
     let list = []; E.withSeed(99, () => { while (list.length < 20) list = list.concat(E.kit.shuffle(E.AREAS)); list = E.kit.shuffle(list.slice(0, 20)); }); m.areas = list;
     const q = i => E.withSeed((m.seed + i * 7919) >>> 0, () => E.generateProblem(m.areas[i], m.year, m.difficulty));
     for (let i = 0; i < 2; i++) m.answers.push(E.solutionOf(q(i)).values);

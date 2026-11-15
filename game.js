@@ -279,6 +279,8 @@
     mixedTimer: null,
     // Each question's answer boxes, worked out once per test.
     mixedMarked: null,
+    // A saved mixed test was made by other question generators and cleared.
+    mixedCleared: false,
     // A drawing question's board: plain data that every key changes.
     boardState: null,
     reviewIndex: 0
@@ -2797,6 +2799,13 @@
     if (!Array.isArray(m.areas) || m.areas.length !== m.count || m.areas.some(function (a) { return AREAS.indexOf(a) === -1; })) return null;
     if (!Number.isInteger(m.index) || m.index < 0 || m.index > m.count || !Array.isArray(m.answers)) return null;
     if (m.deadline !== null && typeof m.deadline !== 'number') return null;
+    // Made by other question generators (an update since it was started):
+    // its questions cannot be rebuilt, so it is cleared and the card says so.
+    if (m.fingerprint !== Engine.fingerprint()) {
+      removeStored(STORAGE.mixed);
+      state.mixedCleared = true;
+      return null;
+    }
     m.running = false;
     return m;
   }
@@ -2837,6 +2846,8 @@
         (m.deadline ? ', ' + clockText(m.deadline - Date.now()) + ' left' : '') + '. Press R to carry on.';
     } else if (m && m.finished) {
       els.mixedNote.textContent = 'Your last test is marked. Press R to see the results.';
+    } else if (state.mixedCleared) {
+      els.mixedNote.textContent = 'A mixed test from before the game was updated was cleared, because its questions have changed. Press R for a new one.';
     } else {
       els.mixedNote.textContent = 'Questions from every area for the school year. Choose how many, a time limit and how hard. Marks and a grade at the end.';
     }
@@ -2902,12 +2913,14 @@
   }
 
   function startMixed() {
+    state.mixedCleared = false;
     const c = mixedChoices(state.mixedSetup);
     const seed = Math.floor(Math.random() * 2147483647);
     const now = Date.now();
     state.mixed = {
       version: PLAY_VERSION,
       seed: seed,
+      fingerprint: Engine.fingerprint(),
       year: state.progress.schoolYear,
       count: c.count,
       minutes: c.minutes,
