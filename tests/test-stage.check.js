@@ -64,8 +64,10 @@ async function startTest(page, year, key) {
   }
   check('test mode covers short and long multiplication and division', ['multiply:short', 'multiply:long', 'divide:short', 'divide:long'].every(m => methodsSeen.has(m)), [...methodsSeen].join(','));
 
-  // Navigation, editing, exchange boxes and crossing out.
+  // Navigation, editing, exchange boxes and crossing out. Year 3 subtraction also asks missing-number and estimate sentences,
+  // so start again until the test is a column subtraction.
   await startTest(page, 3, '4');
+  for (let i = 0; i < 60 && !(await st(page)).problem.rows.some(r => r.id === 'ex'); i++) await startTest(page, 3, '4');
   let s = await st(page);
   const start = s.selectedCellId;
   await page.keyboard.press('ArrowUp'); await page.keyboard.press('ArrowUp');

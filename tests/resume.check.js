@@ -79,13 +79,16 @@ const statusText = page => page.evaluate(() => document.getElementById('sheetSta
   check('the reopened round ends as a round with a fix', e.screen === 'fixed');
 
   // Quitting to the start keeps the area's place; the start screen reopens.
+  // Year 3 subtraction also asks short sentences that can end within 2 steps, so play on until a round has more than 2.
   await page.keyboard.press('n'); await wait(page);
+  for (let i = 0; i < 40 && (await st(page)).problem.actions.length < 3; i++) { await solveGuided(page); await page.keyboard.press('Enter'); await wait(page); }
   s = await stepTo(page, 2);
   await page.keyboard.press('Escape'); await wait(page); await page.keyboard.press('q'); await wait(page);
   r1 = await reopen(page);
   check('quitting to the start, then reopening, opens the start screen', r1.screen === 'setup' && r1.operation === null);
   await page.keyboard.press('4'); await wait(page); r1 = await st(page);
-  check('choosing the area again picks up its round', r1.screen === 'playing' && r1.problem.question === s.problem.question && r1.actionIndex === s.actionIndex);
+  check('choosing the area again picks up its round', r1.screen === 'playing' && r1.problem.question === s.problem.question && r1.actionIndex === s.actionIndex,
+    JSON.stringify({ screen: r1.screen, saved: s.problem.question, reopened: r1.problem && r1.problem.question, step: [s.actionIndex, r1.actionIndex] }));
 
   // Test stage: typed boxes, a two-digit exchange box and the selected box.
   // Year 3 subtraction also has missing-number and estimate sentences, so reopen until the test is a column subtraction.
@@ -167,12 +170,17 @@ const statusText = page => page.evaluate(() => document.getElementById('sheetSta
     bp.on('pageerror', x => bErrors.push(x.message)); bp.on('console', m => { if (m.type() === 'error') bErrors.push(m.text()); });
     await bp.goto(URL); await wait(bp);
     const shownNote = await bp.locator('#saveNote').isVisible();
-    // Year 3 addition takes at least 5 presses, so one press leaves the round open.
-    // With nothing saved, the year opens on its worked example; skip it.
+    // With nothing saved, the year opens on its worked example; skip it. Year 3 addition also asks short sentences that one
+    // press can finish, so go on to the next problem until one press leaves a round open.
     await setYear(bp, 3); await bp.keyboard.press('3'); await wait(bp);
     if ((await st(bp)).screen === 'tutorial') { await bp.keyboard.press('n'); await wait(bp); }
-    const a = (await st(bp)).action; await act(bp, a);
-    const bs = await st(bp);
+    let bs;
+    for (let i = 0; i < 20; i++) {
+      await act(bp, (await st(bp)).action);
+      bs = await st(bp);
+      if (bs.screen === 'playing') break;
+      await bp.keyboard.press('Enter'); await wait(bp);
+    }
     await bp.keyboard.press('Escape'); await wait(bp);
     const note = await bp.locator('#pauseNote').innerText();
     check('when ' + label + ', the start screen says so and the game still plays', shownNote && !bs.saving && bs.screen === 'playing' && bs.actionIndex >= 1 && /not saving/.test(note) && bErrors.length === 0, JSON.stringify({ shownNote, saving: bs.saving, screen: bs.screen, actionIndex: bs.actionIndex, note, bErrors }));

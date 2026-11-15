@@ -144,6 +144,8 @@
 
   const TEST_HELP = 'Arrows move between boxes; Tab follows the method. Type to fill a box, ' +
     'Backspace clears it. Small boxes are for working and are not marked. Press Enter to hand in.';
+  const MIXED_HELP = 'Arrows move between boxes. Type to fill a box, Backspace clears it. N or Enter goes to the next question, ' +
+    'P back. E hands in the test.';
 
   function $(id) {
     return document.getElementById(id);
@@ -169,6 +171,9 @@
     compareKeys: Array.from(document.querySelectorAll('[data-compare]')),
     pauseEnd: $('pauseEnd'),
     handInBtn: $('handInBtn'),
+    handInLabel: document.querySelector('#handInBtn .carry-label'),
+    mixedPrevBtn: $('mixedPrevBtn'),
+    mixedEndBtn: $('mixedEndBtn'),
     turnLabel: $('turnLabel'),
     tutorBack: $('tutorBack'),
     tutorNext: $('tutorNext'),
@@ -260,6 +265,8 @@
     mixedOpen: false,
     mixed: null,
     mixedTimer: null,
+    // Each question's answer boxes, worked out once per test.
+    mixedMarked: null,
     reviewIndex: 0
   };
 
@@ -832,6 +839,8 @@
     showSpecialKeys(problem);
     els.console.classList.toggle('is-test', state.mode === 'test');
     els.handInBtn.disabled = state.mode !== 'test';
+    els.handInLabel.textContent = 'Hand in';
+    els.handInBtn.setAttribute('aria-label', 'Hand in (Enter)');
     hideFixNote();
     updateModeUI();
     renderWorksheet(problem);
@@ -1321,6 +1330,7 @@
     fitSheet();
     els.sheetTitle.textContent = problem.title;
     els.rowMap.innerHTML = '';
+    els.rowMap.setAttribute('aria-label', 'Progress through the fillable rows');
     problem.groups.forEach(function (group) {
       const chip = document.createElement('span');
       chip.className = 'row-chip';
@@ -2041,6 +2051,14 @@
   function handIn() {
     if (state.screen !== 'playing' || state.mode !== 'test') return;
     ensureAudio();
+    // A mixed test marks nothing until the end, and a question can be left
+    // empty and come back to, so Enter goes on to the next question. Once
+    // the hand-in check is showing, Enter hands the test in.
+    if (state.mixed && state.mixed.running) {
+      if (state.handInWarned) finishMixed(false);
+      else mixedNext();
+      return;
+    }
     const marked = markedCellIds();
     const empty = marked.filter(function (id) {
       return !state.entries.get(id) && !state.cellEls.get(id).cell.signBox;
@@ -2051,11 +2069,6 @@
         ' empty. Press Enter again to hand in, or keep going.';
       els.fixNote.hidden = false;
       els.liveRegion.textContent = els.fixNote.textContent;
-      return;
-    }
-    // A mixed test marks nothing until the end.
-    if (state.mixed && state.mixed.running) {
-      mixedHandIn();
       return;
     }
     const correct = marked.every(function (id) {
@@ -2446,6 +2459,8 @@
     if (!m) return true;
     if (m.running && state.screen === 'playing' && state.mode === 'test') {
       m.current = { entries: Object.fromEntries(state.entries), selectedCellId: state.selectedCellId };
+      keepMixedAnswer();
+      updateMixedChips();
     }
     const copy = Object.assign({}, m);
     delete copy.running;
@@ -2586,8 +2601,14 @@
     state.pendingYear = null;
     state.pendingTest = false;
     document.body.classList.add('is-mixed');
-    const saved = m.current && typeof m.current.entries === 'object'
-      ? { entries: m.current.entries, selectedCellId: m.current.selectedCellId } : null;
+    // The question last on screen comes back with its selected box; one
+    // visited before opens with what was typed in it.
+    let saved = null;
+    if (m.current && typeof m.current.entries === 'object') {
+      saved = { entries: m.current.entries, selectedCellId: m.current.selectedCellId };
+    } else if (m.answers[m.index] && typeof m.answers[m.index] === 'object') {
+      saved = { entries: m.answers[m.index], selectedCellId: null };
+    }
     // Open on screen: closing the game now brings it back here.
     m.open = true;
     loadProblem(problem, saved);
@@ -2605,9 +2626,48 @@
     els.modeChip.appendChild(stage);
     els.modeShape.textContent = 'Year ' + m.year + ', ' + m.difficulty + ': ' + AREA_INFO[m.areas[m.index]].name;
     els.stageChip.textContent = 'Test';
-    els.stepLine.textContent = 'Question ' + (m.index + 1) + ' of ' + m.count + '. Fill the boxes, then hand in';
+    els.stepLine.textContent = 'Question ' + (m.index + 1) + ' of ' + m.count + '. Any answer can be changed until the test is handed in';
     els.sheetStatus.textContent = 'no marks until the end';
+    els.subprompt.textContent = MIXED_HELP;
+    const last = m.index === m.count - 1;
+    els.handInLabel.textContent = last ? 'Hand in test' : 'Next';
+    els.handInBtn.setAttribute('aria-label', last ? 'Hand in the test (Enter)' : 'Next question (Enter)');
+    els.mixedPrevBtn.disabled = m.index === 0;
+    els.mixedEndBtn.hidden = last;
+    renderMixedChips();
     updateMixedClock();
+  }
+
+  // One numbered chip per question, filled in once it has an answer; a
+  // click goes to that question. Keys do the same: N or Enter next, P back.
+  function renderMixedChips() {
+    const m = state.mixed;
+    els.rowMap.innerHTML = '';
+    els.rowMap.setAttribute('aria-label', 'Questions');
+    for (let k = 0; k < m.count; k++) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.tabIndex = -1;
+      chip.className = 'row-chip question-chip';
+      chip.textContent = String(k + 1);
+      chip.addEventListener('click', function () {
+        goToMixedQuestion(k);
+        chip.blur();
+      });
+      els.rowMap.appendChild(chip);
+    }
+    updateMixedChips();
+  }
+
+  function updateMixedChips() {
+    const m = state.mixed;
+    if (!m || !m.running) return;
+    els.rowMap.querySelectorAll('.question-chip').forEach(function (chip, k) {
+      const answered = mixedAnswered(m, k);
+      chip.classList.toggle('is-answered', answered);
+      chip.classList.toggle('is-active', k === m.index);
+      chip.setAttribute('aria-label', 'Question ' + (k + 1) + (answered ? ', answered' : ', not answered'));
+    });
   }
 
   function updateMixedClock() {
@@ -2621,7 +2681,7 @@
     els.gateLine.textContent = m.minutes ? m.minutes + ' minute limit' : 'No time limit';
     els.streakChip.classList.toggle('is-full', false);
     els.streakChip.classList.toggle('is-late', Boolean(m.deadline && m.deadline - now < 60000));
-    const done = m.finished ? m.count : m.index;
+    const done = m.finished ? m.count : mixedAnsweredCount(m);
     els.streakMeter.innerHTML = '';
     const bar = document.createElement('span');
     bar.className = 'mixed-progress';
@@ -2631,7 +2691,7 @@
     els.streakMeter.appendChild(bar);
     els.streakMeter.setAttribute('aria-valuemax', String(m.count));
     els.streakMeter.setAttribute('aria-valuenow', String(done));
-    els.streakMeter.setAttribute('aria-valuetext', done + ' of ' + m.count + ' questions handed in');
+    els.streakMeter.setAttribute('aria-valuetext', done + ' of ' + m.count + (m.finished ? ' questions handed in' : ' questions answered'));
   }
 
   function stopMixedTimer() {
@@ -2665,19 +2725,105 @@
     if (state.pauseOpen) updatePauseStats();
   }
 
-  function mixedHandIn() {
+  // What is typed in the question on screen is its answer at once, so
+  // moving to another question, closing the game or the time running out
+  // all keep it.
+  function keepMixedAnswer() {
     const m = state.mixed;
-    m.answers[m.index] = Object.fromEntries(state.entries);
+    if (m && m.running && state.screen === 'playing' && state.mode === 'test' && m.index < m.count) {
+      m.answers[m.index] = Object.fromEntries(state.entries);
+    }
+  }
+
+  // The boxes a test marks: the inputs in the answer rows.
+  function answerBoxIds(problem) {
+    const ids = [];
+    problem.rows.forEach(function (row) {
+      if (problem.markRowIds.indexOf(row.id) === -1) return;
+      row.cells.forEach(function (cell) { if (cell && cell.kind === 'input') ids.push(cell.id); });
+    });
+    return ids;
+  }
+
+  // A question is answered once one of its answer boxes holds something,
+  // the same rule the marking uses.
+  function mixedAnswered(m, index) {
+    const entries = m.answers[index];
+    if (!entries || typeof entries !== 'object') return false;
+    if (!state.mixedMarked || state.mixedMarked.seed !== m.seed) state.mixedMarked = { seed: m.seed, ids: {} };
+    let ids = state.mixedMarked.ids[index];
+    if (!ids) {
+      ids = answerBoxIds(mixedQuestion(m, index));
+      state.mixedMarked.ids[index] = ids;
+    }
+    return ids.some(function (id) { return entries[id]; });
+  }
+
+  function mixedAnsweredCount(m) {
+    let count = 0;
+    for (let i = 0; i < m.count; i++) if (mixedAnswered(m, i)) count += 1;
+    return count;
+  }
+
+  // Questions can be visited in any order and changed until the test is
+  // handed in.
+  function goToMixedQuestion(index) {
+    const m = state.mixed;
+    if (!m || !m.running || state.screen !== 'playing') return;
+    resetHandInWarning();
+    if (index < 0 || index >= m.count || index === m.index) return;
+    keepMixedAnswer();
+    m.index = index;
     m.current = null;
-    m.index += 1;
     playSound('tick');
-    if (m.index >= m.count) {
+    showMixedQuestion();
+    els.liveRegion.textContent = 'Question ' + (m.index + 1) + ' of ' + m.count +
+      (mixedAnswered(m, m.index) ? ', answered. ' : '. ') + state.problem.question;
+  }
+
+  // Enter and N go on to the next question; from the last one they ask to
+  // hand the test in.
+  function mixedNext() {
+    const m = state.mixed;
+    if (!m || !m.running) return;
+    if (m.index >= m.count - 1) {
+      askMixedHandIn();
+      return;
+    }
+    goToMixedQuestion(m.index + 1);
+  }
+
+  function numberList(numbers) {
+    if (numbers.length === 1) return String(numbers[0]);
+    return numbers.slice(0, -1).join(', ') + ' and ' + numbers[numbers.length - 1];
+  }
+
+  // E, or going on from the last question, asks once and lists any question
+  // not answered yet; pressing E or Enter again hands the test in.
+  function askMixedHandIn() {
+    const m = state.mixed;
+    if (!m || !m.running || state.screen !== 'playing') return;
+    if (state.handInWarned) {
       finishMixed(false);
       return;
     }
-    showMixedQuestion();
-    saveMixed();
-    els.liveRegion.textContent = 'Handed in. Question ' + (m.index + 1) + ' of ' + m.count + '. ' + state.problem.question;
+    keepMixedAnswer();
+    const missing = [];
+    for (let i = 0; i < m.count; i++) if (!mixedAnswered(m, i)) missing.push(i + 1);
+    let said;
+    if (!missing.length) {
+      said = 'All ' + m.count + ' questions are answered.';
+    } else if (missing.length === 1) {
+      said = 'Question ' + missing[0] + ' is not answered.';
+    } else if (missing.length <= 8) {
+      said = 'Questions ' + numberList(missing) + ' are not answered.';
+    } else {
+      said = missing.length + ' questions are not answered, starting with ' + numberList(missing.slice(0, 5)) + '.';
+    }
+    state.handInWarned = true;
+    els.fixNote.textContent = said + ' Press E or Enter again to hand in the test for marking, or keep going.';
+    els.fixNote.hidden = false;
+    els.liveRegion.textContent = els.fixNote.textContent;
   }
 
   // Marks every question the same way a test is marked: each answer box
@@ -2688,11 +2834,7 @@
       const problem = mixedQuestion(m, i);
       const values = Engine.solutionOf(problem).values;
       const entries = m.answers[i] || {};
-      const marked = [];
-      problem.rows.forEach(function (row) {
-        if (problem.markRowIds.indexOf(row.id) === -1) return;
-        row.cells.forEach(function (cell) { if (cell && cell.kind === 'input') marked.push(cell.id); });
-      });
+      const marked = answerBoxIds(problem);
       const answered = marked.some(function (id) { return entries[id]; });
       const correct = answered && marked.every(function (id) { return (entries[id] || '') === (values[id] || ''); });
       results.push({ area: m.areas[i], correct: correct, answered: answered });
@@ -2704,7 +2846,7 @@
     const m = state.mixed;
     if (!m || m.finished) return;
     // What was typed in the question on screen counts as handed in.
-    if (m.running && state.screen === 'playing' && m.index < m.count) m.answers[m.index] = Object.fromEntries(state.entries);
+    keepMixedAnswer();
     stopMixedTimer();
     m.finished = true;
     m.timeUp = timeUp;
@@ -2914,9 +3056,19 @@
     }
 
     if (state.screen === 'playing' && state.mode === 'test') {
+      const mixed = Boolean(state.mixed && state.mixed.running);
       if (event.key === 'Escape') {
         event.preventDefault();
         openPause();
+      } else if (mixed && (event.key === 'n' || event.key === 'N' || event.key === 'PageDown')) {
+        event.preventDefault();
+        if (!event.repeat) mixedNext();
+      } else if (mixed && (event.key === 'p' || event.key === 'P' || event.key === 'PageUp')) {
+        event.preventDefault();
+        if (!event.repeat) goToMixedQuestion(state.mixed.index - 1);
+      } else if (mixed && (event.key === 'e' || event.key === 'E')) {
+        event.preventDefault();
+        if (!event.repeat) askMixedHandIn();
       } else if (/^[0-9]$/.test(event.key)) {
         event.preventDefault();
         if (!event.repeat) testType(Number(event.key));
@@ -3078,6 +3230,14 @@
       handIn();
       els.handInBtn.blur();
     });
+    els.mixedPrevBtn.addEventListener('click', function () {
+      if (state.mixed) goToMixedQuestion(state.mixed.index - 1);
+      els.mixedPrevBtn.blur();
+    });
+    els.mixedEndBtn.addEventListener('click', function () {
+      askMixedHandIn();
+      els.mixedEndBtn.blur();
+    });
 
     els.themeBtn.addEventListener('click', function () {
       cycleTheme();
@@ -3206,7 +3366,7 @@
           difficulty: state.mixed.difficulty,
           areas: state.mixed.areas.slice(),
           index: state.mixed.index,
-          answered: state.mixed.answers.length,
+          answered: mixedAnsweredCount(state.mixed),
           deadline: state.mixed.deadline,
           finished: state.mixed.finished,
           timeUp: state.mixed.timeUp,

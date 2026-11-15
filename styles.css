@@ -3497,6 +3497,61 @@ kbd {
   cursor: pointer;
 }
 
+/* While a mixed test runs, a question with an answer is filled in. */
+.row-chip.question-chip.is-answered:not(.is-active) {
+  border-color: var(--ink);
+  background: rgba(var(--ink-rgb), 0.12);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+body:not(.is-mixed) .mixed-only,
+body.is-mixed .not-mixed {
+  display: none;
+}
+
+/* A mixed test's dock: Back and Next (Enter), with Hand in test under
+   them until the last question, where Next becomes Hand in test. */
+body.is-mixed .carry-dock {
+  display: grid;
+  height: auto;
+  grid-template-areas: 'prev next' 'end end';
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+body.is-mixed #mixedPrevBtn {
+  grid-area: prev;
+}
+
+body.is-mixed #handInBtn {
+  grid-area: next;
+}
+
+body.is-mixed #mixedEndBtn {
+  grid-area: end;
+  justify-content: center;
+  width: 100%;
+}
+
+body.is-mixed .carry-dock .carry-btn {
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.carry-btn.mixed-step {
+  width: auto;
+  border: 2px solid rgba(var(--ink-rgb), 0.28);
+  border-bottom-width: 5px;
+  background: var(--page);
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.carry-btn.mixed-step[hidden] {
+  display: none;
+}
+
 .review-line {
   margin: 12px 0 0;
   color: var(--ink);

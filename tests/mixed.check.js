@@ -1,5 +1,6 @@
-// The mixed test: setting it up by keyboard, questions from every area with no marking until the end, saving and resuming (the clock keeps
-// running), quitting and carrying on, a time limit running out, ending early, the score, grade bands and the review of every answer. Also the
+// The mixed test: setting it up by keyboard, questions from every area with no marking until the end, going back and forth between
+// questions and changing answers, the hand-in check, saving and resuming (the clock keeps running), quitting and carrying on, a time limit
+// running out, ending early, the score, grade bands and the review of every answer. Also the
 // test-mode boxes the new areas use: <, > and =, a choice by number, two sign boxes, and a fraction's top and bottom.
 // Run from the repo root: node tests/mixed.check.js. Needs Playwright; set CHROME_PATH to use an installed Chrome.
 const { chromium } = require('playwright');
@@ -79,13 +80,25 @@ async function answer(page, wrong) {
   const header = await page.locator('#modeChip').innerText();
   check('the header says mixed test and the question number', /Mixed test/.test(header) && /Question 1 of 10/.test(header), header);
 
-  // No marks until the end; an empty hand-in warns first.
+  // Questions can be left empty, visited in any order and changed; nothing is marked until the test is handed in.
   await page.keyboard.press('Enter'); await wait(page);
   s = await st(page);
-  check('handing in empty boxes warns first', s.mixed.index === 0 && s.handInWarned);
+  check('Enter on an empty question goes on to the next one, with no warning', s.mixed.index === 1 && !s.handInWarned, JSON.stringify({ index: s.mixed.index, warned: s.handInWarned }));
+  await page.keyboard.press('p'); await wait(page);
+  check('P goes back to the question before', (await st(page)).mixed.index === 0);
+  await page.keyboard.press('p'); await wait(page);
+  check('P on the first question stays there', (await st(page)).mixed.index === 0);
   await answer(page, false);
   s = await st(page);
-  check('a hand-in goes straight to the next question with no marks', s.screen === 'playing' && s.mixed.index === 1 && (await page.locator('.cell.mark-right, .cell.mark-wrong').count()) === 0);
+  check('Enter goes on to the next question with no marks', s.screen === 'playing' && s.mixed.index === 1 && (await page.locator('.cell.mark-right, .cell.mark-wrong').count()) === 0);
+  const chipState = await page.locator('.question-chip').evaluateAll(cs => cs.map(c => (c.classList.contains('is-answered') ? 'a' : '-') + (c.classList.contains('is-active') ? '*' : '')).join(' '));
+  check('the question strip has a chip per question: the first answered, the second current', chipState === 'a -* - - - - - - - -', chipState);
+  check('the progress bar counts answered questions', s.mixed.answered === 1 && (await page.locator('#streakMeter').getAttribute('aria-valuenow')) === '1');
+  const firstAnswer = (await page.evaluate(() => JSON.parse(localStorage.getItem('digitstack.mixed.v1')).answers[0]));
+  await page.keyboard.press('p'); await wait(page);
+  check('going back shows the answer typed before', JSON.stringify((await st(page)).entries) === JSON.stringify(firstAnswer) && Object.keys(firstAnswer).length > 0, JSON.stringify(firstAnswer));
+  await page.keyboard.press('n'); await wait(page);
+  check('N goes on to the next question', (await st(page)).mixed.index === 1);
   check('the areas\' saved places are not touched by the test', (await stored(page, 'digitstack.play.v1')) === before);
 
   // Closing mid-question: the typed boxes and the clock come back.
@@ -97,6 +110,11 @@ async function answer(page, wrong) {
   s = await st(page);
   check('reopening the game carries on with the same question and its typed boxes', s.screen === 'playing' && s.mixed.index === 1 && JSON.stringify(s.entries) === JSON.stringify(typed));
   check('the deadline does not move when the game is closed', s.mixed.deadline === deadline);
+  await page.keyboard.press('p'); await wait(page);
+  const backAfterReload = (await st(page)).entries;
+  await page.keyboard.press('n'); await wait(page);
+  s = await st(page);
+  check('after reopening, both questions keep what was typed in them', JSON.stringify(backAfterReload) === JSON.stringify(firstAnswer) && s.mixed.index === 1 && JSON.stringify(s.entries) === JSON.stringify(typed));
 
   // Pausing does not stop the clock; quitting keeps the test for later.
   await page.keyboard.press('Escape'); await wait(page);
@@ -111,11 +129,23 @@ async function answer(page, wrong) {
   await page.keyboard.press('r'); await wait(page, 80); s = await st(page);
   check('R carries on with the same question', s.screen === 'playing' && s.mixed.index === 1 && s.mixed.deadline === deadline);
 
-  // Answer the rest: questions 2, 4 and 6 wrong, the others right.
-  for (let q = 1; q < 10; q++) await answer(page, q === 1 || q === 3 || q === 5);
+  // Answer the rest: questions 2, 4, 6 and 7 wrong, the others right.
+  for (let q = 1; q < 10; q++) await answer(page, q === 1 || q === 3 || q === 5 || q === 6);
+  s = await st(page);
+  let handInNote = await page.locator('#fixNote').innerText();
+  check('Enter on the last question asks before handing in, and says all are answered', s.screen === 'playing' && s.handInWarned && !s.mixed.finished && /All 10 questions are answered/.test(handInNote), handInNote);
+  // Change an answer: question 7 goes from wrong to right through its chip.
+  await page.locator('.question-chip').nth(6).click(); await wait(page);
+  s = await st(page);
+  check('a question\'s chip goes to that question, and the hand-in check is put away', s.mixed.index === 6 && !s.handInWarned && !(await page.locator('#fixNote').isVisible()));
+  await answer(page, false);
+  check('after changing question 7, Enter goes on to question 8', (await st(page)).mixed.index === 7);
+  await page.keyboard.press('e'); await wait(page);
+  check('E asks before handing in', (await st(page)).handInWarned && !(await st(page)).mixed.finished);
+  await page.keyboard.press('e'); await wait(page, 80);
   s = await st(page);
   const right = s.mixed && s.mixed.results ? s.mixed.results.filter(r => r.correct).length : -1;
-  check('after the last question the results show', s.screen === 'mixedResults' && s.mixed.finished && right === 7, 'right=' + right);
+  check('E again hands the test in, and the changed answer counts: 7 right', s.screen === 'mixedResults' && s.mixed.finished && right === 7, 'right=' + right);
   check('the grade follows the score (7 of 10 is 70%: B' + MINUS + ')', s.mixed.grade === 'B' + MINUS && /7 out of 10/.test(await page.locator('#endTitle').innerText()) && /Grade B/.test(await page.locator('#endAnswer').innerText()));
   check('each question has a chip, right or not', (await page.locator('.question-chip').count()) === 10 && (await page.locator('.question-chip.is-missed').count()) === 3);
   await page.keyboard.press('ArrowRight'); await wait(page);
@@ -141,12 +171,21 @@ async function answer(page, wrong) {
   check('only the answered question counts: 1 of 20 is 5%, an F', s.mixed.results.filter(r => r.correct).length === 1 && s.mixed.results.filter(r => !r.answered).length === 19 && s.mixed.grade === 'F');
   await page.keyboard.press('Enter'); await wait(page);
 
-  // Ending early from the pause panel.
+  // Handing in early: the check lists what is not answered, and keeping going puts it away.
   await page.keyboard.press('r'); await wait(page); await page.keyboard.press('Enter'); await wait(page, 80);
   await answer(page, false); await answer(page, false);
-  await page.keyboard.press('Escape'); await wait(page); await page.keyboard.press('e'); await wait(page, 80);
+  await page.keyboard.press('e'); await wait(page);
+  handInNote = await page.locator('#fixNote').innerText();
+  check('E part way through lists the questions not answered', (await st(page)).handInWarned && /18 questions are not answered, starting with 3, 4, 5, 6 and 7\./.test(handInNote), handInNote);
+  await page.keyboard.press('n'); await wait(page);
   s = await st(page);
-  check('E in the pause panel ends the test and marks it', s.screen === 'mixedResults' && s.mixed.results.filter(r => r.correct).length === 2 && !s.mixed.timeUp);
+  check('N keeps going: the check is put away and the next question shows', !s.handInWarned && s.mixed.index === 3 && !(await page.locator('#fixNote').isVisible()));
+  // Ending early from the pause panel.
+  await page.keyboard.press('Escape'); await wait(page);
+  const endLabel = await page.locator('#pauseEnd').innerText();
+  await page.keyboard.press('e'); await wait(page, 80);
+  s = await st(page);
+  check('E in the pause panel hands the test in at once and marks it', s.screen === 'mixedResults' && s.mixed.results.filter(r => r.correct).length === 2 && !s.mixed.timeUp && /Hand in the test now/.test(endLabel), endLabel);
   await page.keyboard.press('Enter'); await wait(page);
 
   // The new boxes in a test: <, > and =; a choice by number; two sign boxes; a fraction's top and bottom.

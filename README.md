@@ -56,14 +56,15 @@ Progress is saved in the browser, so the game can be closed at any point and ope
 - The cursor stops at every small box in a written method: type the carry, the amount left over in short division, or `1` to exchange a ten in subtraction. Type `0` when there is none; a 0 is not written on the sheet. The stop happens whether or not anything moves, so it gives nothing away.
 - Every answer is typed. Fractions take the top number, then the bottom. Decimal points, units and the colon in a time are already written in the answer. `<`, `=` and `>` compare (`,` and `.` also work). A word answer, such as *acute* or *kite*, is chosen by its number, and yes or no is `1` or `0`. An answer that could be below zero has a sign box: press `-`, or type the first digit.
 - A wrong digit shows why and what the box needs. Fix it to finish the problem. A round with a fix does not count as clean, so the count goes back to 0. `Enter` then tries the same problem again and `N` starts a new one.
-- Keyboard: arrows set the school year, `1`-`9` and `0` choose the area, `R` the mixed test, `0-9` type, `-` minus, `<` `=` `>` compare, `W` watch the example, `Esc` pause, `H` help, `S` sound, `T` theme, `C` colour-blind friendly colours. The on-screen keypad is optional.
+- Keyboard: arrows set the school year, `1`-`9` and `0` choose the area, `R` the mixed test (then `N`, `P` and `E` for next, back and hand in), `0-9` type, `-` minus, `<` `=` `>` compare, `W` watch the example, `Esc` pause, `H` help, `S` sound, `T` theme, `C` colour-blind friendly colours. The on-screen keypad is optional.
 
 ## The mixed test
 
 `R` on the start screen opens a mixed test of questions from all ten areas for the school year, each area coming up about equally often.
 
 - **Questions:** 10, 20, 30, 40 or 50. **Time limit:** none, or 10 to 90 minutes. **How hard:** easy, medium or hard. Easy asks the easiest of three generated questions for each place, by key presses and decimal places; hard the hardest; medium the first.
-- Each question works like a test, but nothing is marked until the end. The time limit counts down to a fixed moment, so it keeps running while paused or closed. `Esc` pauses; `E` then ends the test early and `Q` leaves it for later (`R` carries on).
+- Each question works like a test, but nothing is marked until the test is handed in. Until then questions can be visited in any order and any answer changed: `N` or `Enter` next, `P` back, or click a number in the question strip, which fills in each answered question. `E` hands the test in after a check that lists the questions with no answer; pressing `E` or `Enter` again confirms.
+- The time limit counts down to a fixed moment, so it keeps running while paused or closed. `Esc` pauses; `E` then hands in at once and `Q` leaves the test for later (`R` carries on).
 - The results show the score, percentage, a grade, the time taken and a score per area, and the arrow keys step through every marked question. Grades: A+ 95% or more, A 90, A− 85, B+ 80, B 75, B− 70, C+ 65, C 60, C− 55, D 50, and F under 50%, which is always a fail.
 - Questions are made from a seed, so a test closed part way through is rebuilt exactly. The mixed test does not change any area's progress.
 
@@ -89,7 +90,7 @@ npm test
 - `tests/solve-all.check.js` plays full rounds by keyboard in all ten areas, Year 1 to Year 7, including decimal division, comparisons, choices and sign boxes.
 - `tests/resume.check.js` closes and reopens the game mid-round, between rounds, at the learning gate and after a passed check, and checks bad saved data and blocked storage.
 - `tests/tutorial.check.js` checks the worked examples: one per kind of question, a reason for every step, stepping forward and back, skipping, replaying, and moving up a year.
-- `tests/mixed.check.js` plays the mixed test: settings, no marking until the end, closing and reopening, quitting and carrying on, a time limit running out, ending early, grades and the review.
+- `tests/mixed.check.js` plays the mixed test: settings, going back and forth and changing answers, the question strip, the hand-in check, no marking until the end, closing and reopening, quitting and carrying on, a time limit running out, handing in early, grades and the review.
 - `tests/display.check.js` checks the theme and colour settings, WCAG contrast in all four combinations including all ten covers, and colour differences under simulated colour vision deficiency (Machado, Oliveira and Fernandes, 2009).
 - `tests/layout.check.js` checks the layout at 390, 860 and 1280 px wide.
 - `tests/guide.check.js` checks the guide pages: images, links, phone width, and the game's links to them.

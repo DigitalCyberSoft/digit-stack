@@ -224,10 +224,18 @@
               <p class="fix-note" id="fixNote" hidden></p>
 
               <div class="carry-dock" id="carryDock">
+                <button class="carry-btn mixed-step mixed-only" id="mixedPrevBtn" type="button" aria-label="Previous question (P)">
+                  <span class="carry-label">Back</span>
+                  <kbd>P</kbd>
+                </button>
                 <button class="carry-btn hand-in-btn test-only" id="handInBtn" type="button" disabled aria-label="Hand in (Enter)">
                   <span class="carry-icon" aria-hidden="true">&#10003;</span>
                   <span class="carry-label">Hand in</span>
                   <kbd>Enter</kbd>
+                </button>
+                <button class="carry-btn mixed-step mixed-only" id="mixedEndBtn" type="button" aria-label="Hand in the test (E)">
+                  <span class="carry-label">Hand in test</span>
+                  <kbd>E</kbd>
                 </button>
               </div>
 
@@ -260,7 +268,10 @@
                 <span class="tutorial-only"><kbd>&#8592;</kbd> back</span>
                 <span class="test-only"><kbd>&#8592;&#8593;&#8594;&#8595;</kbd> move</span>
                 <span class="test-only"><kbd>&#9003;</kbd> clear</span>
-                <span class="test-only"><kbd>Enter</kbd> hand in</span>
+                <span class="test-only not-mixed"><kbd>Enter</kbd> hand in</span>
+                <span class="mixed-only"><kbd>N</kbd> or <kbd>Enter</kbd> next question</span>
+                <span class="mixed-only"><kbd>P</kbd> back</span>
+                <span class="mixed-only"><kbd>E</kbd> hand in the test</span>
                 <span class="guided-only" id="carryHint"><kbd>0</kbd> nothing to carry</span>
                 <button class="foot-btn guided-only" id="watchBtn" type="button"><kbd>W</kbd> watch an example</button>
                 <span id="footMinus" hidden><kbd>&#8722;</kbd> below zero</span>
@@ -308,7 +319,7 @@
         </div>
         <div class="help-block">
           <h3>Mixed test</h3>
-          <p>Press <kbd>R</kbd> on the start page. Choose 10 to 50 questions, a time limit or none, and easy, medium or hard. The questions come from every area for the school year. Nothing is marked until the end: then you see your score, a grade from A+ to D (under 50% is F, not a pass yet) and every answer. The clock keeps running if you pause or close the game.</p>
+          <p>Press <kbd>R</kbd> on the start page. Choose 10 to 50 questions, a time limit or none, and easy, medium or hard. The questions come from every area for the school year. <kbd>N</kbd> or <kbd>Enter</kbd> goes to the next question and <kbd>P</kbd> back, or click a question's number; any answer can be changed until you hand in. <kbd>E</kbd> hands the test in, after saying which questions are not answered. Nothing is marked until then: you see your score, a grade from A+ to D (under 50% is F, not a pass yet) and every answer. The clock keeps running if you pause or close the game.</p>
         </div>
       </div>
 
@@ -317,6 +328,8 @@
         <span><kbd>1</kbd>-<kbd>4</kbd> Divide, multiply, add, subtract</span>
         <span><kbd>5</kbd>-<kbd>0</kbd> Number, fractions, measures, shape, data, algebra</span>
         <span><kbd>R</kbd> Mixed test</span>
+        <span><kbd>N</kbd> <kbd>P</kbd> Next or back in a mixed test</span>
+        <span><kbd>E</kbd> Hand in a mixed test</span>
         <span><kbd>&lt;</kbd> <kbd>=</kbd> <kbd>&gt;</kbd> Compare</span>
         <span><kbd>0-9</kbd> Type a digit</span>
         <span><kbd>0</kbd> Nothing to carry or exchange</span>
@@ -347,7 +360,7 @@
       <div class="pause-actions">
         <button class="help-gotit" id="resumeBtn" type="button">Resume <kbd>Esc</kbd></button>
         <button class="pause-quit" id="quitBtn" type="button">Quit to start <kbd>Q</kbd></button>
-        <button class="pause-quit" id="pauseEnd" type="button" hidden>End the test now <kbd>E</kbd></button>
+        <button class="pause-quit" id="pauseEnd" type="button" hidden>Hand in the test now <kbd>E</kbd></button>
       </div>
       <p class="pause-note" id="pauseNote">Quitting returns to the start. Each area keeps its place on this device, so the game can also be closed.</p>
     </div>
