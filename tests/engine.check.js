@@ -445,7 +445,9 @@ const VERIFY = {
   polygonAngle: (p, ans, c) => want(Number(ans[0]) === (c.what === 'sum' ? (c.n - 2) * 180 : c.what === 'exterior' ? 360 / c.n : (c.n - 2) * 180 / c.n), 'polygon angle'),
   crossing: (p, ans, c) => want(Number(ans[0]) === ((c.asked % 2) === (c.given % 2) ? c.angle : 180 - c.angle), 'crossing'),
   netName: (p, ans, c) => want(ans[0] === { cube: 'cube', pyramid: 'square-based pyramid', prism: 'triangular prism' }[c.name] && p.picture.name === c.name, 'net'),
-  parallel: (p, ans, c) => want(Number(ans[0]) === ((c.asked % 2) === (c.given % 2) ? c.angle : 180 - c.angle), 'parallel'),
+  // From the drawing: the crossing line rises at the picture's angle, so the angles at a crossing go round a, 180 - a, a, 180 - a.
+  // The label must be the given angle's drawn size and the answer the asked angle's.
+  parallel: (p, ans, c) => { const a = p.picture.angle; const size = k => k % 2 ? 180 - a : a; return want(Number(p.picture.label) === size(c.given) && Number(ans[0]) === size(c.asked), 'parallel: label ' + p.picture.label + ' answer ' + ans[0]); },
   pythagoras: (p, ans, c) => want(c.a * c.a + c.b * c.b === c.c * c.c && Number(ans[0]) === (c.missing === 'c' ? c.c : c.a), 'pythagoras'),
   trig: (p, ans, c) => { const r = { sin: Q(c.opp, c.hyp), cos: Q(c.adj, c.hyp), tan: Q(c.opp, c.adj) }[c.fn]; return want(c.opp * c.opp + c.adj * c.adj === c.hyp * c.hyp && fracAnswer(ans, r), 'trig'); },
   rotate: (p, ans, c) => { const r = c.turn === '180' ? [-c.x, -c.y] : c.turn === '90c' ? [c.y, -c.x] : [-c.y, c.x]; return want(Number(ans[0].replace(MINUS, '-')) === r[0] && Number(ans[1].replace(MINUS, '-')) === r[1], 'rotate'); },
@@ -550,7 +552,8 @@ function replay(p, key) {
     if (!c) return fail(key + ' missing cell ' + a.cellId, p);
     hits.set(a.cellId, (hits.get(a.cellId) || 0) + 1);
     if (a.choice) {
-      if (a.subprompt !== E.CHOICE[a.choice]) fail(key + ' choice text differs: ' + a.subprompt, p);
+      // A sign between two terms (3n + 6) has its own wording.
+      if (a.subprompt !== (a.choice === 'sign' && c.plus ? E.CHOICE.signAdd : E.CHOICE[a.choice])) fail(key + ' choice text differs: ' + a.subprompt, p);
       const starts = { carry: /^Next column/, exchange: /^(Subtract the \w+|Next column): /, leftover: /^What is left over from /, sign: /./ }[a.choice];
       if (!starts.test(a.prompt)) fail(key + ' choice prompt not neutral: ' + a.prompt, p);
       if (a.choice !== 'sign' && c.kind !== 'carry') fail(key + ' decision is not on a small box', p);
@@ -799,6 +802,9 @@ function vectorFold(cells) {
 }
 
 function readFraction(text) {
+  // Year 1 names its two fractions in words.
+  if (text === 'half') return [1, 2];
+  if (text === 'a quarter') return [1, 4];
   if (/%$/.test(text)) return [Number(text.slice(0, -1)), 100];
   if (/^\d+\.\d+$/.test(text)) { const d = Math.pow(10, text.split('.')[1].length); return [Math.round(Number(text) * d), d]; }
   const m = /^(\d+)\/(\d+)$/.exec(text); if (m) return [Number(m[1]), Number(m[2])];

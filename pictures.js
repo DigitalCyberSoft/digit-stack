@@ -550,7 +550,7 @@
     const top = ['', '', '', ''];
     const bottom = ['', '', '', ''];
     const mark = function (pos, label) { if (pos < 4) top[pos] = label; else bottom[pos - 4] = label; };
-    mark(p.given, p.angle + '°');
+    mark(p.given, (p.label !== undefined ? p.label : p.angle) + '°');
     mark(p.asked, '?');
     crossingAngles(s, x1, y1, p.angle, top);
     crossingAngles(s, x2, y2, p.angle, bottom);
@@ -629,7 +629,10 @@
     return s;
   };
 
+  // A plain card behind the plot, so the exercise book's squares do not
+  // show through and look like lines of the scale.
   function axes(s, left, top, width, height, max, step, unit) {
+    add(s, el('rect', { x: left, y: top - 6, width: width, height: height + 6, class: 'pic-plot' }));
     const labelStep = max / step > 10 ? step * 2 : step;
     for (let v = 0; v <= max; v += step) {
       const y = top + height - v / max * height;
@@ -958,6 +961,7 @@
     const width = 330;
     const height = 220;
     const Y = function (v) { return top + height - v / b.max * height; };
+    add(s, el('rect', { x: left, y: top - 6, width: width, height: height + 6, class: 'pic-plot' }));
     for (let v = 0; v <= b.max + 1e-9; v += b.minor) {
       const rounded = Math.round(v * 1000) / 1000;
       add(s, line(left, Y(rounded), left + width, Y(rounded), rounded === 0 ? 'pic-axis' : 'pic-gridline'));

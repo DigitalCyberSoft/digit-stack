@@ -3430,7 +3430,8 @@ kbd {
 .pic-protractor { fill: rgba(var(--pen-rgb), 0.07); stroke: var(--ink); stroke-width: 2; }
 .pic-axis { stroke: var(--ink); stroke-width: 2; }
 .pic-gridline { stroke: var(--page-line-strong); stroke-width: 1; }
-.pic-faint { stroke: var(--page-line); stroke-width: 1; }
+.pic-faint { stroke: var(--page-line-strong); stroke-width: 1; stroke-dasharray: 2 3; }
+.pic-plot { fill: var(--page); }
 .pic-point { fill: var(--pen); }
 .pic-tally { stroke: var(--ink); stroke-width: 2.6; stroke-linecap: round; }
 .pic-cellbox { fill: none; stroke: var(--page-line-strong); stroke-width: 1.5; }

@@ -184,26 +184,45 @@
     return null;
   };
 
-  function compareWhy(a, b, show) {
+  // Below zero: of two numbers below zero the one further below is
+  // smaller, and a number below zero is smaller than any that is not.
+  function belowZeroWhy(a, b, sa, sb, sym) {
+    if (a < 0 && b < 0) {
+      return sa + ' is ' + (a < b ? 'further below' : 'nearer to') + ' zero than ' + sb + ' on a number line, so ' +
+        sa + ' ' + sym + ' ' + sb + '.';
+    }
+    const below = a < 0 ? sa : sb;
+    const other = a < 0 ? b : a;
+    return below + ' is below zero' + (other === 0 ? '' : ' and ' + (a < 0 ? sb : sa) + ' is above it') + ', so ' +
+      sa + ' ' + sym + ' ' + sb + '.';
+  }
+
+  // Years 1 and 2 meet < and > for the first time ("use <, > and = signs"
+  // is Year 2), so they are told which way the sign points.
+  const POINTS = ' The pointed end of the sign points to the smaller number.';
+
+  function compareWhy(a, b, show, year) {
     const sym = a < b ? '<' : (a > b ? '>' : '=');
     const word = a < b ? 'less than' : (a > b ? 'more than' : 'the same as');
     if (a === b) return 'They are the same number, so ' + show(a) + ' = ' + show(b) + '.';
-    if (a < 0 || b < 0) {
-      return show(a) + ' is ' + (a < b ? 'further below' : 'nearer to or above') + ' zero than ' + show(b) +
-        ' on a number line, so ' + show(a) + ' ' + sym + ' ' + show(b) + '.';
+    if (a < 0 || b < 0) return belowZeroWhy(a, b, show(a), show(b), sym);
+    if (year === 1) {
+      return show(a) + ' comes ' + (a < b ? 'before ' : 'after ') + show(b) + ' when you count, so it is ' + word + ' ' +
+        show(b) + ': ' + show(a) + ' ' + sym + ' ' + show(b) + '.' + POINTS;
     }
     const ta = String(a);
     const tb = String(b);
+    const points = year === 2 ? POINTS : '';
     if (ta.length !== tb.length) {
       return show(a) + ' has ' + (ta.length < tb.length ? 'fewer' : 'more') + ' digits, so it is ' + word + ' ' +
-        show(b) + ': ' + show(a) + ' ' + sym + ' ' + show(b) + '.';
+        show(b) + ': ' + show(a) + ' ' + sym + ' ' + show(b) + '.' + points;
     }
     let i = 0;
     while (ta[i] === tb[i]) i++;
     const place = placeName(ta.length - 1 - i);
     return 'Compare from the left. The first different digits are in the ' + place + ': ' + ta[i] + ' ' +
       (Number(ta[i]) < Number(tb[i]) ? 'is less than ' : 'is more than ') + tb[i] + ', so ' + show(a) + ' ' + sym + ' ' +
-      show(b) + '.';
+      show(b) + '.' + points;
   }
 
   function decimalCompareWhy(a, b) {
@@ -214,14 +233,22 @@
     const y = K.scaleTo(b, places);
     const sym = x < y ? '<' : (x > y ? '>' : '=');
     if (x === y) return a + ' and ' + b + ' are the same, so ' + a + ' = ' + b + '.';
-    if (x < 0 || y < 0) {
-      return a + ' is ' + (x < y ? 'further below' : 'nearer to or above') + ' zero than ' + b + ', so ' + a + ' ' +
-        sym + ' ' + b + '.';
-    }
+    if (x < 0 || y < 0) return belowZeroWhy(x, y, a, b, sym);
     const wa = decimalText(x, places);
     const wb = decimalText(y, places);
-    return 'Write both with ' + places + ' decimal places: ' + wa + ' and ' + wb + '. Compare from the left: ' +
-      wa + ' ' + sym + ' ' + wb + ', so ' + a + ' ' + sym + ' ' + b + '.';
+    const lead = pa.places !== pb.places ? 'Write both with ' + places + ' decimal places: ' + wa + ' and ' + wb + '. ' : '';
+    const wholeA = Math.floor(x / Math.pow(10, places));
+    const wholeB = Math.floor(y / Math.pow(10, places));
+    if (wholeA !== wholeB) {
+      return lead + 'Compare the whole numbers first: ' + wholeA + (wholeA < wholeB ? ' is less than ' : ' is more than ') + wholeB +
+        ', so ' + a + ' ' + sym + ' ' + b + '.';
+    }
+    const fa = wa.split('.')[1];
+    const fb = wb.split('.')[1];
+    let i = 0;
+    while (fa[i] === fb[i]) i++;
+    return lead + 'The whole numbers are the same. The first different digits are in the ' + placeName(-(i + 1)) + ': ' + fa[i] +
+      (Number(fa[i]) < Number(fb[i]) ? ' is less than ' : ' is more than ') + fb[i] + ', so ' + a + ' ' + sym + ' ' + b + '.';
   }
 
   // Years 1 to 7: <, > or =. Most pairs share their first digits, so the
@@ -282,7 +309,7 @@
       const sym = a < b ? '<' : (a > b ? '>' : '=');
       return sentence('number', year, 'Compare', 'COMPARE',
         'Which sign goes between ' + grouped(int(a)) + ' and ' + grouped(int(b)) + '?',
-        compareWhy(a, b, function (v) { return grouped(int(v)); }), [{ n: int(a) }, { cmp: sym }, { n: int(b) }]);
+        compareWhy(a, b, function (v) { return grouped(int(v)); }, year), [{ n: int(a) }, { cmp: sym }, { n: int(b) }]);
     });
   };
 
@@ -325,7 +352,7 @@
         const value = fromPoint >= 0
           ? String(Number(text[i]) * Math.pow(10, fromPoint))
           : '0.' + '0'.repeat(-fromPoint - 1) + text[i];
-        return sentence('number', year, 'Place value', 'PLACE VALUE', 'In ' + text + ', what is the ' + text[i] + ' worth?',
+        return sentence('number', year, 'Place value', 'PLACE VALUE', 'In ' + text + ', what is the ' + underlined(text, i) + text[i] + ' worth?',
           'The ' + text[i] + ' is in the ' + placeName(fromPoint) + ' place, so it is worth ' + value + '.',
           [{ n: text, mark: i }, { s: '→' }, { ask: value }], { check: { kind: 'digitValue', number: text, index: i } });
       }
@@ -336,11 +363,17 @@
       if (text[i] === '0') return null;
       const value = Number(text[i]) * Math.pow(10, digits - 1 - i);
       return sentence('number', year, 'Place value', 'PLACE VALUE',
-        'In ' + grouped(n) + ', what is the ' + text[i] + ' worth?',
+        'In ' + grouped(n) + ', what is the ' + underlined(text, i) + text[i] + ' worth?',
         'The ' + text[i] + ' is in the ' + placeName(digits - 1 - i) + ' place, so it is worth ' + grouped(value) + '.',
         [{ n: n, mark: i }, { s: '→' }, { ask: value }], { check: { kind: 'digitValue', number: text, index: i } });
     });
   };
+
+  // When the digit asked about appears more than once, the question points
+  // to the underlined one on the sheet.
+  function underlined(text, i) {
+    return text.split(text[i]).length > 2 ? 'underlined ' : '';
+  }
 
   const COUNT_STEPS = { 1: [2, 5, 10], 2: [2, 3, 5, 10], 3: [4, 8, 50, 100], 4: [6, 7, 9, 25, 1000], 5: [10, 100, 1000] };
 
@@ -476,9 +509,22 @@
         groups.push({ symbol: pair[1], text: pair[1], value: pair[0] });
       }
     });
-    const why = groups.length > 1
-      ? text + ' is ' + groups.map(function (g) { return g.text + ' (' + g.value + ')'; }).join(' + ') + ' = ' + n + '.'
-      : text + ' is ' + n + '.';
+    // A smaller numeral in front of a bigger one is taken away from it:
+    // XL is 50 - 10 = 40. Each such pair says so.
+    const single = {};
+    ROMAN.forEach(function (pair) { if (pair[1].length === 1) single[pair[1]] = pair[0]; });
+    const say = function (g) {
+      if (g.symbol.length === 2) {
+        return g.text + ' (' + g.text[0] + ' before ' + g.text[1] + ': ' + single[g.text[1]] + ' ' + MINUS + ' ' +
+          single[g.text[0]] + ' = ' + g.value + ')';
+      }
+      return g.text + ' (' + g.value + ')';
+    };
+    const takesAway = groups.some(function (g) { return g.symbol.length === 2; });
+    const why = (groups.length > 1
+      ? text + ' is ' + groups.map(say).join(' + ') + ' = ' + n + '.'
+      : (takesAway ? text + ' is ' + say(groups[0]).replace(/^\w+ \(/, '').replace(/\)$/, '') + '.' : text + ' is ' + n + '.')) +
+      (takesAway ? ' A smaller numeral in front of a bigger one is taken away from it.' : '');
     return sentence('number', year, 'Roman numerals', 'READ', 'What number is ' + text + '?', why,
       [{ t: text }, { s: '=' }, { ask: n }], { check: { kind: 'roman', text: text } });
   };
@@ -522,7 +568,7 @@
     const a = randInt(2, 12);
     const b = randInt(2, 12);
     const n = a * b;
-    return sentence('number', year, 'Factor pairs', 'FACTORS', 'What number makes a factor pair of ' + n + '?',
+    return sentence('number', year, 'Factor pairs', 'FACTORS', 'Which number goes with ' + a + ' to make a factor pair of ' + n + '?',
       n + ' ÷ ' + a + ' = ' + b + ', so ' + a + ' × ' + b + ' = ' + n + '.',
       [{ n: n }, { s: '=' }, { n: a }, { s: '×' }, { ask: b }]);
   };
@@ -584,9 +630,12 @@
     const value = Math.pow(base, power);
     const chain = [];
     for (let k = 0; k < power; k++) chain.push(base);
+    // Years 5 and 6 say squared and cubed ("the notation for squared (²) and
+    // cubed (³)"); "to the power" is Year 7's.
+    const named = year < 7 && power <= 3 ? base + (power === 2 ? ' squared' : ' cubed') : base + ' to the power ' + power;
     return sentence('number', year, power === 2 ? 'Squares' : (power === 3 ? 'Cubes' : 'Powers'), 'POWERS',
-      'What is ' + base + ' to the power ' + power + '?',
-      base + ' to the power ' + power + ' means ' + chain.join(' × ') + ' = ' + value + '.',
+      'What is ' + named + '?',
+      named + ' means ' + chain.join(' × ') + ' = ' + value + '.',
       [{ n: base }, { sup: power }, { s: '=' }, { ask: value }]);
   };
 
@@ -695,7 +744,7 @@
       const tokens = [{ n: n }, { s: '=' }];
       factors.forEach(function (p, i) {
         if (i) tokens.push({ s: '×' });
-        tokens.push({ ask: p });
+        tokens.push({ ask: p, sub: i ? 'Type the next prime factor.' : 'Type the smallest prime factor.' });
       });
       const steps = [];
       let rest = n;
@@ -727,7 +776,7 @@
           [{ n: ordinary }, { s: '=' }, { n: mantissa }, { s: '×' }, { n: 10 }, { sup: { ask: int(power), sign: power < 0 || randInt(0, 1) === 1 } }]);
       }
       return sentence('number', year, 'Standard form', 'STANDARD FORM', 'Write ' + mantissa + ' × 10 to the power ' + int(power) + ' as an ordinary number.',
-        'The power ' + int(power) + ' moves the point ' + plural(Math.abs(power), 'place', 'places') + (power > 0 ? ' to the right' : ' to the left') +
+        'Multiplying by 10 to the power ' + int(power) + ' moves every digit ' + plural(Math.abs(power), 'place', 'places') + (power > 0 ? ' to the left' : ' to the right') +
           ': ' + grouped(ordinary) + '.',
         [{ n: mantissa }, { s: '×' }, { n: 10 }, { sup: int(power) }, { s: '=' }, { ask: ordinary }]);
     });
@@ -785,7 +834,7 @@
     const box = function (v) { return ask ? { ask: v } : v; };
     if (n % d === 0) return [ask ? { ask: n / d } : { n: n / d }];
     if (mixed && n > d) {
-      return [ask ? { ask: Math.floor(n / d) } : { n: Math.floor(n / d) }, { frac: [box(n % d), box(d)] }];
+      return [ask ? { ask: Math.floor(n / d), sub: 'Type the whole number first.' } : { n: Math.floor(n / d) }, { frac: [box(n % d), box(d)] }];
     }
     return [{ frac: [box(n), box(d)] }];
   }
@@ -873,11 +922,28 @@
     const right = flip ? small : big;
     const hide = randInt(0, 1);
     const rightTokens = { frac: [hide === 0 ? { ask: right[0] } : right[0], hide === 1 ? { ask: right[1] } : right[1]] };
+    // The part both fractions show says what was done; do the same to the
+    // other part: 6 to 3 is ÷ 2, so the top is divided by 2 as well.
+    const part = hide === 0 ? 'top' : 'bottom';
+    const other = hide === 0 ? 'bottom' : 'top';
+    const from = left[1 - hide];
+    const to = right[1 - hide];
+    const op = to > from ? ' × ' : ' ÷ ';
     return sentence('fractions', year, 'Equivalent fractions', 'EQUIVALENT', 'What number goes in the box?',
-      'Multiply or divide the top and bottom by the same number. ' + n + '/' + d + ' = ' + big[0] + '/' + big[1] +
-        ' (both × ' + m + ').',
+      'The ' + other + ' goes from ' + from + ' to ' + to + ': ' + from + op + m + ' = ' + to + '. Do the same to the ' + part + ': ' +
+        left[hide] + op + m + ' = ' + right[hide] + '.',
       [{ frac: left }, { s: '=' }, rightTokens]);
   };
+
+  // What equal parts are called: halves, thirds, quarters ... twelfths, then
+  // 15ths, 21sts, 42nds, 63rds.
+  const PART_NAMES = { 2: 'halves', 3: 'thirds', 4: 'quarters', 5: 'fifths', 6: 'sixths', 7: 'sevenths', 8: 'eighths', 9: 'ninths',
+    10: 'tenths', 11: 'elevenths', 12: 'twelfths', 100: 'hundredths' };
+  function partsName(d) {
+    if (PART_NAMES[d]) return PART_NAMES[d];
+    const teen = d % 100 >= 11 && d % 100 <= 13;
+    return d + (teen ? 'ths' : ({ 1: 'sts', 2: 'nds', 3: 'rds' }[d % 10] || 'ths'));
+  }
 
   // Year 3: tenths from dividing by 10, and ten tenths make one.
   FRACTIONS.tenths = function (year) {
@@ -907,8 +973,8 @@
         const top = add ? a * m + b : a * m - b;
         if (top <= 0) continue;
         return sentence('fractions', year, 'Adding fractions', add ? 'ADD' : 'SUBTRACT',
-          'Work it out. Give the answer in ' + d2 + 'ths.'.replace('2ths', '2nds').replace('3ths', '3rds'),
-          'Change ' + a + '/' + d1 + ' into ' + d2 + 'ths: ' + (a * m) + '/' + d2 + '. Then ' + (a * m) + (add ? ' + ' : ' ' + MINUS + ' ') + b +
+          'Work it out. Give the answer in ' + partsName(d2) + '.',
+          'Change ' + a + '/' + d1 + ' into ' + partsName(d2) + ': ' + (a * m) + '/' + d2 + '. Then ' + (a * m) + (add ? ' + ' : ' ' + MINUS + ' ') + b +
             ' = ' + top + ', so the answer is ' + top + '/' + d2 + '.',
           [{ frac: [a, d1] }, { s: add ? '+' : MINUS }, { frac: [b, d2] }, { s: '=' }, { frac: [{ ask: top }, d2] }]);
       }
@@ -964,7 +1030,7 @@
         ? 'The more parts a whole is cut into, the smaller each part: 1/' + a[1] + ' ' + sym + ' 1/' + b[1] + '.'
         : (a[1] === b[1]
           ? 'Same bottom numbers, so compare the tops: ' + a[0] + ' ' + sym + ' ' + b[0] + '.'
-          : 'Write both in ' + common + 'ths: ' + (a[0] * common / a[1]) + '/' + common + ' and ' + (b[0] * common / b[1]) + '/' + common +
+          : 'Write both in ' + partsName(common) + ': ' + (a[0] * common / a[1]) + '/' + common + ' and ' + (b[0] * common / b[1]) + '/' + common +
             '. So ' + a[0] + '/' + a[1] + ' ' + sym + ' ' + b[0] + '/' + b[1] + '.');
       return sentence('fractions', year, 'Compare fractions', 'COMPARE',
         'Which sign goes between ' + a[0] + '/' + a[1] + ' and ' + b[0] + '/' + b[1] + '?', why,
@@ -1146,8 +1212,8 @@
       const s = simplest(top, common);
       const mixed = s[0] > s[1];
       return sentence('fractions', year, 'Adding fractions', add ? 'ADD' : 'SUBTRACT',
-        'Work it out. Give the answer in its simplest form' + (mixed ? ', as a mixed number.' : '.'),
-        'Use ' + common + 'ths: ' + (n1 * common / d1) + '/' + common + (add ? ' + ' : ' ' + MINUS + ' ') + (n2 * common / d2) + '/' + common +
+        'Work it out. Give the answer in its simplest form' + (mixed && s[1] !== 1 ? ', as a mixed number.' : '.'),
+        'Use ' + partsName(common) + ': ' + (n1 * common / d1) + '/' + common + (add ? ' + ' : ' ' + MINUS + ' ') + (n2 * common / d2) + '/' + common +
           ' = ' + top + '/' + common + (s[0] !== top ? ' = ' + s[0] + '/' + s[1] : '') + (mixed ? ' = ' + mixedText(s[0], s[1]) : '') + '.',
         [{ frac: [n1, d1] }, { s: add ? '+' : MINUS }, { frac: [n2, d2] }, { s: '=' }].concat(fractionTokens(s[0], s[1], true, true)),
         { check: { kind: 'statement', simplest: true } });
@@ -1173,8 +1239,8 @@
       if (top <= 0) continue;
       const s = simplest(top, common);
       return sentence('fractions', year, 'Mixed numbers', add ? 'ADD' : 'SUBTRACT',
-        'Work it out. Give the answer in its simplest form' + (s[0] > s[1] ? ', as a mixed number.' : '.'),
-        'Change to ' + common + 'ths: ' + a + '/' + common + (add ? ' + ' : ' ' + MINUS + ' ') + b + '/' + common + ' = ' + top + '/' + common +
+        'Work it out. Give the answer in its simplest form' + (s[0] > s[1] && s[1] !== 1 ? ', as a mixed number.' : '.'),
+        'Change to ' + partsName(common) + ': ' + a + '/' + common + (add ? ' + ' : ' ' + MINUS + ' ') + b + '/' + common + ' = ' + top + '/' + common +
           ' = ' + mixedText(s[0], s[1]) + '.',
         [{ n: w1 }, { frac: [n1, d1] }, { s: add ? '+' : MINUS }, { n: w2 }, { frac: [n2, d2] }, { s: '=' }].concat(fractionTokens(s[0], s[1], true, true)),
         { check: { kind: 'statement', simplest: true } });
@@ -1230,6 +1296,49 @@
       [{ n: text }, { s: '×' }, { n: w }, { s: '=' }, { ask: answer }]);
   };
 
+  // After a rise of p%, the new price is (100 + p)%: find p% by sharing,
+  // then 100%. £42 is 150%, so 50% is £42 ÷ 3 = £14 and 100% is £28.
+  function reverseWhy(p, after, original) {
+    const money = function (x) { return '£' + (Number.isInteger(x) ? x : x.toFixed(2)); };
+    const lots = (100 + p) / p;
+    const unit = after / lots;
+    return money(after) + ' is ' + (100 + p) + '% of the old price. ' + (100 + p) + '% is ' + lots + ' lots of ' + p + '%, so ' + p + '% is ' +
+      money(after) + ' ÷ ' + lots + ' = ' + money(unit) + '. 100% is ' + (100 / p) + ' × ' + money(unit) + ' = ' + money(original) + '.';
+  }
+
+  // A percentage put together from ones that are quick to find: 100% is
+  // all of it, 50% half, 25% a quarter, 10% a tenth and 5% half of 10%.
+  function percentWhy(p, amount, value) {
+    const said = [];
+    const parts = [];
+    const whole = Math.floor(p / 100);
+    if (whole) {
+      said.push(whole === 1 ? '100% is ' + amount : whole * 100 + '% is ' + whole + ' × ' + amount + ' = ' + whole * amount);
+      parts.push(whole * amount);
+    }
+    const r = p % 100;
+    if (r === 50) {
+      said.push('50% is half: ' + amount + ' ÷ 2 = ' + amount / 2);
+      parts.push(amount / 2);
+    } else if (r === 25 || r === 75) {
+      const quarter = amount / 4;
+      said.push('25% is a quarter: ' + amount + ' ÷ 4 = ' + quarter + (r === 75 ? ', so 75% is 3 × ' + quarter + ' = ' + 3 * quarter : ''));
+      parts.push(r === 75 ? 3 * quarter : quarter);
+    } else if (r) {
+      const ten = amount / 10;
+      const tens = Math.floor(r / 10);
+      said.push('10% is ' + amount + ' ÷ 10 = ' + ten);
+      if (tens > 1) said.push(tens * 10 + '% is ' + tens + ' × ' + ten + ' = ' + tens * ten);
+      if (tens) parts.push(tens * ten);
+      if (r % 10 === 5) {
+        said.push('5% is half of 10%: ' + ten + ' ÷ 2 = ' + ten / 2);
+        parts.push(ten / 2);
+      }
+    }
+    if (parts.length > 1) said.push(p + '% is ' + parts.join(' + ') + ' = ' + value);
+    return said.join('. ') + '.';
+  }
+
   // Year 6: percentages of amounts; Year 7: over 100% and percentage change.
   FRACTIONS.percentOf = function (year) {
     for (let attempt = 0; attempt < 500; attempt++) {
@@ -1238,8 +1347,7 @@
       const value = p * amount / 100;
       if (value !== Math.floor(value)) continue;
       return sentence('fractions', year, 'Percentage of an amount', 'PERCENT', 'Work out ' + p + '% of ' + amount + '.',
-        '10% of ' + amount + ' is ' + (amount / 10) + ', so 1% is ' + decimalText(amount, 2, true) + '. ' + p + '% is ' + p + ' × ' +
-          decimalText(amount, 2, true) + ' = ' + value + '.',
+        percentWhy(p, amount, value),
         [{ n: p }, { t: '%' }, { t: 'of' }, { n: amount }, { s: '=' }, { ask: value }]);
     }
     return null;
@@ -1286,9 +1394,9 @@
         const bottom = d1 * d2;
         const s = simplest(top, bottom);
         return sentence('fractions', year, 'Fraction calculations', 'MULTIPLY',
-          'Work it out. Give the answer in its simplest form' + (s[0] > s[1] ? ', as a mixed number.' : '.'),
-          'Change ' + w1 + ' ' + n1 + '/' + d1 + ' to ' + (w1 * d1 + n1) + '/' + d1 + '. Multiply tops and bottoms: ' + top + '/' + bottom + ' = ' +
-            mixedText(s[0], s[1]) + '.',
+          'Work it out. Give the answer in its simplest form' + (s[0] > s[1] && s[1] !== 1 ? ', as a mixed number.' : '.'),
+          'Change ' + w1 + ' ' + n1 + '/' + d1 + ' to ' + (w1 * d1 + n1) + '/' + d1 + '. Multiply tops and bottoms: ' + top + '/' + bottom +
+            (mixedText(s[0], s[1]) !== top + '/' + bottom ? ' = ' + mixedText(s[0], s[1]) : '') + '.',
           [{ n: w1 }, { frac: [n1, d1] }, { s: '×' }, { frac: [n2, d2] }, { s: '=' }].concat(fractionTokens(s[0], s[1], true, true)),
           { check: { kind: 'statement', simplest: true } });
       }
@@ -1303,9 +1411,9 @@
         const s = simplest(top, bottom);
         if (s[1] > 12) continue;
         return sentence('fractions', year, 'Fraction calculations', 'DIVIDE',
-          'Work it out. Give the answer in its simplest form' + (s[0] > s[1] ? ', as a mixed number.' : '.'),
+          'Work it out. Give the answer in its simplest form' + (s[0] > s[1] && s[1] !== 1 ? ', as a mixed number.' : '.'),
           'Dividing by ' + n2 + '/' + d2 + ' is multiplying by ' + d2 + '/' + n2 + ': ' + n1 + '/' + d1 + ' × ' + d2 + '/' + n2 + ' = ' + top + '/' +
-            bottom + ' = ' + mixedText(s[0], s[1]) + '.',
+            bottom + (mixedText(s[0], s[1]) !== top + '/' + bottom ? ' = ' + mixedText(s[0], s[1]) : '') + '.',
           [{ frac: [n1, d1] }, { s: '÷' }, { frac: [n2, d2] }, { s: '=' }].concat(fractionTokens(s[0], s[1], true, true)),
           { check: { kind: 'statement', simplest: true } });
       }
@@ -1323,7 +1431,7 @@
       const s = simplest(Math.abs(top), common);
       return sentence('fractions', year, 'Fraction calculations', 'ADD',
         'Work it out. Give the answer in its simplest form.',
-        'Use ' + common + 'ths: ' + int(a) + '/' + common + ' + ' + b + '/' + common + ' = ' + int(top) + '/' + common +
+        'Use ' + partsName(common) + ': ' + int(a) + '/' + common + ' + ' + b + '/' + common + ' = ' + int(top) + '/' + common +
           (s[0] !== Math.abs(top) ? ' = ' + (top < 0 ? MINUS : '') + s[0] + '/' + s[1] : '') + '.',
         [{ s: MINUS }, { frac: [n1, d1] }, { s: '+' }, { frac: [n2, d2] }, { s: '=' },
           { signBox: top < 0 ? MINUS : '+' }, { frac: [{ ask: s[0] }, { ask: s[1] }] }],
@@ -1332,6 +1440,17 @@
     return null;
   };
 
+  // 0.4 is 4 tenths, 4/10 = 2/5: a decimal is written over its last
+  // place, then simplified.
+  function decimalAsFraction(text, pair) {
+    const places = (text.split('.')[1] || '').length;
+    const denom = Math.pow(10, places);
+    const top = Math.round(Number(text) * denom);
+    const g = gcd(top, denom);
+    return text + ' is ' + top + ' ' + placeName(-places) + ': ' + top + '/' + denom + '.' +
+      (g > 1 ? ' Divide top and bottom by ' + g + ': ' + pair[0] + '/' + pair[1] + '.' : '');
+  }
+
   // Year 7: terminating decimals and their fractions.
   FRACTIONS.decimalToFraction = function (year) {
     const pair = pick([[3, 8], [5, 8], [7, 8], [1, 8], [3, 4], [2, 5], [3, 5], [4, 5], [7, 20], [9, 20], [3, 25], [7, 2], [9, 4], [11, 5], [13, 8]]);
@@ -1339,7 +1458,7 @@
     const text = decimalText(scaled, 3, true);
     if (randInt(0, 1)) {
       return sentence('fractions', year, 'Decimals and fractions', 'DECIMALS', 'Write ' + text + ' as a fraction in its simplest form.',
-        text + ' = ' + grouped(scaled) + '/1000. Divide top and bottom by ' + gcd(scaled, 1000) + ': ' + pair[0] + '/' + pair[1] + '.',
+        decimalAsFraction(text, pair),
         [{ n: text }, { s: '=' }, { frac: [{ ask: pair[0] }, { ask: pair[1] }] }], { check: { kind: 'statement', simplest: true } });
     }
     return sentence('fractions', year, 'Decimals and fractions', 'DECIMALS', 'Write ' + pair[0] + '/' + pair[1] + ' as a decimal.',
@@ -1421,7 +1540,7 @@
     if (after !== Math.floor(after)) return FRACTIONS.ratio7(year);
     return sentence('fractions', year, 'Reverse percentage', 'PERCENT',
       'After a ' + p + '% rise, a price is £' + after + '. What was it before?',
-      'The new price is ' + (100 + p) + '% of the old one. 1% is £' + after + ' ÷ ' + (100 + p) + ', so 100% is £' + original + '.',
+      reverseWhy(p, after, original),
       [{ t: '£' }, { ask: original }], { check: { kind: 'value', expr: after + '*100/' + (100 + p) } });
   };
 
@@ -1472,10 +1591,16 @@
     return m < 30 ? m + ' minutes past ' + h : (60 - m) + ' minutes to ' + (h % 12 + 1);
   }
 
+  // The hour hand moves on as the minutes pass: just past the hour, halfway
+  // to the next at half past, nearly there after that (as the clock is
+  // drawn). A time to the hour counts the minutes left: 60 - 50 = 10.
   function clockWhy(h, m) {
+    const next = h % 12 + 1;
     if (m === 0) return 'The minute hand points to 12 and the hour hand points to ' + h + ': ' + h + " o'clock.";
-    return 'The minute hand points to ' + (m / 5 === 0 ? 12 : m / 5) + ', which is ' + m + ' minutes past. The hour hand is ' +
-      (m <= 30 ? 'just past ' + h : 'nearly at ' + (h % 12 + 1)) + ': ' + clockWords(h, m) + '.';
+    const hour = m === 30 ? 'halfway between ' + h + ' and ' + next : (m < 30 ? 'just past ' + h : 'nearly at ' + next);
+    return 'The minute hand points to ' + (m / 5) + ', which is ' + m + ' minutes past. The hour hand is ' + hour + '.' +
+      (m > 30 ? ' ' + m + ' minutes past ' + h + ' leaves 60 ' + MINUS + ' ' + m + ' = ' + (60 - m) + ' minutes until ' + next + " o'clock" : '') +
+      ': ' + clockWords(h, m) + '.';
   }
 
   const MEASURES = {};
@@ -1526,7 +1651,7 @@
     const m = year === 3 ? 5 * randInt(0, 11) : randInt(0, 59);
     const mm = String(m).padStart(2, '0');
     return sentence('measures', year, 'Telling the time', 'TIME', 'What time does the clock show? Write it as hours and minutes.',
-      'The hour hand is ' + (m < 30 ? 'just past ' + h : 'between ' + h + ' and ' + (h % 12 + 1)) + '. The minute hand shows ' + m +
+      'The hour hand is ' + (m === 0 ? 'on ' + h : (m < 30 ? 'just past ' + h : 'between ' + h + ' and ' + (h % 12 + 1))) + '. The minute hand shows ' + m +
         ' minutes. So it is ' + h + ':' + mm + '.',
       [{ ask: h + ':' + mm }], { picture: { kind: 'clock', h: h, m: m, roman: randInt(0, 2) === 0 }, check: { kind: 'clock', digital: true } });
   };
@@ -1550,8 +1675,11 @@
 
   MEASURES.calendar = function (year) {
     if (randInt(0, 1)) {
-      const fact = pick([['days are in a week', 7], ['months are in a year', 12], ['days are in a weekend', 2], ['days are in a fortnight', 14]]);
-      return sentence('measures', year, 'Calendar', 'TIME', 'How many ' + fact[0] + '?', 'There are ' + fact[1] + ' ' + fact[0] + '.',
+      const fact = pick([['days are in a week', 7, 'There are 7 days in a week: Monday to Sunday.'],
+        ['months are in a year', 12, 'There are 12 months in a year: January to December.'],
+        ['days are in a weekend', 2, 'A weekend is Saturday and Sunday: 2 days.'],
+        ['days are in a fortnight', 14, 'A fortnight is 2 weeks: 7 + 7 = 14 days.']]);
+      return sentence('measures', year, 'Calendar', 'TIME', 'How many ' + fact[0] + (fact[1] === 14 ? ' (2 weeks)' : '') + '?', fact[2],
         [{ ask: fact[1] }], { check: { kind: 'calendar', fact: fact[0] } });
     }
     const i = randInt(0, 6);
@@ -1607,7 +1735,8 @@
         ['June', 'days', 30], ['January', 'days', 31], ['February in a leap year', 'days', 29], ['September', 'days', 30]];
     const fact = pick(facts);
     return sentence('measures', year, 'Time facts', 'TIME', 'How many ' + fact[1] + ' are in ' + fact[0] + '?',
-      fact[0].charAt(0).toUpperCase() + fact[0].slice(1) + ' has ' + fact[2] + ' ' + fact[1] + '.',
+      ({ '2 hours': '1 hour is 60 minutes, so 2 hours is 60 + 60 = 120 minutes.', 'half an hour': 'Half of 60 minutes is 30 minutes.' })[fact[0]] ||
+        'There are ' + fact[2] + ' ' + fact[1] + ' in ' + fact[0] + '.',
       [{ ask: fact[2] }, { t: fact[1], span: 3 }], { check: { kind: 'calendar', fact: fact[0] + ' ' + fact[1] } });
   };
 
@@ -1615,7 +1744,7 @@
   MEASURES.money = function (year) {
     if (randInt(0, 1)) return MEASURES.coins(year);
     const pay = pick([20, 50, 100]);
-    const cost = randInt(1, pay / 5 - 1) * 5 - randInt(0, 1) * randInt(1, 4);
+    const cost = randInt(3, pay / 5 - 1) * 5 - randInt(0, 1) * randInt(1, 4);
     if (cost <= 0) return MEASURES.money(year);
     return sentence('measures', year, 'Change', 'MONEY',
       'A pencil costs ' + cost + 'p. You pay with a ' + coinName(pay) + ' coin. How much change do you get?',
@@ -1799,9 +1928,25 @@
       [{ n: inches }, { t: 'inches', span: 2 }, { s: '≈' }, { ask: inches * 5 / 2 }, { t: 'cm' }], { check: { kind: 'value', expr: inches + '*2.5' } });
   };
 
+  // Up to the next o'clock, a whole hour for each o'clock passed, then the
+  // minutes after: 7:50 to 9:05 is 10 + 60 + 5 = 75 minutes.
+  function durationWhy(h, m1, h2, m2, from, to, gap) {
+    const said = ['From ' + from + ' to ' + (h + 1) + ':00 is ' + (60 - m1) + ' minutes'];
+    const parts = [60 - m1];
+    for (let hh = h + 1; hh < h2; hh++) {
+      said.push(hh + ':00 to ' + (hh + 1) + ':00 is 60 more');
+      parts.push(60);
+    }
+    if (m2) {
+      said.push('then ' + m2 + ' more to ' + to);
+      parts.push(m2);
+    }
+    return said.join(', ') + ': ' + parts.join(' + ') + ' = ' + gap + ' minutes.';
+  }
+
   // Year 3: durations; Year 5: units of time.
   MEASURES.duration = function (year) {
-    const h = randInt(1, 11);
+    const h = randInt(1, 10);
     const m1 = 5 * randInt(0, 10);
     const gap = 5 * randInt(2, year === 3 ? 9 : 14);
     const total = h * 60 + m1 + gap;
@@ -1810,8 +1955,7 @@
     const from = h + ':' + String(m1).padStart(2, '0');
     const to = h2 + ':' + String(m2).padStart(2, '0');
     return sentence('measures', year, 'How long', 'TIME', 'How many minutes is it from ' + from + ' to ' + to + '?',
-      h2 > h ? 'From ' + from + ' to ' + h2 + ':00 is ' + (60 - m1) + ' minutes, then ' + m2 + ' more: ' + (60 - m1) + ' + ' + m2 + ' = ' + gap + ' minutes.'
-        : 'Count on from ' + m1 + ' to ' + m2 + ' minutes: ' + gap + ' minutes.',
+      h2 > h ? durationWhy(h, m1, h2, m2, from, to, gap) : 'Count on from ' + m1 + ' to ' + m2 + ' minutes: ' + gap + ' minutes.',
       [{ n: from }, { t: 'to' }, { n: to }, { s: '=' }, { ask: gap }, { t: 'min' }], { check: { kind: 'duration', from: from, to: to } });
   };
 
@@ -1819,8 +1963,8 @@
     if (randInt(0, 1)) {
       const hours = randInt(1, 5);
       const minutes = 5 * randInt(1, 11);
-      return sentence('measures', year, 'Units of time', 'CONVERT', 'How many minutes is ' + hours + ' hours ' + minutes + ' minutes?',
-        hours + ' hours is ' + hours + ' × 60 = ' + (hours * 60) + ' minutes. Add ' + minutes + ': ' + (hours * 60 + minutes) + ' minutes.',
+      return sentence('measures', year, 'Units of time', 'CONVERT', 'How many minutes is ' + plural(hours, 'hour', 'hours') + ' ' + minutes + ' minutes?',
+        plural(hours, 'hour', 'hours') + ' is ' + hours + ' × 60 = ' + (hours * 60) + ' minutes. Add ' + minutes + ': ' + (hours * 60 + minutes) + ' minutes.',
         [{ n: hours }, { t: 'h' }, { n: minutes }, { t: 'min' }, { s: '=' }, { ask: hours * 60 + minutes }, { t: 'min' }],
         { check: { kind: 'value', expr: hours + '*60+' + minutes } });
     }
@@ -1925,7 +2069,7 @@
     if (((a + b) * h) % 2) return MEASURES.trapezium(year);
     const off = (b - a) / 2;
     return sentence('measures', year, 'Area of a trapezium', 'AREA', 'What is the area of the trapezium?',
-      'Area = (a + b) ÷ 2 × height: (' + a + ' + ' + b + ') ÷ 2 × ' + h + ' = ' + ((a + b) / 2) + ' × ' + h + ' = ' + ((a + b) * h / 2) + ' cm².',
+      'Add the two parallel sides, halve, then multiply by the height: (' + a + ' + ' + b + ') ÷ 2 × ' + h + ' = ' + ((a + b) / 2) + ' × ' + h + ' = ' + ((a + b) * h / 2) + ' cm².',
       [{ ask: (a + b) * h / 2 }, { t: 'cm²' }],
       { picture: { kind: 'shape', points: [[0, 0], [b, 0], [b - off, h], [off, h]], sideLabels: [b + ' cm', '', a + ' cm', ''], height: { from: [off, h], to: [off, 0], text: h + ' cm' } },
         check: { kind: 'value', expr: '(' + a + '+' + b + ')/2*' + h } });
@@ -1938,7 +2082,7 @@
     const label = byDiameter ? 'diameter ' + (2 * r) + ' cm' : 'radius ' + r + ' cm';
     return sentence('measures', year, 'Circles', 'CIRCLES',
       'A circle has ' + label + '. What is its ' + (area ? 'area' : 'circumference') + '? Leave π in the answer.',
-      area ? 'Area = π × radius²: π × ' + r + '² = ' + (r * r) + 'π cm².' : 'Circumference = π × diameter: π × ' + (2 * r) + ' = ' + (2 * r) + 'π cm.',
+      area ? 'Area = π × radius²: π × ' + r + '² = ' + (r * r) + 'π cm².' : (byDiameter ? '' : 'The diameter is 2 × the radius: 2 × ' + r + ' = ' + (2 * r) + ' cm. ') + 'Circumference = π × diameter: π × ' + (2 * r) + ' = ' + (2 * r) + 'π cm.',
       [{ ask: area ? r * r : 2 * r }, { t: area ? 'π cm²' : 'π cm', span: 2 }],
       { picture: { kind: 'circle', label: label, diameter: byDiameter }, check: { kind: 'circle', r: r, area: area } });
   };
@@ -2111,7 +2255,7 @@
     }
     const vertices = randInt(0, 1) === 1;
     return sentence('shape', year, 'Sides and corners', 'SHAPES', 'How many ' + (vertices ? 'vertices (corners)' : 'sides') + ' does this shape have?',
-      'Count them one at a time: ' + n + ' ' + (vertices ? 'vertices' : 'sides') + '. A shape with ' + n + ' sides is a ' + SHAPE_NAMES[n] + '.',
+      'Count them one at a time: ' + n + ' ' + (vertices ? 'vertices' : 'sides') + '. A shape with ' + n + ' sides is ' + (/^[aeiou]/.test(SHAPE_NAMES[n]) ? 'an ' : 'a ') + SHAPE_NAMES[n] + '.',
       [{ ask: n }, { t: vertices ? 'vertices' : 'sides', span: vertices ? 3 : 2 }],
       { picture: { kind: 'shape', points: points, fill: true }, check: { kind: 'polygonCount' } });
   };
@@ -2153,7 +2297,7 @@
     const pair = pick([['a quarter turn', 1], ['a half turn', 2], ['a three-quarter turn', 3], ['a complete turn', 4]]);
     return sentence('shape', year, 'Right angles', 'TURNS', 'How many right angles make ' + pair[0] + '?',
       'A right angle is a quarter turn, so ' + pair[0] + ' is ' + plural(pair[1], 'right angle', 'right angles') + '.',
-      [{ ask: pair[1] }, { t: 'right angles', span: 4 }], { check: { kind: 'calendar', fact: pair[0] } });
+      [{ ask: pair[1] }, { t: pair[1] === 1 ? 'right angle' : 'right angles', span: 4 }], { check: { kind: 'calendar', fact: pair[0] } });
   };
 
   function angleClassWhy(degrees, options) {
@@ -2215,26 +2359,36 @@
     const options = names.map(function (n, k) { return [k + 1, n]; });
     const kind = pick(names);
     const q = quadrilateralOf(kind);
-    return sentence('shape', year, 'Quadrilaterals', 'SHAPES', 'What kind of quadrilateral is this? Marks show equal sides and right angles.',
-      { square: '4 equal sides and 4 right angles: a square.', rectangle: '4 right angles, opposite sides equal: a rectangle.',
-        rhombus: '4 equal sides but no right angles: a rhombus.', parallelogram: 'Opposite sides equal and parallel, no right angles: a parallelogram.',
-        trapezium: 'Just one pair of parallel sides: a trapezium.', kite: 'Two pairs of equal sides next to each other: a kite.' }[kind],
+    // A square is also a rectangle, a rhombus is also a parallelogram, and
+    // so on, so the question asks for the most exact name and each reason
+    // says why the others do not fit as well.
+    return sentence('shape', year, 'Quadrilaterals', 'SHAPES', 'What kind of quadrilateral is this? Marks show equal sides and right angles. Choose the most exact name.',
+      { square: '4 equal sides and 4 right angles: a square. It is also a rectangle and a rhombus, but square is the most exact name.',
+        rectangle: '4 right angles, opposite sides equal but not all 4 sides equal: a rectangle.',
+        rhombus: '4 equal sides but no right angles: a rhombus. It is also a parallelogram, but rhombus is the most exact name.',
+        parallelogram: 'Opposite sides equal and parallel, not all 4 sides equal, no right angles: a parallelogram.',
+        trapezium: 'Just one pair of parallel sides: a trapezium.',
+        kite: 'Two pairs of equal sides next to each other, the two pairs different lengths: a kite.' }[kind],
       [{ pick: names.indexOf(kind) + 1, options: options }],
       { picture: { kind: 'shape', points: q.points, ticks: q.ticks || [], rightAngles: q.rightAngles || [], fill: true }, check: { kind: 'quadKind', name: kind } });
   };
 
   SHAPE.symmetryCount = function (year) {
     const kind = pick(['square', 'rectangle', 'equilateral', 'isosceles', 'regular5', 'regular6', 'regular8', 'parallelogram', 'kite', 'rhombus']);
-    let points;
-    if (kind === 'equilateral' || kind === 'isosceles') points = triangleOf(kind).points;
-    else if (/^regular/.test(kind)) points = regularPolygon(Number(kind.slice(7)));
-    else points = quadrilateralOf(kind).points;
+    // Equal sides and right angles are marked, so an isosceles triangle
+    // close to equilateral can still be told apart.
+    let shape;
+    if (kind === 'equilateral' || kind === 'isosceles') shape = triangleOf(kind);
+    else if (/^regular/.test(kind)) shape = { points: regularPolygon(Number(kind.slice(7))) };
+    else shape = quadrilateralOf(kind);
+    const points = shape.points;
     const counts = { square: 4, rectangle: 2, equilateral: 3, isosceles: 1, regular5: 5, regular6: 6, regular8: 8, parallelogram: 0, kite: 1, rhombus: 2 };
     const n = counts[kind];
     return sentence('shape', year, 'Lines of symmetry', 'SYMMETRY', 'How many lines of symmetry does this shape have?',
-      n ? 'There are ' + plural(n, 'way', 'ways') + ' to fold it so both halves match exactly: ' + plural(n, 'line', 'lines') + ' of symmetry.'
+      n ? (n === 1 ? 'There is 1 way' : 'There are ' + n + ' ways') + ' to fold it so both halves match exactly: ' + plural(n, 'line', 'lines') + ' of symmetry.'
         : 'No fold makes the two halves match, so it has 0 lines of symmetry.',
-      [{ ask: n }, { t: n === 1 ? 'line' : 'lines', span: 2 }], { picture: { kind: 'shape', points: points, fill: true }, check: { kind: 'symmetryCount' } });
+      [{ ask: n }, { t: n === 1 ? 'line' : 'lines', span: 2 }],
+      { picture: { kind: 'shape', points: points, ticks: shape.ticks || [], rightAngles: shape.rightAngles || [], fill: true }, check: { kind: 'symmetryCount' } });
   };
 
   // Years 4 and 6: coordinates, first quadrant then all four.
@@ -2290,8 +2444,8 @@
     const y = randInt(1, 7);
     if (x === mirror || 2 * mirror - x < 0 || 2 * mirror - x > 8) return null;
     return sentence('shape', year, 'Reflection', 'MOVES', 'Reflect point A in the mirror line. Where does it land?',
-      'A is ' + Math.abs(x - mirror) + ' squares ' + (x < mirror ? 'left of' : 'right of') + ' the mirror, so its image is ' + Math.abs(x - mirror) +
-        ' squares on the other side: (' + (2 * mirror - x) + ', ' + y + ').',
+      'A is ' + plural(Math.abs(x - mirror), 'square', 'squares') + ' ' + (x < mirror ? 'left of' : 'right of') + ' the mirror, so its image is ' +
+        plural(Math.abs(x - mirror), 'square', 'squares') + ' on the other side: (' + (2 * mirror - x) + ', ' + y + ').',
       coordinateTokens(2 * mirror - x, y, false, 'A′'),
       { picture: { kind: 'grid', min: 0, max: 8, points: [{ x: x, y: y, label: 'A' }], mirror: mirror }, check: { kind: 'reflect', x: x, y: y, mirror: mirror } });
   };
@@ -2380,8 +2534,9 @@
     if (year >= 7 && randInt(0, 1)) {
       const sumOnly = randInt(0, 1) === 1;
       if (sumOnly) {
-        return sentence('shape', year, 'Angles in polygons', 'ANGLES', 'What do the interior angles of a ' + n + '-sided polygon add up to?',
-          'A ' + n + '-sided polygon splits into ' + (n - 2) + ' triangles from one corner: ' + (n - 2) + ' × 180 = ' + ((n - 2) * 180) + '°.',
+        return sentence('shape', year, 'Angles in polygons', 'ANGLES', 'What do the interior angles of ' + (n === 8 ? 'an ' : 'a ') + n + '-sided polygon add up to?',
+          'Lines from one corner to every other corner split ' + (n === 8 ? 'an ' : 'a ') + n + '-sided polygon into ' + n + ' ' + MINUS + ' 2 = ' + plural(n - 2, 'triangle', 'triangles') +
+            ', each with angles adding up to 180°: ' + (n - 2) + ' × 180 = ' + ((n - 2) * 180) + '°.',
           [{ ask: (n - 2) * 180 }, { t: '°' }], { check: { kind: 'polygonAngle', n: n, what: 'sum' } });
       }
       return sentence('shape', year, 'Angles in polygons', 'ANGLES', 'What is each exterior angle of a ' + names[n] + '?',
@@ -2389,9 +2544,12 @@
         [{ ask: 360 / n }, { t: '°' }], { check: { kind: 'polygonAngle', n: n, what: 'exterior' } });
     }
     const each = 180 * (n - 2) / n;
-    return sentence('shape', year, 'Angles in polygons', 'ANGLES', 'What is each angle inside a ' + names[n] + '?',
-      'It splits into ' + (n - 2) + ' triangles, so the angles add up to ' + (n - 2) + ' × 180 = ' + ((n - 2) * 180) + '°. Shared by ' + n + ' equal angles: ' +
-        ((n - 2) * 180) + ' ÷ ' + n + ' = ' + each + '°.',
+    return sentence('shape', year, 'Angles in polygons', 'ANGLES', 'What is each angle inside ' + (n === 3 ? 'an ' : 'a ') + names[n] + '?',
+      (n === 3
+        ? 'The angles of a triangle add up to 180°. '
+        : 'Draw lines from one corner to every other corner: the ' + n + ' sides make ' + n + ' ' + MINUS + ' 2 = ' + (n - 2) + ' triangles, so the angles add up to ' +
+          (n - 2) + ' × 180 = ' + ((n - 2) * 180) + '°. ') +
+        'Shared by ' + n + ' equal angles: ' + ((n - 2) * 180) + ' ÷ ' + n + ' = ' + each + '°.',
       [{ ask: each }, { t: '°' }], { picture: { kind: 'shape', points: regularPolygon(n), fill: true }, check: { kind: 'polygonAngle', n: n, what: 'interior' } });
   };
 
@@ -2427,18 +2585,40 @@
 
   // Year 7: angles with parallel lines, Pythagoras, trigonometry, rotation
   // and enlargement.
+  // The picture's crossing line rises at `a`. At each crossing the four
+  // angles go round from the right: above right (a), above left (180 - a),
+  // below left (a), below right (180 - a). The given angle is at the top
+  // crossing (0 to 3) and the asked one at the bottom crossing (4 to 7), so
+  // each is labelled with the size it is drawn. A pair is named only when
+  // it is one: corresponding (the same place), alternate (between the
+  // lines, either side of the crossing line, a Z) or co-interior (between
+  // the lines, the same side, a C); any other pair goes through the
+  // corresponding angle first.
   SHAPE.parallel = function (year) {
     const a = randInt(5, 16) * 5 + 10;
     const given = randInt(0, 3);
     const asked = randInt(4, 7);
-    const value = (asked % 2) === (given % 2) ? a : 180 - a;
-    const relation = asked - 4 === given ? 'corresponding' : ((asked - 4 + 2) % 4 === given ? 'alternate' : 'co-interior');
-    const sameKind = (asked % 2) === (given % 2);
-    return sentence('shape', year, 'Parallel lines', 'ANGLES', 'The two arrowed lines are parallel. Find the angle marked ?.',
-      sameKind ? 'The angles are ' + (relation === 'corresponding' ? 'corresponding' : 'alternate') + ', and with parallel lines those are equal: ? = ' + a + '°.'
-        : 'The marked angles make a straight line or a co-interior pair, so they add up to 180°: 180 ' + MINUS + ' ' + a + ' = ' + (180 - a) + '°.',
+    const size = function (pos) { return pos % 2 ? 180 - a : a; };
+    const shown = size(given);
+    const value = size(asked);
+    const g = given;
+    const k = asked - 4;
+    let why;
+    if (k === g) {
+      why = 'They are corresponding angles, in the same place at each crossing. With parallel lines, corresponding angles are equal: ? = ' + value + '°.';
+    } else if ((g === 2 && k === 0) || (g === 3 && k === 1)) {
+      why = 'They are alternate angles: between the parallel lines, on opposite sides of the crossing line (a Z shape). Alternate angles are equal: ? = ' + value + '°.';
+    } else if ((g === 2 && k === 1) || (g === 3 && k === 0)) {
+      why = 'They are co-interior angles: between the parallel lines, on the same side of the crossing line (a C shape). Co-interior angles add up to 180°: 180 ' +
+        MINUS + ' ' + shown + ' = ' + value + '°.';
+    } else {
+      why = 'The angle in the same place at the bottom crossing is also ' + shown + '° (corresponding angles). ' +
+        ((k - g + 4) % 4 === 2 ? '? is vertically opposite it, so ? = ' + value + '°.'
+          : '? is on a straight line with it, so ? = 180 ' + MINUS + ' ' + shown + ' = ' + value + '°.');
+    }
+    return sentence('shape', year, 'Parallel lines', 'ANGLES', 'The two arrowed lines are parallel. Find the angle marked ?.', why,
       [{ ask: value }, { t: '°' }],
-      { picture: { kind: 'parallel', angle: a, given: given, asked: asked }, check: { kind: 'parallel', angle: a, given: given, asked: asked } });
+      { picture: { kind: 'parallel', angle: a, given: given, asked: asked, label: shown }, check: { kind: 'parallel', given: given, asked: asked } });
   };
 
   const TRIPLES = [[3, 4, 5], [5, 12, 13], [6, 8, 10], [8, 15, 17], [7, 24, 25], [9, 12, 15], [12, 16, 20], [9, 40, 41], [20, 21, 29]];
@@ -2449,10 +2629,10 @@
     const labels = missing === 'c' ? [t[0] + ' cm', '?', t[1] + ' cm'] : ['?', t[2] + ' cm', t[1] + ' cm'];
     const points = [[0, 0], [t[0], 0], [0, t[1]]];
     return sentence('shape', year, "Pythagoras' theorem", 'PYTHAGORAS', 'Find the side marked ? in the right-angled triangle.',
-      missing === 'c'
+      'The longest side, c, is the hypotenuse, across from the right angle; a and b are the two shorter sides. ' + (missing === 'c'
         ? 'a² + b² = c²: ' + t[0] + '² + ' + t[1] + '² = ' + (t[0] * t[0]) + ' + ' + (t[1] * t[1]) + ' = ' + (t[2] * t[2]) + ', and √' + (t[2] * t[2]) + ' = ' + t[2] + '.'
         : 'a² = c² ' + MINUS + ' b²: ' + t[2] + '² ' + MINUS + ' ' + t[1] + '² = ' + (t[2] * t[2]) + ' ' + MINUS + ' ' + (t[1] * t[1]) + ' = ' + (t[0] * t[0]) +
-          ', and √' + (t[0] * t[0]) + ' = ' + t[0] + '.',
+          ', and √' + (t[0] * t[0]) + ' = ' + t[0] + '.'),
       [{ ask: missing === 'c' ? t[2] : t[0] }, { t: 'cm' }],
       { picture: { kind: 'shape', points: points, sideLabels: labels, rightAngles: [0], notToScale: true },
         check: { kind: 'pythagoras', a: t[0], b: t[1], c: t[2], missing: missing } });
@@ -2467,7 +2647,9 @@
     const ratio = { sin: [opp, hyp], cos: [adj, hyp], tan: [opp, adj] }[fn];
     const s = simplest(ratio[0], ratio[1]);
     return sentence('shape', year, 'Trigonometry', 'TRIGONOMETRY', 'In the right-angled triangle, find ' + fn + ' A as a fraction in its simplest form.',
-      fn + ' = ' + { sin: 'opposite ÷ hypotenuse', cos: 'adjacent ÷ hypotenuse', tan: 'opposite ÷ adjacent' }[fn] + ' = ' + ratio[0] + '/' + ratio[1] +
+      'The hypotenuse is the longest side, across from the right angle: ' + hyp + '. The opposite side is across from A: ' + opp +
+        '. The adjacent side touches A and is not the hypotenuse: ' + adj + '. ' +
+        fn + ' A = ' + { sin: 'opposite ÷ hypotenuse', cos: 'adjacent ÷ hypotenuse', tan: 'opposite ÷ adjacent' }[fn] + ' = ' + ratio[0] + '/' + ratio[1] +
         (s[0] !== ratio[0] ? ' = ' + s[0] + '/' + s[1] : '') + '.',
       [{ t: fn + ' A', span: 2 }, { s: '=' }, { frac: [{ ask: s[0] }, { ask: s[1] }] }],
       { picture: { kind: 'shape', points: [[0, 0], [adj, 0], [adj, opp]], sideLabels: [adj + '', opp + '', hyp + ''], rightAngles: [1], angleLabels: ['A', '', ''], notToScale: true },
@@ -2533,7 +2715,7 @@
     { things: 'fruit', labels: ['apples', 'pears', 'bananas', 'grapes'], who: 'children chose' },
     { things: 'pets', labels: ['cats', 'dogs', 'fish', 'rabbits'], who: 'children have' },
     { things: 'colours', labels: ['red', 'blue', 'green', 'yellow'], who: 'children like' },
-    { things: 'sports', labels: ['football', 'netball', 'tennis', 'swimming'], who: 'children play' }
+    { things: 'sports', labels: ['football', 'netball', 'tennis', 'swimming'], who: 'children chose' }
   ];
 
   // One question about a chart: how many in one group, how many more or
@@ -2556,7 +2738,7 @@
       const a = more ? big : small;
       const b = more ? small : big;
       return {
-        prompt: 'How many ' + (more ? 'more' : 'fewer') + ' ' + set.labels[a] + ' than ' + set.labels[b] + ' are there?',
+        prompt: 'How many ' + (more ? 'more' : 'fewer') + ' ' + set.who + ' ' + set.labels[a] + ' than ' + set.labels[b] + '?',
         answer: values[big] - values[small],
         why: set.labels[a] + ': ' + values[a] + ', ' + set.labels[b] + ': ' + values[b] + '. The difference is ' + values[big] + ' ' + MINUS + ' ' + values[small] + ' = ' +
           (values[big] - values[small]) + '.',
@@ -2565,14 +2747,14 @@
     }
     if (op === 'sum') {
       return {
-        prompt: 'How many ' + set.labels[i] + ' and ' + set.labels[j] + ' are there altogether?',
+        prompt: 'How many ' + set.who + ' ' + set.labels[i] + ' or ' + set.labels[j] + ' altogether?',
         answer: values[i] + values[j],
         why: values[i] + ' + ' + values[j] + ' = ' + (values[i] + values[j]) + '.',
         check: { op: 'sum', a: i, b: j }
       };
     }
     const total = values.reduce(function (s, v) { return s + v; }, 0);
-    return { prompt: 'How many are there altogether?', answer: total, why: 'Add them all: ' + values.join(' + ') + ' = ' + total + '.', check: { op: 'total' } };
+    return { prompt: 'How many children are there altogether?', answer: total, why: 'Add them all: ' + values.join(' + ') + ' = ' + total + '.', check: { op: 'total' } };
   }
 
   const DATA = {};
@@ -2616,8 +2798,12 @@
     if (values.some(function (v) { return v !== Math.floor(v); })) return null;
     const q = chartQuestion(year, set, values);
     if (!q) return null;
+    const used = { read: [q.check.a], difference: [q.check.a, q.check.b], sum: [q.check.a, q.check.b], total: values.map(function (v, k) { return k; }) }[q.check.op];
+    const between = used.filter(function (k) { return values[k] % step !== 0; }).map(function (k) {
+      return 'The ' + set.labels[k] + ' bar stops halfway between ' + (values[k] - step / 2) + ' and ' + (values[k] + step / 2) + ', so it is ' + values[k] + '. ';
+    }).join('');
     return sentence('data', year, year === 2 ? 'Block diagrams' : 'Bar charts', 'DATA', q.prompt,
-      (step > 1 ? 'Each line on the scale is ' + step + '. ' : '') + q.why,
+      (step > 1 ? 'Each line on the scale is ' + step + '. ' : '') + between + q.why,
       [{ ask: q.answer }], { picture: { kind: 'bars', labels: set.labels, values: values, step: step, blocks: year === 2 }, check: Object.assign({ kind: 'chart' }, q.check) });
   };
 
@@ -2639,7 +2825,7 @@
     let v = randInt(4, 12);
     hours.forEach(function () {
       values.push(v);
-      v = Math.max(0, Math.min(30, v + randInt(-3, 5)));
+      v = Math.max(2, Math.min(30, v + randInt(-3, 5)));
     });
     const i = randInt(0, hours.length - 2);
     const j = randInt(i + 1, hours.length - 1);
@@ -2781,7 +2967,7 @@
       const s = simplest(ways, 36);
       return sentence('data', year, 'Probability', 'PROBABILITY',
         'Two dice are rolled and the scores added. What is the probability of a total of ' + target + '? Give a fraction in its simplest form.',
-        'There are 6 × 6 = 36 equally likely outcomes, and ' + ways + ' of them make ' + target + ': ' + ways + '/36' + (s[0] !== ways ? ' = ' + s[0] + '/' + s[1] : '') + '.',
+        'There are 6 × 6 = 36 equally likely outcomes, and ' + ways + (ways === 1 ? ' of them makes ' : ' of them make ') + target + ': ' + ways + '/36' + (s[0] !== ways ? ' = ' + s[0] + '/' + s[1] : '') + '.',
         [{ t: 'P', span: 1 }, { s: '=' }].concat(fractionTokens(s[0], s[1], true, false)),
         { check: { kind: 'dice', target: target } });
     }
@@ -2961,8 +3147,11 @@
           return { '+': MINUS, '×': '÷', '÷': '×' }[op[0]] ? ({ '+': MINUS, '×': '÷', '÷': '×' }[op[0]] + ' ' + op[1]) : ('+ ' + op[1]);
         }).join(', then ') + ' takes ' + value + ' back to ' + input + '.'
           : input + ' ' + opText + ' gives ' + value + '.',
-        backwards ? [{ ask: input }, { s: '→' }, { t: opText.replace(', then ', ' '), span: steps === 2 ? 3 : 2 }, { s: '→' }, { n: value }]
-          : [{ n: input }, { s: '→' }, { t: opText.replace(', then ', ' '), span: steps === 2 ? 3 : 2 }, { s: '→' }, { ask: value }],
+        // Each step is its own machine on the sheet, so + 1 then × 3 cannot
+        // be read as + 1 × 3.
+        [backwards ? { ask: input } : { n: input }].concat(ops.reduce(function (all, op) {
+          return all.concat([{ s: '→' }, { t: op[0] + ' ' + op[1], span: 2 }]);
+        }, []), [{ s: '→' }, backwards ? { n: value } : { ask: value }]),
         { check: { kind: 'machine', input: input, ops: ops, find: backwards ? 'in' : 'out' } });
     }
     return null;
@@ -2996,11 +3185,20 @@
         [{ n: terms[0] }, { s: ',' }, { n: terms[1] }, { s: ',' }, { n: terms[2] }, { s: ':' }, { t: 'add', span: 1 }, { ask: diff }],
         { check: { kind: 'sequenceRule', terms: terms } });
     }
-    const n = pick([10, 12, 15, 20]);
+    // Year 4 counts on to the 6th, 7th or 8th term ("count in multiples");
+    // working from a term's position is Year 6 and up.
+    const n = year === 4 ? pick([6, 7, 8]) : pick([10, 12, 15, 20]);
     const value = first + (n - 1) * diff;
+    const countOn = [];
+    for (let k = 5; k <= n; k++) countOn.push(int(first + (k - 1) * diff) + ' (' + k + 'th)');
     return sentence('algebra', year, 'Sequences', 'SEQUENCES',
       terms.map(int).join(', ') + ', ... What is the ' + n + 'th term?',
-      'The terms go up by ' + diff + ' each time. The ' + n + 'th term is the first term plus ' + (n - 1) + ' steps: ' + first + ' + ' + (n - 1) + ' × ' + int(diff) + ' = ' + int(value) + '.',
+      year === 4
+        ? 'The terms go ' + (diff > 0 ? 'up' : 'down') + ' by ' + Math.abs(diff) + ' each time. Keep going from the 4th term: ' + countOn.join(', ') + '.'
+        : diff > 0
+        ? 'The terms go up by ' + diff + ' each time. The ' + n + 'th term is the first term plus ' + (n - 1) + ' steps: ' + first + ' + ' + (n - 1) + ' × ' + diff + ' = ' + int(value) + '.'
+        : 'The terms go down by ' + (-diff) + ' each time. The ' + n + 'th term is the first term with ' + (n - 1) + ' steps taken off: ' + first + ' ' + MINUS + ' ' +
+          (n - 1) + ' × ' + (-diff) + ' = ' + first + ' ' + MINUS + ' ' + ((n - 1) * -diff) + ' = ' + int(value) + '.',
       [{ t: n + 'th', span: 2 }, { s: '=' }, { ask: int(value), sign: value < 0 || diff < 0 }],
       { check: { kind: 'sequenceTerm', terms: terms, n: n } });
   };
@@ -3143,7 +3341,8 @@
     return K.buildSentenceLines({
       area: 'algebra', year: year, title: symbol ? 'Symbols' : 'Letters', stage: 'ALGEBRA',
       prompt: 'The same ' + (symbol ? 'symbol' : 'letter') + ' stands for a different number on each line. The first two lines are worked out. Work out the third.',
-      why: 'On this line ' + letter + ' = ' + values[2] + '. Put ' + values[2] + ' in place of ' + (symbol ? 'each ' : '') + letter + ': ' +
+      why: (symbol ? '' : times + letter + ' means ' + times + ' × ' + letter + '. ') +
+        'On this line ' + letter + ' = ' + values[2] + '. Put ' + values[2] + ' in place of ' + (symbol ? 'each ' : '') + letter + ': ' +
         putIn(letter, times, c, values[2]) + '.' + ideaFor(letter),
       lines: [line(values[0], false), line(values[1], false), line(values[2], true)],
       check: { kind: 'symbolLines', letter: letter },
@@ -3157,16 +3356,16 @@
     if (randInt(0, 1)) {
       const l = randInt(2, 15);
       const w = randInt(2, 12);
-      return sentence('algebra', year, 'Formulae', 'FORMULAE', 'P = 2l + 2w gives the perimeter of a rectangle. Find P when l = ' + l + ' and w = ' + w + '.',
-        'P = 2 × ' + l + ' + 2 × ' + w + ' = ' + (2 * l) + ' + ' + (2 * w) + ' = ' + (2 * l + 2 * w) + '.',
+      return sentence('algebra', year, 'Formulae', 'FORMULAE', 'P = 2l + 2w gives the perimeter P of a rectangle with length l and width w. Find P when l = ' + l + ' and w = ' + w + '.',
+        '2l means 2 × l and 2w means 2 × w. P = 2 × ' + l + ' + 2 × ' + w + ' = ' + (2 * l) + ' + ' + (2 * w) + ' = ' + (2 * l + 2 * w) + '.',
         [{ t: 'P', span: 1 }, { s: '=' }, { ask: 2 * l + 2 * w }], { check: { kind: 'value', expr: '2*' + l + '+2*' + w } });
     }
     const rate = randInt(2, 9);
     const fixed = randInt(3, 20);
     const hours = randInt(2, 8);
     return sentence('algebra', year, 'Formulae', 'FORMULAE',
-      'Bike hire costs £' + fixed + ' plus £' + rate + ' per hour: C = ' + rate + 'h + ' + fixed + '. Find C for ' + hours + ' hours.',
-      'C = ' + rate + ' × ' + hours + ' + ' + fixed + ' = ' + (rate * hours) + ' + ' + fixed + ' = ' + (rate * hours + fixed) + '.',
+      'Bike hire costs £' + fixed + ' plus £' + rate + ' per hour: C = ' + rate + 'h + ' + fixed + ', where C is the cost in pounds and h is the number of hours. Find C for ' + hours + ' hours.',
+      rate + 'h means ' + rate + ' × h. C = ' + rate + ' × ' + hours + ' + ' + fixed + ' = ' + (rate * hours) + ' + ' + fixed + ' = ' + (rate * hours + fixed) + '.',
       [{ t: 'C = £', span: 2 }, { ask: rate * hours + fixed }], { check: { kind: 'value', expr: rate + '*' + hours + '+' + fixed } });
   };
 
@@ -3204,7 +3403,7 @@
         left = expression([[k, letter], [c, '']]);
         right = expression([[m, letter], [d, '']]);
         why = 'Take ' + expression([[m, letter]]) + ' from both sides: ' + expression([[k - m, letter], [c, '']]) + ' = ' + int(d) + '. Take ' + c + ': ' +
-          expression([[k - m, letter]]) + ' = ' + int(d - c) + '. Divide by ' + (k - m) + ': ' + letter + ' = ' + int(value) + '.';
+          expression([[k - m, letter]]) + ' = ' + int(d - c) + '.' + (k - m === 1 ? '' : ' Divide by ' + (k - m) + ': ' + letter + ' = ' + int(value) + '.');
       }
       const rightText = typeof right === 'number' ? int(right) : right;
       return sentence('algebra', year, 'Equations', 'EQUATIONS', 'Solve ' + left + ' = ' + rightText + '.', why,
@@ -3229,7 +3428,8 @@
     const least = randInt(0, 1);
     const count = sum - 2 * least + 1;
     return sentence('algebra', year, 'Combinations', 'ALGEBRA',
-      'a and b are whole numbers' + (least ? ' of at least 1' : ', 0 or more') + ', and a + b = ' + sum + '. How many different pairs (a, b) are there?',
+      'a and b are whole numbers' + (least ? ' of at least 1' : ', 0 or more') + ', and a + b = ' + sum + '. How many different pairs (a, b) are there? ' +
+        'Order matters: a = ' + least + ', b = ' + (sum - least) + ' and a = ' + (sum - least) + ', b = ' + least + ' are two different pairs.',
       'a can be any number from ' + least + ' to ' + (sum - least) + ', and then b is fixed: that is ' + count + ' pairs.',
       [{ ask: count }, { t: 'pairs', span: 2 }], { check: { kind: 'pairs', sum: sum, least: least } });
   };
@@ -3244,10 +3444,10 @@
     const q = randInt(1, 9);
     const value = p * a * a - q * b;
     return sentence('algebra', year, 'Substitution', 'ALGEBRA',
-      'Find ' + p + 'a² ' + MINUS + ' ' + q + 'b when a = ' + int(a) + ' and b = ' + int(b) + '.',
-      'a² = ' + int(a) + ' × ' + int(a) + ' = ' + (a * a) + ', so ' + p + 'a² = ' + (p * a * a) + '. ' + q + 'b = ' + int(q * b) + '. ' + (p * a * a) + ' ' + MINUS + ' ' +
+      'Find ' + p + 'a² ' + MINUS + ' ' + (q === 1 ? '' : q) + 'b when a = ' + int(a) + ' and b = ' + int(b) + '.',
+      'a² = ' + int(a) + ' × ' + int(a) + ' = ' + (a * a) + ', so ' + p + 'a² = ' + (p * a * a) + '. ' + (q === 1 ? 'b = ' + int(b) : q + 'b = ' + int(q * b)) + '. ' + (p * a * a) + ' ' + MINUS + ' ' +
         (q * b < 0 ? '(' + int(q * b) + ')' : q * b) + ' = ' + int(value) + '.',
-      [{ ask: int(value), sign: true }], { picture: { kind: 'words', text: p + 'a² ' + MINUS + ' ' + q + 'b' }, check: { kind: 'value', expr: p + '*(' + a + ')^2-' + q + '*(' + b + ')' } });
+      [{ ask: int(value), sign: true }], { picture: { kind: 'words', text: p + 'a² ' + MINUS + ' ' + (q === 1 ? '' : q) + 'b' }, check: { kind: 'value', expr: p + '*(' + a + ')^2-' + q + '*(' + b + ')' } });
   };
 
   ALGEBRA.collect = function (year) {
@@ -3255,7 +3455,9 @@
     const a2 = randInt(-6, 9);
     const b1 = randInt(1, 9);
     const b2 = randInt(-8, 9);
-    if (!a2 || !b2 || a1 + a2 <= 0 || b1 + b2 <= 0) return null;
+    // An answer of 1a would be written a, which a box for the number of a
+    // cannot show, so there are at least 2 of each.
+    if (!a2 || !b2 || a1 + a2 <= 1 || b1 + b2 <= 1) return null;
     const left = expression([[a1, 'a'], [b1, 'b'], [a2, 'a'], [b2, 'b']]);
     const tokens = [{ ask: a1 + a2, sub: 'Type how many a.' }, { t: 'a', span: 1 }, { s: '+' }, { ask: b1 + b2, sub: 'Now how many b.' }, { t: 'b', span: 1 }];
     return sentence('algebra', year, 'Collecting like terms', 'ALGEBRA', 'Simplify ' + left + '.',
@@ -3274,7 +3476,9 @@
         [{ ask: k * p, sub: 'Type the number of x.' }, { t: 'x', span: 1 }, { s: '+' }, { ask: k * c, sub: 'Now the number on its own.' }],
         { picture: { kind: 'words', text: k + '(' + (p === 1 ? '' : p) + 'x + ' + c + ')' }, check: { kind: 'expand', left: k + '(' + p + 'x + ' + c + ')' } });
     }
-    if (gcd(p, c) !== 1) return null;
+    // A bracket holding x on its own would need a box for 1 x; the number of
+    // x inside is at least 2.
+    if (gcd(p, c) !== 1 || p === 1) return null;
     return sentence('algebra', year, 'Factorising', 'ALGEBRA', 'Factorise ' + (k * p) + 'x + ' + (k * c) + ' fully.',
       'The highest common factor of ' + (k * p) + ' and ' + (k * c) + ' is ' + k + ': ' + (k * p) + 'x + ' + (k * c) + ' = ' + k + '(' + (p === 1 ? '' : p) + 'x + ' + c + ').',
       [{ ask: k, sub: 'Type the factor outside the bracket.' }, { s: '(' }, { ask: p, sub: 'Now the number of x.' }, { t: 'x', span: 1 }, { s: '+' }, { ask: c, sub: 'Now the number on its own.' }, { s: ')' }],
@@ -3285,12 +3489,13 @@
     const a = randInt(2, 9);
     const b = randInt(-5, 9);
     const terms = [1, 2, 3, 4].map(function (n) { return a * n + b; });
-    if (terms[0] <= 0) return null;
+    // b = 0 would be answered "4n + 0".
+    if (terms[0] <= 0 || b === 0) return null;
     return sentence('algebra', year, 'nth term', 'SEQUENCES', 'Find the nth term of ' + terms.join(', ') + ', ...',
-      'The terms go up by ' + a + ', so it starts ' + a + 'n. ' + a + ' × 1 = ' + a + ', and the first term is ' + terms[0] + ', so add ' + int(b) + ': ' + a + 'n' +
-        (b < 0 ? ' ' + MINUS + ' ' + Math.abs(b) : ' + ' + b) + '.',
-      [{ ask: a, sub: 'Type the number in front of n.' }, { t: 'n', span: 1 }, { signBox: b < 0 ? MINUS : '+' }, { ask: Math.abs(b), sub: 'Now the number added or taken away.' }],
-      { check: { kind: 'nthTerm', terms: terms } });
+      'The terms go up by ' + a + ', so it starts ' + a + 'n. ' + a + ' × 1 = ' + a + ', and the first term is ' + terms[0] + ', so ' +
+        (b < 0 ? 'take away ' + Math.abs(b) : 'add ' + b) + ': ' + a + 'n' + (b < 0 ? ' ' + MINUS + ' ' + Math.abs(b) : ' + ' + b) + '.',
+      [{ ask: a, sub: 'Type the number in front of n.' }, { t: 'n', span: 1 }, { signBox: b < 0 ? MINUS : '+', plus: true }, { ask: Math.abs(b), sub: 'Now the number added or taken away.' }],
+      { check: { kind: 'nthTerm', terms: terms }, expression: 'nth term of ' + terms.join(', ') + ': ' + a + 'n ' + (b < 0 ? MINUS + ' ' + Math.abs(b) : '+ ' + b) });
   };
 
   ALGEBRA.graph = function (year) {
@@ -3302,7 +3507,7 @@
       const x = randInt(-4, 6);
       const y = m * x + c;
       return sentence('algebra', year, 'Straight-line graphs', 'GRAPHS', 'On the line ' + equation + ', what is y when x = ' + int(x) + '?',
-        'Put x = ' + int(x) + ' into ' + equation + ': y = ' + m + ' × ' + (x < 0 ? '(' + int(x) + ')' : x) + (c < 0 ? ' ' + MINUS + ' ' + Math.abs(c) : ' + ' + c) + ' = ' + int(y) + '.',
+        'Put x = ' + int(x) + ' into ' + equation + ': y = ' + int(m) + ' × ' + (x < 0 ? '(' + int(x) + ')' : x) + (c < 0 ? ' ' + MINUS + ' ' + Math.abs(c) : ' + ' + c) + ' = ' + int(y) + '.',
         [{ t: 'y', span: 1 }, { s: '=' }, { ask: int(y), sign: true }], { picture: { kind: 'words', text: equation }, check: { kind: 'value', expr: m + '*(' + x + ')+(' + c + ')' } });
     }
     return sentence('algebra', year, 'Straight-line graphs', 'GRAPHS', 'For the line ' + equation + ', what are the gradient and the y-intercept?',

@@ -252,9 +252,9 @@
         const missing = p.target.on.filter(function (id) { return s.on.indexOf(id) === -1; }).length;
         const extra = s.on.filter(function (id) { return p.target.on.indexOf(id) === -1; }).length;
         if (!missing && !extra) return null;
-        return 'Each shaded square needs a partner the same distance from the mirror line, on the other side. ' +
+        return 'Each square of the pattern needs a partner the same distance from the mirror line, on the other side. ' +
           (missing ? plural(missing, 'partner square is', 'partner squares are') + ' still missing' : '') +
-          (missing && extra ? ', and ' : '') + (extra ? plural(extra, 'shaded square has', 'shaded squares have') + ' no partner' : '') + '.';
+          (missing && extra ? ', and ' : '') + (extra ? plural(extra, 'shaded square is', 'shaded squares are') + ' not the reflection of a square in the pattern' : '') + '.';
       }
       // A net of a cube.
       const cells = shadedCells(p, s.on);
@@ -956,7 +956,11 @@
       steps: [{
         prompt: 'Set the clock to ' + (asDigits ? digital + ' (' + words + ')' : words) + '.',
         sub: 'Up and down move an hour; left and right move the minute hand ' + (step === 1 ? '1 minute' : '5 minutes') + '. Press Enter when it is right.',
-        why: words.replace(/^./, function (c) { return c.toUpperCase(); }) + ': the minute hand goes ' + minuteHand(m) + ' and the hour hand ' + hourHand(minutes) + '.'
+        // A time "to" the hour is first turned into minutes past: 18 minutes
+        // to 2 is 60 - 18 = 42 minutes past 1.
+        why: words.replace(/^./, function (c) { return c.toUpperCase(); }) +
+          (/ to /.test(words) ? ' is 60 ' + MINUS + ' ' + (60 - m) + ' = ' + m + ' minutes past ' + (Math.floor(minutes / 60) || 12) : '') +
+          ': the minute hand goes ' + minuteHand(m) + ' and the hour hand ' + hourHand(minutes) + '.'
       }],
       target: { minutes: minutes },
       answer: 'The hands show ' + words + '.',
@@ -1022,6 +1026,14 @@
       n: n, majorEvery: majorEvery, unit: thermometer ? '°C' : '', labels: 'majors' };
     const value = lineValue(board, at).replace('-', MINUS);
     const minor = decimalText(minorScaled, places);
+    // Count from the nearest number written, up or down to the value.
+    const below = Math.floor(at / majorEvery) * majorEvery;
+    const label = at - below <= below + majorEvery - at || below + majorEvery > n ? below : below + majorEvery;
+    const away = Math.abs(at - label);
+    const labelText = lineValue(board, label).replace('-', MINUS);
+    const countWay = label < at ? (thermometer ? 'up' : 'on') : (thermometer ? 'down' : 'back');
+    const countWhy = away === 0 ? value + ' is written on the ' + (thermometer ? 'thermometer.' : 'line.')
+      : 'The nearest number written is ' + labelText + ': count ' + countWay + ' ' + plural(away, 'small step', 'small steps') + ' to ' + value + '.';
     return problem({
       area: 'number', year: year, title: thermometer ? 'Thermometers' : 'Number lines', stage: 'NUMBER LINE',
       question: thermometer ? 'Make the thermometer show ' + value + ' °C.' : 'Mark ' + value + ' on the number line.',
@@ -1029,7 +1041,7 @@
       steps: [{
         prompt: thermometer ? 'Make the thermometer show ' + value + ' °C.' : 'Move the arrow to ' + value + '.',
         sub: (thermometer ? 'Up and down' : 'Right and left') + ' move one small step; Shift with an arrow jumps to the next number written. Press Enter when it is right.',
-        why: 'Each small step is ' + minor + '. Count on from the nearest number written to ' + value + '.'
+        why: 'Each small step is ' + minor + '. ' + countWhy
       }],
       target: { at: at },
       answer: value + (thermometer ? ' °C' : '') + ' marked.',
@@ -1042,7 +1054,9 @@
   // Fractions, Years 1 to 6: shade a fraction of a shape, a set or a grid.
   KINDS.shade = function (year) {
     const options = {
-      1: [[2, [1]], [4, [1, 2, 3]]],
+      // Year 1: "a half as one of two equal parts", "a quarter as one of
+      // four equal parts", in words; 2/4 and 3/4 are Year 2.
+      1: [[2, [1]], [4, [1]]],
       2: [[3, [1, 2]], [4, [1, 2, 3]], [2, [1]]],
       3: [[5, [1, 2, 3, 4]], [6, [1, 5]], [8, [3, 5, 7]], [10, [3, 7, 9]]],
       4: [[10, [3, 7, 9]], [8, [3, 5, 7]], [12, [5, 7, 11]]],
@@ -1077,6 +1091,8 @@
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) parts.push({ id: r * cols + c, r: r, c: c });
     let fraction = n + '/' + d;
     let ask = fraction;
+    // Year 1 names a half and a quarter in words; fraction notation is Year 2.
+    if (year === 1) ask = d === 2 ? 'half' : 'a quarter';
     if (year >= 4 && d === 10 && randInt(0, 1)) ask = decimalText(n, 1);
     if (year >= 5 && (d === 20 || d === 25 || d === 10) && randInt(0, 1)) ask = (n * 100 / d) + '%';
     const noun = layout === 'counters' ? 'counters' : (layout === 'grid' ? 'squares' : 'parts');
@@ -1087,7 +1103,11 @@
       steps: [{
         prompt: 'Shade ' + ask + ' of the ' + (layout === 'counters' ? 'counters' : 'shape') + '.',
         sub: 'The arrows move between the ' + noun + '; Space shades one or clears it. Press Enter when it is right.',
-        why: 'There are ' + total + ' ' + noun + '. ' + (ask !== fraction ? ask + ' is ' + fraction + '. ' : '') + fraction + ' of ' + total + ' is ' + total + ' ÷ ' + d + ' × ' + n + ' = ' + need +
+        why: year === 1
+          ? (layout === 'counters'
+            ? 'There are ' + total + ' counters. Put them in ' + d + ' equal groups: ' + (total / d) + ' in each. ' + (d === 2 ? 'Half' : 'A quarter') + ' is 1 group, so shade ' + need + '.'
+            : 'The shape has ' + total + ' equal parts. ' + (d === 2 ? 'Half is 1 of 2' : 'A quarter is 1 of 4') + ' equal parts, so shade ' + need + '.')
+          : 'There are ' + total + ' ' + noun + '. ' + (ask !== fraction ? ask + ' is ' + fraction + '. ' : '') + fraction + ' of ' + total + ' is ' + total + ' ÷ ' + d + ' × ' + n + ' = ' + need +
           (scale > 1 ? ', the same as ' + need + '/' + total : '') + ', so shade any ' + need + '.'
       }],
       target: { on: parts.slice(0, need).map(function (x) { return x.id; }) },
@@ -1114,7 +1134,7 @@
     const target = given.concat(given.map(mirror)).sort(function (a, b) { return a - b; });
     return problem({
       area: 'shape', year: year, title: 'Symmetric figures', stage: 'SYMMETRY',
-      question: 'Shade squares to make the pattern symmetric about the dashed mirror line.',
+      question: 'Reflect the shaded squares in the dashed mirror line to make a symmetric pattern.',
       board: { tool: 'shade', mode: 'symmetry', layout: 'grid', rows: size, cols: size, parts: parts, given: given, mirror: vertical ? 'vertical' : 'horizontal', noun: 'squares' },
       steps: [{
         prompt: 'Complete the pattern so it is symmetric about the mirror line.',
@@ -1191,7 +1211,7 @@
     const w = randInt(2, 6);
     const h = randInt(1, 5);
     const square = w === h;
-    const name = square ? 'a square with sides of ' + plural(w, 'square') : 'a rectangle ' + w + ' squares long and ' + h + ' squares wide';
+    const name = square ? 'a square with sides of ' + plural(w, 'square') : 'a rectangle ' + plural(w, 'square') + ' long and ' + plural(h, 'square') + ' wide';
     const start = [randInt(1, 3), randInt(1, 3)];
     const pts = [start, [start[0] + w, start[1]], [start[0] + w, start[1] + h], [start[0], start[1] + h]];
     return problem({
@@ -1375,6 +1395,27 @@
     ['Sports', ['football', 'swimming', 'tennis', 'netball']]
   ];
 
+  // 13 with a key of 2 is 6 and a half pictures: Years 2 and 3 have no
+  // decimals.
+  function pictures(value, key) {
+    const whole = Math.floor(value / key);
+    const half = value % key !== 0;
+    if (!half) return plural(whole, 'picture', 'pictures');
+    return whole ? whole + ' and a half pictures' : 'half a picture';
+  }
+
+  // Tallies come in five-bar gates: four lines with one across.
+  function tallyWhy(value) {
+    const gates = Math.floor(value / 5);
+    const rest = value % 5;
+    if (!gates) return ': ' + plural(rest, 'line', 'lines') + '.';
+    const parts = [];
+    for (let k = 0; k < gates; k++) parts.push(5);
+    if (rest) parts.push(rest);
+    return (parts.length > 1 ? ', which is ' + parts.join(' + ') : '') + ': ' + (gates === 1 ? 'one five-bar gate' : gates + ' five-bar gates') +
+      ' (four lines with one across make 5)' + (rest ? ', then ' + plural(rest, 'line', 'lines') : '') + '.';
+  }
+
   KINDS.chart = function (year) {
     const set = pick(CHART_SETS);
     let style;
@@ -1404,7 +1445,7 @@
         category: k,
         prompt: (style === 'line' ? 'Plot ' : 'Draw ') + c + ': ' + values[k] + '.',
         sub: style === 'pictogram' || style === 'tally' ? 'Left and right add or take away; press Enter when it is right.' : 'Up and down move it by one small step of the scale; press Enter when it is right.',
-        why: c + ' is ' + values[k] + (style === 'pictogram' ? ': each picture is ' + key + ', so ' + (values[k] / key) + ' pictures.' : (style === 'tally' ? ': four lines and one across make 5.' : ': find ' + values[k] + ' on the scale; each small step is ' + minor + '.'))
+        why: c + ' is ' + values[k] + (style === 'pictogram' ? ': each picture is ' + key + ', so ' + pictures(values[k], key) + '.' : (style === 'tally' ? tallyWhy(values[k]) : ': find ' + values[k] + ' on the scale; each small step is ' + minor + '.'))
       });
     });
     const titles = { tally: 'Tally charts', pictogram: 'Pictograms', bars: 'Bar charts', line: 'Line graphs' };

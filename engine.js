@@ -70,9 +70,11 @@
   // makes the decision for the child.
   const CHOICE = {
     carry: 'Small box first: type the carry from the last column, or 0 if nothing carries.',
-    exchange: 'Small box first: type 1 to exchange a ten into this column, or 0 if the top digit is big enough.',
+    exchange: 'Small box first: type 1 to exchange from the next column, or 0 if the top digit is big enough.',
     leftover: 'Small box first: type what is left over, or 0 if nothing is left over.',
-    sign: 'If the answer is below zero, press − first. Otherwise type the first digit.'
+    sign: 'If the answer is below zero, press − first. Otherwise type the first digit.',
+    // A sign between the terms of an expression such as 3n + 6.
+    signAdd: 'If the number is taken away, press − first. If it is added, type the number.'
   };
   // The box in front of a row, which only a carry can fill.
   const FRONT_CHOICE = 'Type the carry, or 0 if nothing carries.';
@@ -142,6 +144,16 @@
   function placeName(digitsFromRight) {
     if (digitsFromRight < 0) return DECIMAL_PLACES[-digitsFromRight - 1] || 'next';
     return PLACES[digitsFromRight] || 'next';
+  }
+
+  // One of a place: "1 tenth", "1 hundred".
+  function singular(name) {
+    return name.replace(/s$/, '');
+  }
+
+  // A count of a place's units: "1 ten", "3 hundredths".
+  function unitsOf(count, name) {
+    return count + ' ' + (count === 1 ? singular(name) : name);
   }
 
   // A whole number of tenths, hundredths or thousandths written as a
@@ -229,6 +241,15 @@
       : previous.work + ' = ' + previous.total;
   }
 
+  // How a column's total splits for the carry. In the ones column 13 is 1
+  // ten and 3 ones; in another column the 13 counts that column's units,
+  // so 13 hundredths is 1 tenth and 3 hundredths.
+  function carrySplit(total, carry, digit, placeIndex) {
+    if (placeIndex === 0) return ', which is ' + unitsOf(carry, 'tens') + ' and ' + unitsOf(digit, 'ones');
+    const here = placeName(placeIndex);
+    return ': ' + total + ' ' + here + ', which is ' + unitsOf(carry, placeName(placeIndex + 1)) + ' and ' + unitsOf(digit, here);
+  }
+
   function pushCarryChoice(actions, c) {
     actions.push({
       kind: 'digit',
@@ -242,9 +263,8 @@
       prompt: c.choicePrompt,
       subprompt: CHOICE.carry,
       why: c.carry > 0
-        ? columnMade(c.previous) + ', which is ' + c.carry +
-          (c.carry === 1 ? ' ten' : ' tens') + ' and ' + c.previous.digit +
-          (c.previous.digit === 1 ? ' one' : ' ones') + ', so carry ' + c.carry + '.'
+        ? columnMade(c.previous) + carrySplit(c.previous.total, c.carry, c.previous.digit, c.previousPlace || 0) +
+          ', so carry ' + c.carry + '.'
         : columnMade(c.previous) + ', which is less than 10, so nothing carries: type 0.'
     });
     actions.push({
@@ -259,7 +279,7 @@
         : (c.carry > 0 ? c.afterPrompt : (c.stage === 'MULTIPLY' ? 'Now multiply.' : 'Now add the column.')),
       subprompt: c.onlyCarry
         ? 'Only the carry can go in this column: write it, or 0 if there is none.'
-        : 'Work out ' + c.work + '. Type only the ones digit.',
+        : (/[+×]/.test(c.work) ? 'Work out ' + c.work + '. Type only the ones digit.' : 'Only ' + c.work + ' is in this column. Write it.'),
       why: c.why
     });
   }
@@ -427,6 +447,7 @@
         } else {
           if (carry) carryCells[col].value = carry;
           pushCarryChoice(actions, {
+            previousPlace: width - 2 - col - places,
             cellId: rowId + '-c' + col,
             rowId: rowId,
             groupId: groupId,
@@ -527,6 +548,7 @@
         } else {
           if (carry) sumCarryCells[col].value = carry;
           pushCarryChoice(actions, {
+            previousPlace: width - 2 - col - places,
             cellId: 'sum-c' + col,
             rowId: 'sum',
             groupId: groupId,
@@ -650,6 +672,7 @@
       } else {
         if (carry) carryCells[col].value = carry;
         pushCarryChoice(actions, {
+            previousPlace: width - 2 - col - places,
           cellId: 'sum-c' + col,
           rowId: 'sum',
           groupId: groupId,
@@ -755,7 +778,9 @@
         prompt: choicePrompt,
         subprompt: CHOICE.exchange,
         why: needed
-          ? current[col] + ' is less than ' + bottom[col] + ', so exchange: type 1 to bring in a ten.'
+          ? current[col] + ' is less than ' + bottom[col] + ', so exchange: type 1. 1 ' +
+            singular(placeName(width - col - places)) + ' from the next column is 10 ' +
+            placeName(width - 1 - col - places) + ' here.'
           : current[col] + ' ' + MINUS + ' ' + bottom[col] + ' works without exchanging: type 0.'
       });
       if (needed) {
@@ -772,6 +797,7 @@
             fills.push({ cellId: 'ex-c' + (g + 1), value: current[g + 1], crossCellId: 'a-c' + (g + 1) });
           }
           const place = placeName(width - 1 - g - places);
+          const nextPlace = placeName(width - 2 - g - places);
           actions.push({
             kind: 'digit',
             cellId: 'ex-c' + g,
@@ -780,8 +806,8 @@
             value: current[g],
             stage: 'EXCHANGE',
             prompt: passingZero
-              ? 'The ' + place + ' are now 10. Exchange 1 of them for the next column.'
-              : 'Take the ten from the ' + before + ' ' + place + '.',
+              ? 'The ' + place + ' column now has 10. Exchange 1 ' + singular(place) + ' for 10 ' + nextPlace + '.'
+              : 'Exchange 1 of the ' + before + ' ' + (before === 1 ? singular(place) : place) + ' for 10 ' + nextPlace + '.',
             subprompt: 'How many ' + place + ' are left? Type it in the small box.',
             why: before + ' ' + MINUS + ' 1 = ' + current[g] + '.',
             crossCellId: 'a-c' + g,
@@ -952,19 +978,20 @@
     };
   }
 
-  // The remainder's boxes from the right, ones first. `summary` says where
-  // the remainder came from; a box the remainder does not reach takes 0.
+  // The remainder's boxes, left to right like the answer before them.
+  // `summary` says where the remainder came from; a box in front that the
+  // remainder does not reach takes 0.
   function remainderActions(remainder, boxes, n, groupId, lastStep, summary, expression) {
     const actions = [];
     const digits = paddedDigits(remainder, boxes);
     const length = remainder > 0 ? String(remainder).length : 0;
-    for (let k = boxes - 1; k >= 0; k--) {
-      const isFirst = k === boxes - 1;
+    for (let k = 0; k < boxes; k++) {
+      const isFirst = k === 0;
       const place = placeName(boxes - 1 - k);
       let subprompt;
       if (boxes === 1) subprompt = 'Type what is left over at the end, or 0 if nothing is left over.';
-      else if (isFirst) subprompt = 'Type the ones digit of what is left over, or 0 if nothing is left over.';
-      else subprompt = 'Type the ' + place + ' digit of what is left over, or 0 if there is none.';
+      else if (k === boxes - 1) subprompt = 'Now the ones digit. Type 0 if nothing is left over.';
+      else subprompt = 'Type the ' + place + ' digit of what is left over, or 0 if it is less than ' + Math.pow(10, boxes - 1 - k) + '.';
       actions.push({
         kind: 'digit',
         cellId: 'q-c' + (n + 1 + k),
@@ -1582,7 +1609,7 @@
       if (token.n !== undefined) parts.push(grouped(String(token.n).replace('-', MINUS)));
       else if (token.ask !== undefined) parts.push(String(token.ask).replace('-', MINUS));
       else if (token.s !== undefined) parts.push(token.s);
-      else if (token.signBox !== undefined) parts.push(token.signBox === MINUS ? MINUS : '');
+      else if (token.signBox !== undefined) parts.push(token.signBox === MINUS ? MINUS : (token.plus ? '+' : ''));
       else if (token.t !== undefined) parts.push(token.t);
       else if (token.v !== undefined) parts.push(token.v);
       else if (token.cmp !== undefined) parts.push(token.cmp);
@@ -1615,7 +1642,16 @@
     const chars = entry.chars;
     const count = chars.filter(function (ch) { return /\d/.test(ch); }).length;
     if (count === 1) return first ? (info.sub || 'Type the answer.') : 'Keep going.';
-    if (year < 2) return first ? 'Type the number from the left.' : 'Type the next digit.';
+    if (year < 2) return first ? 'Start with the left box.' : 'Now the next box.';
+    // A time: hours, then minutes, not places of one number.
+    const colon = chars.indexOf(':');
+    if (colon !== -1) {
+      if (entry.index < colon) {
+        if (colon === 1) return 'Type the hour.';
+        return entry.index === 0 ? 'Type the hours, the tens digit first.' : 'Now the ones digit of the hours.';
+      }
+      return entry.index === colon + 1 ? 'Now the minutes: the tens digit.' : 'Now the ones digit of the minutes.';
+    }
     const point = chars.indexOf('.');
     const end = point === -1 ? chars.length : point;
     const place = entry.index < end ? placeName(end - 1 - entry.index) : placeName(-(entry.index - point));
@@ -1687,7 +1723,8 @@
       } else if (token.signBox !== undefined) {
         // A sign box on its own, in front of a fraction to type.
         const negative = token.signBox === MINUS;
-        const cell = place('fact', col, negative ? MINUS : '', true, { signBox: true, group: order.length });
+        // `plus`: the sign between two terms, written + when it is not −.
+        const cell = place('fact', col, negative ? MINUS : '', true, { signBox: true, group: order.length, plus: Boolean(token.plus) });
         order.push({ cell: cell, rowId: 'fact', kind: 'sign', value: negative ? MINUS : '+', info: token });
         signBox = true;
         col += 1;
@@ -1763,9 +1800,11 @@
           choice: 'sign',
           value: entry.value,
           firstDigit: next.value,
-          subprompt: CHOICE.sign,
-          why: (entry.value === MINUS ? 'This number is below zero, so it starts with ' + MINUS + '. '
-            : 'This number is not below zero, so it has no minus sign. ') + base.why
+          subprompt: entry.cell.plus ? CHOICE.signAdd : CHOICE.sign,
+          why: (entry.cell.plus
+            ? (entry.value === MINUS ? 'The number is taken away, so press ' + MINUS + '. ' : 'The number is added, so the sign is +. ')
+            : (entry.value === MINUS ? 'This number is below zero, so it starts with ' + MINUS + '. '
+              : 'This number is not below zero, so it has no minus sign. ')) + base.why
         });
       }
       if (entry.kind === 'compare') {
@@ -1909,11 +1948,11 @@
             ? ''
             : (base.placeWords
               ? 'Type the ' + placeName(digits.length - 1) + ' digit first.'
-              : 'Type the number from the left.')]
+              : 'Start with the left box.')]
             .filter(Boolean).join(' ') || 'Type the answer.')
           : (base.placeWords
             ? 'Now type the ' + placeName(digits.length - 1 - k) + ' digit.'
-            : 'Type the next digit.'),
+            : 'Now the next box.'),
         why: base.why
       };
     });
@@ -2044,14 +2083,17 @@
     } else if (operation === 'multiply') {
       // From Year 3 every table is in play, so count in the bigger number:
       // fewer steps.
-      const table = year >= 3 ? Math.max(a, b) : (FACT_TABLES.indexOf(b) !== -1 ? b : a);
+      // Year 1 counts in 2s, 5s and 10s ("count in multiples of 2s, 5s and
+      // 10s"), so it counts in whichever number is one of those.
+      const steps = year === 1 ? COUNTING_STEPS : FACT_TABLES;
+      const table = year >= 3 ? Math.max(a, b) : (steps.indexOf(b) !== -1 ? b : (steps.indexOf(a) !== -1 ? a : b));
       const times = table === b ? a : b;
       why = (table === a && a !== b ? a + ' × ' + b + ' is the same as ' + b + ' × ' + a + '. ' : '') +
         'Count in ' + table + 's, ' + times + (times === 1 ? ' time: ' : ' times: ') +
         countingList(table, times) + '. So ' + expression + '.';
     } else {
       why = 'Count in ' + b + 's up to ' + a + ': ' + countingList(b, result) + '. That is ' +
-        result + ' lots of ' + b + ', so ' + expression + '.';
+        result + (result === 1 ? ' lot of ' : ' lots of ') + b + ', so ' + expression + '.';
     }
 
     const answer = { value: value, expression: expression };
@@ -2151,7 +2193,68 @@
       return 'Take ' + (a - 10) + ' to get to 10, then ' + (b - (a - 10)) + ' more gets to ' +
         result + '.';
     }
-    return expression + '.';
+    if (b === 0) return (ops[0] === '+' ? 'Adding 0' : 'Taking away 0') + ' leaves ' + a + ' as it is: ' + expression + '.';
+    return partsWhy(a, b, ops[0] === '+' ? 1 : -1, result) || expression + '.';
+  }
+
+  // Adding or taking away a whole number in its parts, as children are
+  // taught to: 78 - 67 takes away 60, then 7. A number with one part is
+  // counted in that part's steps when there are 5 or fewer (513 + 30
+  // counts on 3 tens: 523, 533, 543), or else added in its place column.
+  function partsWhy(a, b, sign, result) {
+    if (a < 0 || b <= 0 || result < 0) return null;
+    const op = sign > 0 ? ' + ' : ' ' + MINUS + ' ';
+    const digits = String(b).split('');
+    const parts = digits.map(function (d, i) { return Number(d) * Math.pow(10, digits.length - 1 - i); })
+      .filter(function (v) { return v > 0; });
+    if (parts.length > 1) {
+      let at = a;
+      const said = parts.map(function (part) {
+        const next = at + sign * part;
+        const text = at + op + part + ' = ' + next;
+        at = next;
+        return text;
+      });
+      return (sign > 0 ? 'Add ' : 'Take away ') + parts.join(', then ') + ': ' + said.join(', then ') + '.';
+    }
+    const place = String(b).length - 1;
+    const unit = Math.pow(10, place);
+    const steps = b / unit;
+    if (steps === 1 && unit === 1) return '1 ' + (sign > 0 ? 'more' : 'less') + ' than ' + a + ' is ' + result + '.';
+    const ones = a % 10;
+    if (unit === 1 && steps > 5) {
+      // 6 to 9 ones: within the ten if they fit, else through the next ten.
+      if (sign > 0) {
+        if (ones + b < 10) return a + ' has ' + unitsOf(ones, 'ones') + '. ' + ones + ' + ' + b + ' = ' + (ones + b) + ', so ' + a + ' + ' + b + ' = ' + result + '.';
+        const toTen = 10 - ones;
+        if (toTen === b) return a < 10 ? a + ' and ' + b + ' make 10.' : 'Adding ' + b + ' takes ' + a + ' to the next ten: ' + result + '.';
+        return 'Add ' + toTen + ' to make ' + (a + toTen) + ', then ' + (b - toTen) + ' more makes ' + result + '.';
+      }
+      if (ones >= b) return a + ' has ' + unitsOf(ones, 'ones') + '. ' + ones + ' ' + MINUS + ' ' + b + ' = ' + (ones - b) + ', so ' + a + ' ' + MINUS + ' ' + b + ' = ' + result + '.';
+      if (a === 10) return (10 - b) + ' + ' + b + ' = 10, so 10 ' + MINUS + ' ' + b + ' = ' + result + '.';
+      if (ones === 0) return (a - 10) + ' and 10 make ' + a + '. 10 ' + MINUS + ' ' + b + ' = ' + (10 - b) + ', so ' + a + ' ' + MINUS + ' ' + b + ' = ' + result + '.';
+      return 'Take away ' + ones + ' to get to ' + (a - ones) + ', then ' + (b - ones) + ' more gets to ' + result + '.';
+    }
+    if (steps <= 5) {
+      const seen = [];
+      for (let k = 1; k <= steps; k++) seen.push(a + sign * k * unit);
+      return 'Count ' + (sign > 0 ? 'on ' : 'back ') + (unit === 1 ? steps : unitsOf(steps, placeName(place))) +
+        ' from ' + a + ': ' + seen.join(', ') + '.';
+    }
+    const name = placeName(place);
+    const have = Math.floor(a / unit) % 10;
+    const start = a + op + b + ': ' + a + ' has ' + unitsOf(have, name) + '. ';
+    if (sign > 0) {
+      const total = have + steps;
+      return start + have + ' + ' + steps + ' = ' + unitsOf(total, name) +
+        (total >= 10 ? ', which is ' + unitsOf(1, placeName(place + 1)) + ' and ' + unitsOf(total - 10, name) : '') +
+        ', so ' + a + op + b + ' = ' + result + '.';
+    }
+    if (have >= steps) {
+      return start + have + ' ' + MINUS + ' ' + steps + ' = ' + unitsOf(have - steps, name) + ', so ' + a + op + b + ' = ' + result + '.';
+    }
+    return start + 'That is fewer than ' + steps + ', so exchange 1 ' + singular(placeName(place + 1)) + ' for 10 ' + name + ': ' +
+      (have + 10) + ' ' + MINUS + ' ' + steps + ' = ' + unitsOf(have + 10 - steps, name) + ', so ' + a + op + b + ' = ' + result + '.';
   }
 
   function sentenceText(terms, ops, result, hiddenIndex, brackets) {
@@ -2824,9 +2927,11 @@
 
   // Word problems: scaling, n objects with m objects (Years 3 and 4),
   // simple rates (Year 5), sharing and grouping (Year 3 divide).
+  // `a` gives a story its own range (a puppy of 2 to 9 kg, so the big dog
+  // stays under 90 kg); the others use the year's range.
   const SCALING = [
     { story: 'A blue ribbon is {a} cm long. A red ribbon is {b} times as long. How long is the red ribbon?', unit: 'cm' },
-    { story: 'A puppy weighs {a} kg. A big dog is {b} times as heavy. How heavy is the big dog?', unit: 'kg' },
+    { story: 'A puppy weighs {a} kg. A big dog is {b} times as heavy. How heavy is the big dog?', unit: 'kg', a: [2, 9] },
     { story: 'Sam has {a} stickers. Ali has {b} times as many. How many stickers does Ali have?', unit: 'stickers' },
     { story: 'A small tower is {a} cubes tall. A big tower is {b} times as tall. How tall is the big tower?', unit: 'cubes' }
   ];
@@ -2882,7 +2987,7 @@
         const c = randInt(2, 3);
         story = 'You have ' + a + ' hats, ' + b + ' scarves and ' + c + ' pairs of gloves. How many different outfits of one hat, one scarf and one pair of gloves can you make?';
         answer = a * b * c;
-        why = 'Each hat goes with each scarf: ' + a + ' × ' + b + ' = ' + (a * b) + ' pairs. Each pair goes with each pair of gloves: ' +
+        why = 'Each hat goes with each scarf: ' + a + ' × ' + b + ' = ' + (a * b) + ' ways to choose a hat and a scarf. Each of those goes with each pair of gloves: ' +
           (a * b) + ' × ' + c + ' = ' + answer + '.';
         expr = a + ' × ' + b + ' × ' + c;
       } else {
@@ -2894,7 +2999,7 @@
       unit = year === 4 ? 'outfits' : 'pairs';
     } else {
       const scale = pick(SCALING);
-      a = randInt(year === 3 ? 3 : 12, year === 3 ? 12 : 45);
+      a = scale.a ? randInt(scale.a[0], scale.a[1]) : randInt(year === 3 ? 3 : 12, year === 3 ? 12 : 45);
       b = randInt(2, year === 3 ? 5 : 9);
       story = fill(scale.story, { a: a, b: b });
       answer = a * b;
@@ -2955,7 +3060,7 @@
 
   // Year 5: "interpret remainders appropriately for the context".
   const REMAINDER_STORIES = [
-    { round: 'up', story: '{n} children are going on a trip. Each car takes {k} children. How many cars are needed?', unit: 'cars',
+    { round: 'up', story: '{n} children are going on a trip. Each car takes {k} children. How many cars are needed?', unit: 'cars', k: [3, 4],
       why: '{n} ÷ {k} = {q} r {r}. The {r} children left over need one more car, so {a} cars.' },
     { round: 'up', story: '{n} cakes need boxes. A box holds {k} cakes. How many boxes are needed for all of them?', unit: 'boxes',
       why: '{n} ÷ {k} = {q} r {r}. The {r} cakes left over need one more box, so {a} boxes.' },
@@ -2969,12 +3074,12 @@
 
   function remainderStory(year) {
     for (let attempt = 0; attempt < 1000; attempt++) {
-      const k = randInt(3, 9);
+      const story = pick(REMAINDER_STORIES);
+      const k = story.k ? randInt(story.k[0], story.k[1]) : randInt(3, 9);
       const n = randInt(20, 99);
       const r = n % k;
       if (!r) continue;
       const q = (n - r) / k;
-      const story = pick(REMAINDER_STORIES);
       const answer = story.round === 'up' ? q + 1 : (story.round === 'down' ? q : r);
       const values = { n: n, k: k, q: q, r: r, a: answer };
       return buildSentence({

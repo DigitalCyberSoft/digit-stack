@@ -155,7 +155,8 @@
     const items = shuffle([['pencil', 'rubber'], ['apple', 'banana'], ['comic', 'sticker'], ['lolly', 'drink']])[0];
     const a = randInt(11, 55);
     const b = randInt(11, 99 - a);
-    return story(year, 'Money', 'A ' + items[0] + ' costs ' + a + 'p and a ' + items[1] + ' costs ' + b + 'p. How much do they cost altogether?',
+    const an = function (thing) { return (/^[aeiou]/.test(thing) ? 'an ' : 'a ') + thing; };
+    return story(year, 'Money', an(items[0]).replace(/^a/, 'A') + ' costs ' + a + 'p and ' + an(items[1]) + ' costs ' + b + 'p. How much do they cost altogether?',
       [{ tokens: answer(a + b, 'p'), prompt: 'How much altogether?', why: 'Altogether means add: ' + a + 'p + ' + b + 'p = ' + (a + b) + 'p.' }],
       { op: 'add', aP: a, bP: b });
   };
@@ -181,6 +182,15 @@
     const [p, q] = people(2);
     const thing = pick(THINGS);
     const mid = a + b;
+    if (top > 100) {
+      // Hundreds or thousands of things: a shop's stock.
+      const stock = pick(['pencils', 'books', 'cups', 'balloons', 'stickers']);
+      return story(year, 'Two steps', 'A shop has ' + a + ' ' + stock + '. A delivery brings ' + b + ' more, then the shop sells ' + c + '. How many ' + stock + ' does the shop have now?', [
+        { tokens: calc(a, '+', b, mid), prompt: 'First: how many after the delivery?', why: 'A delivery brings more, so add: ' + a + ' + ' + b + ' = ' + mid + '.' },
+        { tokens: calc(mid, MINUS, c, mid - c, 'a'), prompt: 'Then take away the ' + c + ' sold. Start with the ' + mid + ' from the first line.', why: 'Selling means take away: ' + mid + ' ' + MINUS + ' ' + c + ' = ' + (mid - c) + '.' },
+        { tokens: answer(mid - c, stock), prompt: 'So how many ' + stock + ' now?', why: 'The last line gives the answer: ' + (mid - c) + ' ' + stock + '.' }
+      ], { op: 'seq', start: a, steps: [['+', b], ['-', c]] });
+    }
     return story(year, 'Two steps', p + ' has ' + a + ' ' + thing + '. ' + p + ' wins ' + b + ' more, then gives ' + c + ' to ' + q + '. How many ' + thing + ' does ' + p + ' have now?', [
       { tokens: calc(a, '+', b, mid), prompt: 'First: how many after winning ' + b + ' more?', why: 'Winning more means add: ' + a + ' + ' + b + ' = ' + mid + '.' },
       { tokens: calc(mid, MINUS, c, mid - c, 'a'), prompt: 'Then take away the ' + c + ' given away. Start with the ' + mid + ' from the first line.', why: 'Giving away means take away: ' + mid + ' ' + MINUS + ' ' + c + ' = ' + (mid - c) + '.' },
@@ -190,11 +200,13 @@
 
   // Year 3: positive integer scaling.
   WORDS.scaling = function (year) {
-    const k = randInt(2, year === 3 ? 9 : 12);
-    const scene = pick([['A tree is', 'm tall. A tower is', 'times as tall. How tall is the tower?', 'm'],
-      ['A puppy weighs', 'kg. Its mother weighs', 'times as much. How much does the mother weigh?', 'kg'],
-      ['A short film lasts', 'minutes. A long film lasts', 'times as long. How long is the long film?', 'minutes']]);
-    const a = randInt(2, year === 3 ? 12 : 60);
+    // Each scene keeps to sizes that happen: a puppy of 2 to 8 kg, a short
+    // film of 5 to 20 minutes, a tree up to 20 m.
+    const scene = pick([['A tree is', 'm tall. A tower is', 'times as tall. How tall is the tower?', 'm', [3, 20], [9, 12]],
+      ['A puppy weighs', 'kg. Its mother weighs', 'times as much. How much does the mother weigh?', 'kg', [2, 8], [6, 6]],
+      ['A short film lasts', 'minutes. A long film lasts', 'times as long. How long is the long film?', 'minutes', [5, 20], [6, 6]]]);
+    const k = randInt(2, year === 3 ? scene[5][0] : scene[5][1]);
+    const a = randInt(scene[4][0], year === 3 ? Math.min(12, scene[4][1]) : scene[4][1]);
     return story(year, 'Scaling', scene[0] + ' ' + a + ' ' + scene[1] + ' ' + k + ' ' + scene[2],
       [{ tokens: answer(a * k, scene[3]), prompt: 'Work it out.', why: k + ' times as much means multiply by ' + k + ': ' + a + ' × ' + k + ' = ' + (a * k) + '.' }],
       { op: 'mul', a: a, b: k });
@@ -279,7 +291,8 @@
   /* Year 5: remainders, rates, fractions of amounts, several prices. */
 
   WORDS.remainders = function (year) {
-    const size = randInt(4, 16);
+    // A minibus carries 9 to 16 passengers (GOV.UK, Driving a minibus).
+    const size = randInt(9, 16);
     const total = size * randInt(3, 12) + randInt(1, size - 1);
     const up = randInt(0, 1) === 1;
     const groups = Math.floor(total / size);
@@ -310,9 +323,14 @@
       { op: 'div', a: rate * time, b: rate });
   };
 
+  function gcdOf(a, b) {
+    return b ? gcdOf(b, a % b) : a;
+  }
+
   WORDS.fractionOff = function (year) {
     const d = pick([2, 3, 4, 5, 10]);
-    const n = d === 2 ? 1 : randInt(1, d - 1);
+    // A fraction off is said in its simplest form: 3/10, not 5/10.
+    const n = pick([1, 2, 3, 4, 5, 6, 7, 8, 9].filter(function (k) { return k < d && gcdOf(k, d) === 1; }));
     const price = d * randInt(2, 24);
     const off = price / d * n;
     const item = pick(['A coat', 'A bike', 'A game', 'A lamp', 'A tent']);
@@ -460,10 +478,12 @@
 
   WORDS.percentChange = function (year) {
     const pct = pick([5, 10, 15, 20, 25, 30, 40, 50]);
-    const price = randInt(2, 30) * 20;
+    // A bike or a phone from £100, a sofa or a holiday from £200.
+    const thing = pick([['A bike', 5], ['A phone', 5], ['A sofa', 10], ['A holiday', 10]]);
+    const item = thing[0];
+    const price = randInt(thing[1], 30) * 20;
     const change = pct * price / 100;
     const up = randInt(0, 1) === 1;
-    const item = pick(['A bike', 'A phone', 'A sofa', 'A holiday']);
     return story(year, 'Percentage change', item + ' costs £' + price + '. The price goes ' + (up ? 'up' : 'down') + ' by ' + pct + '%. What is the new price?', [
       { tokens: [{ n: pct }, { t: '%', span: 1 }, { t: 'of', span: 1 }, { n: price }, { s: '=' }, { ask: change }], prompt: 'First: how much is ' + pct + '% of £' + price + '?', why: pct + ' × ' + price + ' ÷ 100 = ' + change + '.' },
       { tokens: calc(price, up ? '+' : MINUS, change, up ? price + change : price - change, 'b'), prompt: (up ? 'Add it on.' : 'Take it off.'), why: price + (up ? ' + ' : ' ' + MINUS + ' ') + change + ' = ' + (up ? price + change : price - change) + '.' },
@@ -472,9 +492,12 @@
   };
 
   WORDS.speed = function (year) {
-    const speed = randInt(4, 24) * 5;
+    // A car or coach keeps under the 70 mph (112 km/h) motorway limit; a
+    // train can go faster.
+    const ride = pick([['A train', 8, 40], ['A coach', 8, 20], ['A car', 6, 22]]);
+    const scene = ride[0];
+    const speed = randInt(ride[1], ride[2]) * 5;
     const hours = randInt(2, 6);
-    const scene = pick(['A train', 'A coach', 'A car']);
     if (randInt(0, 1)) {
       return story(year, 'Speed', scene + ' travels ' + (speed * hours) + ' km in ' + hours + ' hours at a steady speed. What is its speed?',
         [{ tokens: answer(speed, 'km/h'), prompt: 'Speed is distance ÷ time.', why: (speed * hours) + ' ÷ ' + hours + ' = ' + speed + ' km an hour.' }],
@@ -496,7 +519,7 @@
     return story(year, 'Proportion', a + ' painters take ' + days + ' days to paint a school. How many days would ' + b + ' painters take, working at the same rate?', [
       { tokens: calc(a, '×', days, work), prompt: 'First: how many days would 1 painter take?', why: 'One painter does the work of all ' + a + ' alone: ' + a + ' × ' + days + ' = ' + work + ' days.' },
       { tokens: calc(work, '÷', b, work / b, 'a'), prompt: 'Then share the work between ' + b + ' painters.', why: work + ' ÷ ' + b + ' = ' + (work / b) + '.' },
-      { tokens: answer(work / b, 'days'), prompt: 'So how many days?', why: 'More painters take fewer days: ' + (work / b) + ' days.' }
+      { tokens: answer(work / b, 'days'), prompt: 'So how many days?', why: 'More painters take fewer days: ' + (work / b) + (work / b === 1 ? ' day.' : ' days.') }
     ], { op: 'workers', a: a, days: days, b: b });
   };
 

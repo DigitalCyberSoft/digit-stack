@@ -926,7 +926,7 @@
         if (action.value === MINUS) {
           fillCell(entry, MINUS);
         } else if (entry) {
-          entry.el.textContent = '';
+          entry.el.textContent = entry.cell.plus ? '+' : '';
           entry.el.classList.add('filled', 'skipped');
         }
       } else {
@@ -1056,7 +1056,7 @@
       if (action.value === MINUS) {
         fillCell(entry, MINUS, 'just-filled');
       } else if (entry) {
-        entry.el.textContent = '';
+        entry.el.textContent = entry.cell.plus ? '+' : '';
         entry.el.classList.add('filled', 'skipped');
       }
       playSound('tick');
@@ -1765,7 +1765,9 @@
     let message = els.stepLine.textContent + '. ' + titleCase(action.stage) + '. ' +
       action.prompt + ' ' + action.subprompt;
     if (action.kind === 'sign') {
-      message += ' Press minus for an answer below zero, or type the first digit.';
+      message += state.cellEls.get(action.cellId) && state.cellEls.get(action.cellId).cell.plus
+        ? ' Press minus if the number is taken away, or type the number.'
+        : ' Press minus for an answer below zero, or type the first digit.';
     } else if (action.choice) {
       message += ' Type the small digit, or 0 if there is none.';
     } else if (action.kind === 'digit' && state.cellEls.get(action.cellId) && state.cellEls.get(action.cellId).cell.lead) {
@@ -1903,7 +1905,7 @@
         clearMissMark(action);
         const signEntry = state.cellEls.get(action.cellId);
         if (signEntry) {
-          signEntry.el.textContent = '';
+          signEntry.el.textContent = signEntry.cell.plus ? '+' : '';
           signEntry.el.classList.add('filled', 'skipped');
         }
         applyDigit(next, digit);
@@ -2486,13 +2488,13 @@
       if (read[id] === proper) {
         // A remainder typed in another of its boxes, or a 0 in front, is
         // shown where it belongs.
-        entry.el.textContent = proper;
-        entry.el.classList.toggle('filled', Boolean(proper));
+        entry.el.textContent = proper || (entry.cell.plus ? '+' : '');
+        entry.el.classList.toggle('filled', Boolean(proper) || Boolean(entry.cell.plus));
         if (!proper && typed) entry.el.classList.add('zeroed');
         if (proper) entry.el.classList.add('mark-right');
         return;
       }
-      entry.el.textContent = proper;
+      entry.el.textContent = proper || (entry.cell.plus ? '+' : '');
       entry.el.classList.add('filled', 'mark-wrong');
       entry.el.dataset.was = typed ? 'was ' + typed : 'was empty';
     });
