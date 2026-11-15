@@ -29,9 +29,10 @@
   const api = factory();
   if (typeof module === 'object' && module.exports) {
     module.exports = api;
-    // The other six areas are in topics.js. A page loads it as the next
-    // script; under Node it is installed here.
+    // The other six areas are in topics.js and word problems in words.js. A
+    // page loads them as the next scripts; under Node they are installed here.
     require('./topics.js').install(api);
+    require('./words.js').install(api);
   }
   if (root) root.DigitStackEngine = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
@@ -52,7 +53,7 @@
   const YEARS = [1, 2, 3, 4, 5, 6, 7];
   // The four calculation areas are built here; the other six come from
   // topics.js, which adds its generators with addArea.
-  const AREAS = ['divide', 'multiply', 'add', 'subtract', 'number', 'fractions', 'measures', 'shape', 'data', 'algebra'];
+  const AREAS = ['divide', 'multiply', 'add', 'subtract', 'number', 'fractions', 'measures', 'shape', 'data', 'algebra', 'words'];
   const MINUS = '−';
 
   // Decimal notation starts in Year 4 (Year 3 counts in tenths as
@@ -1641,8 +1642,10 @@
   // lines with answer boxes, so a question can show two worked examples and
   // ask for a third. Each line's rows and cells are renamed (l0-fact,
   // l1-fact, ...) so every id stays unique, and only lines with boxes are
-  // marked.
+  // marked. Lines listed in `spec.working` are working, like carries: they
+  // are filled while learning but a test does not mark them.
   function buildSentenceLines(spec) {
+    const working = spec.working || [];
     const parts = spec.lines.map(function (tokens) {
       const asks = tokens.some(function (token) {
         return token.ask !== undefined || token.cmp !== undefined || token.pick !== undefined || token.signBox !== undefined ||
@@ -1664,9 +1667,9 @@
           if (!cell) return;
           cells[col] = Object.assign({}, cell, { id: id + '-c' + col });
         });
-        rows.push(Object.assign({}, row, { id: id, cells: cells, line: k }));
+        rows.push(Object.assign({}, row, { id: id, cells: cells, line: k }, working.indexOf(k) !== -1 ? { working: true } : null));
       });
-      part.markRowIds.forEach(function (rowId) { markRowIds.push(rename[rowId]); });
+      if (working.indexOf(k) === -1) part.markRowIds.forEach(function (rowId) { markRowIds.push(rename[rowId]); });
       part.actions.forEach(function (action) {
         const rowId = rename[action.rowId];
         actions.push(Object.assign({}, action, { rowId: rowId, cellId: rowId + '-c' + action.cellId.split('-c').pop() }));
@@ -3157,7 +3160,10 @@
     measures: { 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10, 7: 10 },
     shape: { 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10, 7: 10 },
     data: { 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10, 7: 10 },
-    algebra: { 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10, 7: 10 }
+    algebra: { 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10, 7: 10 },
+    // Word problems: 1.4, 2.6, 4.3, 11.9, 7.5, 10.3, 7.3 (working lines
+    // count while learning).
+    words: { 1: 10, 2: 10, 3: 10, 4: 5, 5: 5, 6: 5, 7: 5 }
   };
 
   function cleanRounds(area, year) {

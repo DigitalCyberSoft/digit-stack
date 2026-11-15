@@ -93,8 +93,8 @@ async function shot(page, name, target) {
 
   // Start screens.
   await open(desk, { year: 3 }); made.push(await shot(desk, 'start'));
-  await open(desk, { year: 4, progress: { passed: { divide: [], multiply: [4, 5], add: [], subtract: [], number: [4], fractions: [], measures: [], shape: [], data: [4, 5], algebra: [] },
-    learned: { divide: [], multiply: [4, 5, 6], add: [4], subtract: [], number: [4, 5], fractions: [4], measures: [], shape: [], data: [4, 5], algebra: [] } } });
+  await open(desk, { year: 4, progress: { passed: { divide: [], multiply: [4, 5], add: [], subtract: [], number: [4], fractions: [], measures: [], shape: [], data: [4, 5], algebra: [], words: [] },
+    learned: { divide: [], multiply: [4, 5, 6], add: [4], subtract: [], number: [4, 5], fractions: [4], measures: [], shape: [], data: [4, 5], algebra: [], words: [4] } } });
   made.push(await shot(desk, 'start-progress', '.mode-panel'));
 
   // Learning.

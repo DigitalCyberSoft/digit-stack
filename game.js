@@ -23,7 +23,8 @@
     measures: { key: '7', sign: 'cm', name: 'Measures' },
     shape: { key: '8', sign: '△', name: 'Shape' },
     data: { key: '9', sign: '▥', name: 'Data' },
-    algebra: { key: '0', sign: 'x', name: 'Algebra' }
+    algebra: { key: '0', sign: 'x', name: 'Algebra' },
+    words: { key: 'w', sign: '?', name: 'Word problems' }
   };
 
   // Ages follow the key stage tables on gov.uk ("The national curriculum").
@@ -39,7 +40,8 @@
       measures: "Coins, o'clock and half past, days, rulers",
       shape: '2-D and 3-D shapes, turns',
       data: 'Tally charts and pictograms',
-      algebra: 'Balancing, function machines, patterns'
+      algebra: 'Balancing, function machines, patterns',
+      words: 'One step: adding, taking away, sharing, equal groups'
     },
     2: {
       age: '6-7',
@@ -52,7 +54,8 @@
       measures: 'Time to 5 minutes, money and change, scales',
       shape: 'Sides, faces, edges, vertices, symmetry',
       data: 'Pictograms, tallies, block diagrams, tables',
-      algebra: 'Balancing to 100, machines, symbols'
+      algebra: 'Balancing to 100, machines, symbols',
+      words: 'Money and change; one and two steps'
     },
     3: {
       age: '7-8',
@@ -65,7 +68,8 @@
       measures: 'Measures, perimeter, clocks, durations, money',
       shape: 'Right angles, parallel and perpendicular lines',
       data: 'Bar charts, pictograms and tables',
-      algebra: 'Machines, sequences, symbols'
+      algebra: 'Machines, sequences, symbols',
+      words: 'Two steps; scaling; combinations; change in £ and p'
     },
     4: {
       age: '8-9',
@@ -78,7 +82,8 @@
       measures: 'Converting units, area, money, 24-hour clock',
       shape: 'Angles, triangles, quadrilaterals, coordinates',
       data: 'Bar charts and time graphs',
-      algebra: 'Symbols, sequences, machines'
+      algebra: 'Symbols, sequences, machines',
+      words: 'Two-step problems; money in £; grams and kilograms'
     },
     5: {
       age: '9-10',
@@ -91,7 +96,8 @@
       measures: 'Metric units, area, volume, decimals',
       shape: 'Degrees, protractors, angles on a line',
       data: 'Line graphs and timetables',
-      algebra: 'Letters, sequences, formulae'
+      algebra: 'Letters, sequences, formulae',
+      words: 'Remainders, rates, fractions of amounts, tickets'
     },
     6: {
       age: '10-11',
@@ -104,7 +110,8 @@
       measures: 'Area of triangles, volume, miles and km',
       shape: 'Angles in shapes, 4-quadrant coordinates',
       data: 'Pie charts and the mean',
-      algebra: 'Formulae, equations, two unknowns'
+      algebra: 'Formulae, equations, two unknowns',
+      words: 'Percentages, ratio, recipes, missing numbers, the mean'
     },
     7: {
       age: '11-12',
@@ -117,7 +124,8 @@
       measures: 'Circles, trapezia, area units, speed',
       shape: 'Parallel lines, Pythagoras, trigonometry',
       data: 'Averages, probability, scatter graphs',
-      algebra: 'Expressions, equations, nth term, graphs'
+      algebra: 'Expressions, equations, nth term, graphs',
+      words: 'Best buys, interest, percentage change, speed, proportion'
     }
   };
 
@@ -3010,7 +3018,7 @@
     const goOver = score < m.count && !m.walked;
     let primary;
     if (goOver) {
-      primary = printEndButton('Show me how to solve the ' + (m.count - score === 1 ? 'one' : (m.count - score) + ' questions') + ' I missed', 'Enter', 'primary', startMixedWalkthrough);
+      primary = printEndButton('Go over the ' + (m.count - score === 1 ? 'one' : m.count - score) + ' I missed', 'Enter', 'primary', startMixedWalkthrough);
       printEndButton('Finish', 'F', '', finishMixedReview);
     } else {
       if (score < m.count) printEndButton('Go over them again', 'W', '', startMixedWalkthrough);
@@ -3243,7 +3251,8 @@
     }
 
     if (state.screen === 'setup') {
-      const area = AREAS.find(function (name) { return AREA_INFO[name].key === event.key; });
+      // Area keys are digits, and W for word problems in either case.
+      const area = AREAS.find(function (name) { return AREA_INFO[name].key === event.key.toLowerCase(); });
       if (area) {
         event.preventDefault();
         startRun(area);

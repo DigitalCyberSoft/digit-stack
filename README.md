@@ -1,6 +1,6 @@
 # Digit Stack
 
-A keyboard-first browser maths game set by school year from Year 1 to Year 7: written methods for addition, subtraction, multiplication and division, then number, fractions, measures, shape, data and algebra, and a timed mixed test. Content and written layouts follow the national curriculum in England and its Mathematics Appendix 1.
+A keyboard-first browser maths game set by school year from Year 1 to Year 7: written methods for addition, subtraction, multiplication and division, then number, fractions, measures, shape, data and algebra, word problems, and a timed mixed test. Content and written layouts follow the national curriculum in England and its Mathematics Appendix 1.
 
 Each year is pitched for a strong pupil in that year: its own content at the top of the range, plus some of the next year's, plus missing-number problems from Year 1. The programmes of study set one programme for the majority of pupils and say pupils who grasp concepts rapidly should get "rich and sophisticated problems before any acceleration through new content".
 
@@ -20,7 +20,7 @@ Then open http://localhost:8000.
 
 ## Areas
 
-Ten areas, opened with `1` to `9` and `0` on the start screen. Each starts at the school year and moves up on its own.
+Eleven areas, opened with `1` to `9`, `0` and `W` on the start screen. Each starts at the school year and moves up on its own.
 
 | Key | Area | Covers |
 | --- | --- | --- |
@@ -34,6 +34,7 @@ Ten areas, opened with `1` to `9` and `0` on the start screen. Each starts at th
 | `8` | Shape | 2-D and 3-D shapes, turns, angles, symmetry, coordinates, transformations, Pythagoras, trigonometry |
 | `9` | Data | Tally charts, pictograms, bar and line graphs, timetables, pie charts, averages, probability |
 | `0` | Algebra | Balancing, machines, patterns, symbols and letters standing for numbers, sequences, formulae, equations, expressions, graphs |
+| `W` | Word problems | Stories: one step in Year 1; money, change, scaling and combinations in Years 2 and 3; two steps in Year 4; remainders, rates and fractions of amounts in Year 5; percentages, ratio, proportion and missing numbers in Year 6; best buys, interest, percentage change and speed in Year 7. A working line for each step while learning; a test marks the answer line |
 
 Decimals follow the curriculum: tenths as fractions in Year 3, decimal notation from Year 4, up to 3 places from Year 5.
 
@@ -56,11 +57,11 @@ Progress is saved in the browser, so the game can be closed at any point and ope
 - The cursor stops at every small box in a written method: type the carry, the amount left over in short division, or `1` to exchange a ten in subtraction. Type `0` when there is none; a 0 is not written on the sheet. The stop happens whether or not anything moves, so it gives nothing away.
 - A question that is not a written sum is written on the page above its answer line. Every answer is typed. Fractions take the top number, then the bottom. Decimal points, units and the colon in a time are already written in the answer. `<`, `=` and `>` compare (`,` and `.` also work). A word answer, such as *acute* or *kite*, is chosen by its number, and yes or no is `1` or `0`. An answer that could be below zero has a sign box: press `-`, or type the first digit.
 - A wrong digit shows why and what the box needs. Fix it to finish the problem. A round with a fix does not count as clean, so the count goes back to 0. `Enter` then tries the same problem again and `N` starts a new one.
-- Keyboard: arrows set the school year, `1`-`9` and `0` choose the area, `R` the mixed test (then `N`, `P` and `E` for next, back and hand in), `0-9` type, `-` minus, `<` `=` `>` compare, `W` watch the example, `Esc` pause, `H` help, `S` sound, `T` theme, `C` colour-blind friendly colours. The on-screen keypad is optional.
+- Keyboard: arrows set the school year, `1`-`9`, `0` and `W` choose the area, `R` the mixed test (then `N`, `P` and `E` for next, back and hand in), `0-9` type, `-` minus, `<` `=` `>` compare, `W` watch the example, `Esc` pause, `H` help, `S` sound, `T` theme, `C` colour-blind friendly colours. The on-screen keypad is optional.
 
 ## The mixed test
 
-`R` on the start screen opens a mixed test of questions from all ten areas for the school year, each area coming up about equally often.
+`R` on the start screen opens a mixed test of questions from all eleven areas for the school year, each area coming up about equally often.
 
 - **Questions:** 10, 20, 30, 40 or 50. **Time limit:** none, or 10 to 90 minutes. **How hard:** easy, medium or hard. Easy asks the easiest of three generated questions for each place, by key presses and decimal places; hard the hardest; medium the first.
 - Each question works like a test, but nothing is marked until the test is handed in. Until then questions can be visited in any order and any answer changed: `N` or `Enter` next, `P` back, or click a number in the question strip, which fills in each answered question. `E` hands the test in after a check that lists the questions with no answer; pressing `E` or `Enter` again confirms.
@@ -71,7 +72,7 @@ Progress is saved in the browser, so the game can be closed at any point and ope
 ## Display settings
 
 - **Theme:** `T` or the sun and moon button cycles automatic, light and dark. Automatic follows the device and changes with it.
-- **Colour-blind friendly colours:** `C` or the eye button. Right answers turn blue with a tick, wrong ones orange, the proper working reddish purple with a dotted underline, and the ten book covers use Okabe-Ito and Paul Tol colours chosen so every pair stays at least 17 apart (CIE76) under simulated protanopia, deuteranopia and tritanopia.
+- **Colour-blind friendly colours:** `C` or the eye button. Right answers turn blue with a tick, wrong ones orange, the proper working reddish purple with a dotted underline, and the eleven book covers use Okabe-Ito and Paul Tol colours (and a violet for word problems) chosen so every pair stays at least 17 apart (CIE76) under simulated protanopia, deuteranopia and tritanopia.
 - Both are saved in the browser and applied by `theme.js` before the page draws, so it never flashes the wrong colours. Pictures are drawn in the same colours. The guides follow the same settings.
 
 ## Tests
@@ -84,14 +85,14 @@ npx playwright install chromium   # or set CHROME_PATH to an installed Chrome
 npm test
 ```
 
-- `tests/engine.check.js` makes 2,000 problems per area and year (140,000 in all) and checks the arithmetic, layouts, the order of steps, small-box decisions, wording, decimal places by year, the year-check table, and Appendix 1's examples. Every sentence's answer is also worked out a second way: finished sentences are evaluated with exact fractions, and picture questions are worked out from the picture's own data (the clock's hands, the chart's bars, a shape's corners).
+- `tests/engine.check.js` makes 2,000 problems per area and year (154,000 in all) and checks the arithmetic, layouts, the order of steps, small-box decisions, wording, decimal places by year, the year-check table, and Appendix 1's examples. Every sentence's answer is also worked out a second way: finished sentences are evaluated with exact fractions, picture questions are worked out from the picture's own data (the clock's hands, the chart's bars, a shape's corners), and word problems from a plain description of their sum, with every working line checked and every number the sum uses found in the story.
 - `tests/guided.check.js` plays learning in a browser by keyboard: small-box decisions, fixes, year checks, and the move from learning to test to the next year.
 - `tests/test-stage.check.js` hands in right and wrong answers in the test stage.
-- `tests/solve-all.check.js` plays full rounds by keyboard in all ten areas, Year 1 to Year 7, including decimal division, comparisons, choices and sign boxes.
+- `tests/solve-all.check.js` plays full rounds by keyboard in all eleven areas, Year 1 to Year 7, including decimal division, comparisons, choices and sign boxes.
 - `tests/resume.check.js` closes and reopens the game mid-round, between rounds, at the learning gate and after a passed check, and checks bad saved data and blocked storage.
 - `tests/tutorial.check.js` checks the worked examples: one per kind of question, a reason for every step, stepping forward and back, skipping, replaying, and moving up a year.
 - `tests/mixed.check.js` plays the mixed test: settings, going back and forth and changing answers, the question strip, the hand-in check, no marking until the end, closing and reopening, quitting and carrying on, a time limit running out, handing in early, grades and the review.
-- `tests/display.check.js` checks the theme and colour settings, WCAG contrast in all four combinations including all ten covers, and colour differences under simulated colour vision deficiency (Machado, Oliveira and Fernandes, 2009).
+- `tests/display.check.js` checks the theme and colour settings, WCAG contrast in all four combinations including all eleven covers, and colour differences under simulated colour vision deficiency (Machado, Oliveira and Fernandes, 2009).
 - `tests/layout.check.js` checks the layout at 390, 860 and 1280 px wide.
 - `tests/guide.check.js` checks the guide pages: images, links, phone width, and the game's links to them.
 
@@ -104,6 +105,7 @@ Each script exits non-zero when a check fails. Screenshots go to `tests/shots/`.
 - `theme.js`: applies the saved theme and colour settings before the page draws.
 - `engine.js`: arithmetic, written-method layouts, decimals, the sentence builder, the four calculation areas, the year-check table, and the seeded random numbers.
 - `topics.js`: the number, fractions, measures, shape, data and algebra areas.
+- `words.js`: word problems.
 - `pictures.js`: draws each question's picture (clocks, coins, scales, shapes, angles, grids, charts) as SVG.
 - `game.js`: learning and test play, the mixed test, year checks, keyboard controls, rendering, saving, and sound.
 - `assets/`: locally hosted fonts and their OFL license files.

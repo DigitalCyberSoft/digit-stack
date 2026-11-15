@@ -9,7 +9,7 @@ const ROOT = path.resolve(__dirname, '..'); const URL = 'http://127.0.0.1:8796/'
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2' };
 const server = http.createServer((req, res) => { const rel = decodeURIComponent(req.url.split('?')[0]); const f = path.join(ROOT, rel === '/' ? 'index.html' : rel); if (!fs.existsSync(f)) { res.writeHead(404); return res.end(); } res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res); });
 const out = []; const errors = []; const MINUS = '−';
-const AREAS = ['divide', 'multiply', 'add', 'subtract', 'number', 'fractions', 'measures', 'shape', 'data', 'algebra'];
+const AREAS = ['divide', 'multiply', 'add', 'subtract', 'number', 'fractions', 'measures', 'shape', 'data', 'algebra', 'words'];
 const check = (n, ok, d) => out.push((ok ? 'PASS ' : 'FAIL ') + n + (!ok && d !== undefined ? ' :: ' + d : ''));
 const st = page => page.evaluate(() => window.__digitStack.getState());
 const wait = (page, ms) => page.waitForTimeout(ms || 50);
@@ -74,7 +74,8 @@ async function answer(page, wrong) {
   await page.keyboard.press('r'); await wait(page); await page.keyboard.press('Enter'); await wait(page, 80);
   s = await st(page);
   check('Enter starts the test with the chosen settings', s.screen === 'playing' && s.mode === 'test' && s.mixed && s.mixed.count === 10 && s.mixed.minutes === 15 && s.mixed.difficulty === 'hard' && s.mixed.year === 4);
-  check('ten questions take one from each of the ten areas', JSON.stringify(s.mixed.areas.slice().sort()) === JSON.stringify(AREAS.slice().sort()), s.mixed.areas.join(','));
+  // Eleven areas and ten questions: every question from a different area, one area left out.
+  check('ten questions come from ten different areas', s.mixed.areas.length === 10 && new Set(s.mixed.areas).size === 10 && s.mixed.areas.every(a => AREAS.includes(a)), s.mixed.areas.join(','));
   const deadline = s.mixed.deadline;
   check('a 15-minute limit sets a deadline about 15 minutes away', deadline - Date.now() > 14.9 * 60000 && deadline - Date.now() <= 15 * 60000);
   const header = await page.locator('#modeChip').innerText();
@@ -158,7 +159,7 @@ async function answer(page, wrong) {
   await page.keyboard.press('r'); await wait(page, 80);
   // The questions that were not right (2, 4 and 6) are gone over, one after another, before finishing.
   const offer = await page.locator('#endActions').innerText();
-  check('the results offer to go over the 3 missed questions, or finish with F', /Show me how to solve the 3 questions I missed/.test(offer) && /Finish/.test(offer), offer);
+  check('the results offer to go over the 3 missed questions, or finish with F', /Go over the 3 I missed/.test(offer) && /Finish/.test(offer), offer);
   await page.keyboard.press('Enter'); await wait(page, 80);
   s = await st(page);
   check('Enter goes over the missed questions in order, starting with question 2', s.screen === 'tutorial' && s.tutorial.kind === 'mixed' &&

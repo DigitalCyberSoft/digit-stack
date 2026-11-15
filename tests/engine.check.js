@@ -125,9 +125,9 @@ function sentenceLineOf(p, sol) {
 
 // Turns a finished sentence into comparisons of expressions, or throws when it is not a pure statement. Digits and points join into
 // numbers; a fraction is one bracketed value; a number written just before a fraction makes a mixed number.
-function statement(p, sol) {
+function statement(p, sol, prefix = '') {
   const items = []; const units = new Set();
-  readSentence(p, sol).forEach(part => {
+  readSentence(p, sol, prefix).forEach(part => {
     const last = items[items.length - 1];
     if (part.type === 'frac') {
       const frac = '((' + part.num.replace(MINUS, '-') + ')/(' + part.den + '))';
@@ -260,7 +260,81 @@ function sidesEqual(stmt, env) {
   return cmpQ(evaluate(sides[0], env), evaluate(sides[1], env)) === 0;
 }
 
+// Word problems: each model's answer, worked out with the check's own formulas (money in pence where a key ends in P).
+const STORY = {
+  add: m => m.a !== undefined ? m.a + m.b : m.aP + m.bP,
+  sub: m => m.a - m.b,
+  mul: m => m.a * m.b,
+  div: m => m.a / m.b,
+  product: m => m.values.reduce((x, y) => x * y, 1),
+  seq: m => m.steps.reduce((v, [op, n]) => ({ '+': v + n, '-': v - n, '*': v * n, '/': v / n })[op], m.start),
+  change: m => m.payP - m.items.reduce((s, [n, each]) => s + n * each, 0),
+  // The conversion is the check's own: 1 kg is 1000 g and 1 km is 1000 m.
+  unitsLeft: m => m.big * { kg: 1000, km: 1000 }[m.unit] - m.small,
+  roundUp: m => Math.ceil(m.a / m.b),
+  roundDown: m => Math.floor(m.a / m.b),
+  fractionOff: m => m.price - m.price * m.n / m.d,
+  sumProducts: m => m.pairs.reduce((s, [n, each]) => s + n * each, 0),
+  percentOf: m => m.pct * m.of / 100,
+  ratioShare: m => m.total * m.b / (m.a + m.b),
+  proportion: m => m.amount * m.to / m.from,
+  inverse: m => (m.result - m.add) / m.mul,
+  mean: m => m.values.reduce((s, v) => s + v, 0) / m.values.length,
+  interest: m => m.principal * m.rate * m.years / 100,
+  percentChange: m => m.of * (100 + (m.up ? m.pct : -m.pct)) / 100,
+  workers: m => m.a * m.days / m.b,
+  // The pack with the lower price for one, by its size.
+  bestBuy: m => { const [a, b] = m.packsP; return a[1] * b[0] < b[1] * a[0] ? a[0] : b[0]; }
+};
+// A number is shown in the story as itself (not part of a longer number), or for money as 45p, £3.95 or £5.
+function shownIn(text, n, isMoney) {
+  // One of a thing is written "a" or "an": "buys a drink".
+  if (n === 1 && /\b(a|an|one)\b/i.test(text)) return true;
+  const plain = new RegExp('(^|[^\\d.,])' + String(n).replace('-', '\\-') + '(?![\\d]|\\.\\d)');
+  if (plain.test(text)) return true;
+  if (!isMoney) return false;
+  const pounds = (n / 100).toFixed(2);
+  return text.includes(n + 'p') || text.includes('£' + pounds) || (n % 100 === 0 && new RegExp('£' + (n / 100) + '(?![\\d.])').test(text));
+}
+
 const VERIFY = {
+  // A word problem: every number in its model is in the story; every working line is a true statement (a division with a remainder is
+  // checked as one); and the answer line holds the model's answer, worked out again here.
+  story: (p, ans, c, sol) => {
+    const m = c.model; const f = STORY[m.op];
+    if (!f) return 'no formula for ' + m.op;
+    const text = p.question.replace(new RegExp(MINUS, 'g'), '-');
+    const numbers = [];
+    (function walk(v, key) {
+      if (Array.isArray(v)) v.forEach(x => walk(x, key));
+      else if (typeof v === 'number') numbers.push([v, key]);
+      else if (v && typeof v === 'object') Object.keys(v).forEach(k => walk(v[k], k));
+    })(m, '');
+    for (const [n, key] of numbers) if (!shownIn(text, n, /P$/.test(key) || key === 'items')) return 'model number ' + n + ' (' + key + ') is not in the story';
+    const prefixes = linePrefixes(p);
+    const workingRows = new Set(p.rows.filter(r => r.working).map(r => r.line));
+    for (let k = 0; k < prefixes.length - 1; k++) {
+      if (!workingRows.has(k)) return 'line ' + k + ' is not marked as working';
+      const line = lineText(p, sol, prefixes[k]).replace(new RegExp(MINUS, 'g'), '-');
+      const r = /^(\d+)÷(\d+)=(\d+)r(\d+)$/.exec(line);
+      if (r) { const [a, b, q, rem] = r.slice(1).map(Number); if (b * q + rem !== a || rem >= b) return 'false remainder line ' + line; continue; }
+      const wrong = statement(p, sol, prefixes[k]);
+      if (wrong) return 'working line ' + line + ' ' + wrong;
+    }
+    if (workingRows.has(prefixes.length - 1)) return 'the answer line is marked as working';
+    const last = lineText(p, sol, prefixes[prefixes.length - 1]).replace(new RegExp(MINUS, 'g'), '-');
+    const want = f(m);
+    if (m.op === 'bestBuy') return last.endsWith('packof' + want) ? null : 'best buy says ' + last + ', want pack of ' + want;
+    const a = /^(£)?(?:number=)?(-?\d+(?:\.\d+)?)(.*)$/.exec(last);
+    if (!a) return 'unreadable answer line ' + last;
+    const value = Number(a[2]);
+    if (m.op === 'change') {
+      if (a[1]) return Math.round(value * 100) === want && /\.\d\d$/.test(a[2]) ? null : 'change £' + a[2] + ', want ' + want + 'p';
+      return value === want && a[3] === 'p' ? null : 'change ' + last + ', want ' + want + 'p';
+    }
+    return value === want ? null : 'answer ' + last + ', want ' + want;
+  },
+
   // Every line, worked or asked: put the number shown for the symbol in its place; both sides must be equal. The worked lines must
   // give the symbol different numbers, so it is seen to change.
   symbolLines: (p, ans, c, sol) => {
@@ -657,8 +731,10 @@ function testSheet(p, key) {
   const marked = p.rows.filter(r => p.markRowIds.includes(r.id)).flatMap(r => r.cells.filter(c => c && c.kind === 'input'));
   if (marked.some(c => sol.values[c.id] === undefined)) fail(key + ' marked box without a solution value', p);
   if (p.method === 'sentence') {
-    const inputs = p.rows.flatMap(r => r.cells.filter(c => c && c.kind === 'input'));
+    // Every answer box is marked; a working line's boxes (a word problem's steps) never are.
+    const inputs = p.rows.filter(r => !r.working).flatMap(r => r.cells.filter(c => c && c.kind === 'input'));
     if (inputs.length !== marked.length) fail(key + ' a sentence answer box is not marked', p);
+    if (p.rows.some(r => r.working && p.markRowIds.includes(r.id))) fail(key + ' a working line is marked', p);
     stat(key, 'test method:sentence');
     return;
   }

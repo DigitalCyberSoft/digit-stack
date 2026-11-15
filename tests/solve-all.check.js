@@ -1,4 +1,4 @@
-// Full rounds by keyboard, Year 1 to Year 7 in all ten areas, must finish clean. A case that names a layout gets that layout as its round
+// Full rounds by keyboard, Year 1 to Year 7 in all eleven areas, must finish clean. A case that names a layout gets that layout as its round
 // (drawn in the page until it comes up), so long multiplication, decimal division, <, > and =, choices by number and sign boxes are all
 // typed for real; the others play their area's ordinary mix.
 // Run from the repo root: node tests/solve-all.check.js. Needs Playwright; set CHROME_PATH to use an installed Chrome.
@@ -8,7 +8,7 @@ const ROOT = path.resolve(__dirname, '..'); const URL = 'http://127.0.0.1:8775/'
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2' };
 const server = http.createServer((req, res) => { const rel = decodeURIComponent(req.url.split('?')[0]); const f = path.join(ROOT, rel === '/' ? 'index.html' : rel); if (!fs.existsSync(f)) { res.writeHead(404); return res.end(); } res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res); });
 const out = []; const errors = []; const MINUS = '−';
-const AREAS = ['divide', 'multiply', 'add', 'subtract', 'number', 'fractions', 'measures', 'shape', 'data', 'algebra'];
+const AREAS = ['divide', 'multiply', 'add', 'subtract', 'number', 'fractions', 'measures', 'shape', 'data', 'algebra', 'words'];
 const check = (n, ok, d) => out.push((ok ? 'PASS ' : 'FAIL ') + n + (!ok && d !== undefined ? ' :: ' + d : ''));
 const st = page => page.evaluate(() => window.__digitStack.getState());
 async function solve(page) {
@@ -30,7 +30,8 @@ const CASES = [
   [6, '1', 'Long division', 'Y6 long division', 1], [7, '1', 'Long division', 'Y7 long division', 1], [7, '2', 'Long multiplication', 'Y7 long multiplication', 1],
   [6, '3', 'Column addition', 'Y6 column addition', 1], [6, '1', 'Decimal division', 'Y6 decimal division', 1], [5, '4', 'Decimal subtraction', 'Y5 decimal subtraction', 1],
   [3, '5', 'Compare', 'Y3 number: <, > and =', 1], [4, '6', null, 'Y4 fractions', 4], [2, '7', 'Telling the time', 'Y2 telling the time', 1],
-  [4, '8', 'Quadrilaterals', 'Y4 quadrilaterals: a choice by number', 1], [6, '9', 'Pie charts', 'Y6 pie charts', 1], [7, '0', 'Equations', 'Y7 equations with a sign box', 1]
+  [4, '8', 'Quadrilaterals', 'Y4 quadrilaterals: a choice by number', 1], [6, '9', 'Pie charts', 'Y6 pie charts', 1], [7, '0', 'Equations', 'Y7 equations with a sign box', 1],
+  [2, 'w', null, 'Y2 word problems', 3], [4, 'w', 'Two steps', 'Y4 two-step word problem with working lines', 1], [7, 'w', 'Best buy', 'Y7 best buy: working lines and a choice', 1]
 ];
 
 (async () => {
@@ -39,7 +40,7 @@ const CASES = [
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   for (const [year, key, title, label, rounds] of CASES) {
-    const area = AREAS[(Number(key) + 9) % 10];
+    const area = key === 'w' ? 'words' : AREAS[(Number(key) + 9) % 10];
     await page.goto(URL);
     // A named layout is drawn in the page until it comes up, then saved as the round in progress, so the case never depends on luck.
     await page.evaluate(([areas, area, year, title]) => {

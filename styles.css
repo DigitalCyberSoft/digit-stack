@@ -57,6 +57,7 @@
   --cover-shape: #e0457b;
   --cover-data: #6b8e23;
   --cover-algebra: #4b5563;
+  --cover-words: #7a1f3d;
   --cover: var(--ink);
   --cover-ink: #ffffff;
   --font-display: 'Grandstander', 'Trebuchet MS', sans-serif;
@@ -118,6 +119,7 @@
   --cover-shape: #ec5b8f;
   --cover-data: #7a9a2a;
   --cover-algebra: #64748b;
+  --cover-words: #8a2846;
   --ink-rgb: 233, 237, 247;
   --shadow-rgb: 0, 0, 0;
   --pen-rgb: 143, 177, 255;
@@ -158,6 +160,7 @@
   --cover-shape: #56b4e9;
   --cover-data: #cc6677;
   --cover-algebra: #000000;
+  --cover-words: #8424e4;
 }
 
 :root[data-mode='dark'][data-cvd='on'] {
@@ -178,6 +181,7 @@
   --cover-shape: #56b4e9;
   --cover-data: #1b7837;
   --cover-algebra: #dddddd;
+  --cover-words: #8424e4;
 }
 
 /* The book being worked in sets the cover colour. */
@@ -230,6 +234,11 @@
 [data-area='algebra'],
 .mode-btn.algebra {
   --cover: var(--cover-algebra);
+}
+
+[data-area='words'],
+.mode-btn.words {
+  --cover: var(--cover-words);
 }
 
 /* Light colour-blind covers take dark signs. */
@@ -3044,6 +3053,12 @@ kbd {
 .mode-btn.shape { --tilt: 0.7deg; }
 .mode-btn.data { --tilt: -1deg; }
 .mode-btn.algebra { --tilt: 0.6deg; }
+
+/* Word problems sit across the foot of the calculating shelf. */
+.mode-btn.words {
+  --tilt: -0.4deg;
+  grid-column: 1 / -1;
+}
 
 .mode-sign {
   display: grid;

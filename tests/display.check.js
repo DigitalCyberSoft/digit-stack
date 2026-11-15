@@ -113,8 +113,8 @@ async function open(page, settings) {
     const measure = async (name, sel, min, pseudo, against) => { const r = await contrastIn(page, sel, pseudo, against); if (r === null) low.push(name + ' missing'); else if (r < min) low.push(name + ' ' + r.toFixed(2)); };
     await open(page, { theme, cvd });
     await measure('lede', '.lede', 4.5); await measure('start hint', '.no-mouse', 4.5);
-    // Every book's name and year line, all ten areas.
-    for (const area of ['divide', 'multiply', 'add', 'subtract', 'number', 'fractions', 'measures', 'shape', 'data', 'algebra']) {
+    // Every book's name and year line, all eleven areas.
+    for (const area of ['divide', 'multiply', 'add', 'subtract', 'number', 'fractions', 'measures', 'shape', 'data', 'algebra', 'words']) {
       await measure(area + ' book name', '.mode-btn.' + area + ' .mode-name', 4.5); await measure(area + ' book year', '.mode-btn.' + area + ' .mode-shapes', 4.5);
     }
     await measure('mixed test card', '.mixed-note', 4.5);
@@ -156,18 +156,18 @@ async function open(page, settings) {
   // Colour-blind colours stay apart under simulated dichromacy (CIE76 delta E in Lab).
   for (const theme of ['light', 'dark']) {
     await open(page, { theme, cvd: 'on' });
-    const COVERS = ['divide', 'multiply', 'add', 'subtract', 'number', 'fractions', 'measures', 'shape', 'data', 'algebra'];
+    const COVERS = ['divide', 'multiply', 'add', 'subtract', 'number', 'fractions', 'measures', 'shape', 'data', 'algebra', 'words'];
     const v = await page.evaluate(covers => { const cs = getComputedStyle(document.documentElement); const g = n => cs.getPropertyValue(n).trim();
       const out = { tick: g('--tick'), cross: g('--cross'), pen: g('--pen'), purple: g('--purple') }; covers.forEach(c => { out[c] = g('--cover-' + c); }); return out; }, COVERS);
     const need = [['tick', 'cross', 40], ['pen', 'purple', 15], ['divide', 'multiply', 20], ['divide', 'add', 20], ['divide', 'subtract', 20], ['multiply', 'add', 20], ['multiply', 'subtract', 20], ['add', 'subtract', 20]];
-    // All ten covers: every pair at least 15 apart (the palette was chosen by search; its closest pair measures 17.0).
+    // All eleven covers: every pair at least 15 apart (the palette was chosen by search; its closest pair measures 17.0).
     for (let i = 0; i < COVERS.length; i++) for (let j = i + 1; j < COVERS.length; j++) if (i > 3 || j > 3) need.push([COVERS[i], COVERS[j], 15]);
     const weak = [];
     for (const [a, b, min] of need) for (const [kind, m] of Object.entries(MACHADO)) {
       const e = deltaE(lab(simulate(hex(v[a]), m)), lab(simulate(hex(v[b]), m)));
       if (e < min) weak.push(a + '/' + b + ' ' + kind + ' ' + e.toFixed(1));
     }
-    check('colour-blind colours stay apart in ' + theme + ' (right/wrong 40+, pen/working 15+, first four covers 20+, all ten covers 15+)', weak.length === 0, weak.join(', '));
+    check('colour-blind colours stay apart in ' + theme + ' (right/wrong 40+, pen/working 15+, first four covers 20+, all eleven covers 15+)', weak.length === 0, weak.join(', '));
   }
 
   check('no console or page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
